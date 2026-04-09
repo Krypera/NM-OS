@@ -29,6 +29,7 @@ REQUIRED=(
     "${ROOT_DIR}/apps/nmos_persistent_storage/nmos_persistent_storage/service.py"
     "${ROOT_DIR}/docs/windows-wsl.md"
     "${ROOT_DIR}/docs/usb-boot-checklist.md"
+    "${ROOT_DIR}/docs/assets/nmos-banner.svg"
     "${ROOT_DIR}/tests/smoke/verify-build-hygiene.sh"
     "${ROOT_DIR}/tests/smoke/verify-brave-optional.sh"
     "${ROOT_DIR}/tests/smoke/verify-disk-safety.sh"

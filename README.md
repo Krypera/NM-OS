@@ -1,47 +1,110 @@
 # NM-OS
 
-NM-OS is a Tor-first, Debian-based live operating system focused on private
-sessions, controlled persistence, and a small, auditable runtime.
+<p align="center">
+  <img src="docs/assets/nmos-banner.svg" alt="NM-OS banner" width="100%">
+</p>
 
-## Alpha scope
+<p align="center">
+  Tor-first, Debian-based live operating system focused on private sessions,
+  controlled persistence, and a small, auditable runtime.
+</p>
 
-- Debian Trixie `amd64` live image
-- GNOME + GDM welcome session before the live desktop
-- Tor-gated network bootstrap
-- pre-login greeter for locale, keyboard, network, and persistence
-- LUKS2-backed persistence service
+<p align="center">
+  <img src="https://img.shields.io/badge/status-alpha-C46F1A?style=for-the-badge" alt="Alpha status">
+  <img src="https://img.shields.io/badge/license-GPL--3.0--or--later-2563EB?style=for-the-badge" alt="GPL-3.0-or-later">
+  <img src="https://img.shields.io/badge/base-Debian%20Trixie-A81D33?style=for-the-badge" alt="Debian Trixie">
+  <img src="https://img.shields.io/badge/network-Tor--first-0F766E?style=for-the-badge" alt="Tor-first">
+  <img src="https://img.shields.io/badge/workflow-Windows%20%2B%20WSL2-1D4ED8?style=for-the-badge" alt="Windows plus WSL2">
+  <img src="https://img.shields.io/badge/arch-amd64-111827?style=for-the-badge" alt="amd64">
+</p>
 
-## Repository layout
+## Overview
 
-- `build/` build, packaging, and verification entry points
-- `config/` live-build project files and static image content
-- `hooks/` live-build hook scripts
-- `apps/` first-party Python applications and services
-- `tests/` smoke checks for repo hygiene and image scaffolding
-- `docs/` operator and implementation notes
+NM-OS is being built as a USB-booted live operating system with a privacy-first
+default posture. The current alpha platform focuses on a clean boot flow, a
+real pre-login welcome session, Tor-gated networking, and LUKS2-backed
+persistence that fails closed on unsupported layouts.
 
-## Build host
+## Quick Links
 
-NM-OS is built on Linux. A Debian or Ubuntu host with `live-build`,
-`debootstrap`, `rsync`, `xorriso`, `qemu-system-x86`, `sha256sum`, and root
-access is expected.
+- [Windows + WSL2 workflow](docs/windows-wsl.md)
+- [Build notes](docs/build.md)
+- [Runtime notes](docs/runtime.md)
+- [USB boot checklist](docs/usb-boot-checklist.md)
 
-For Windows development, use WSL2 and the PowerShell wrappers in `build/`.
+## Alpha Focus
 
-## Quick start
+| Area | Current direction |
+| --- | --- |
+| Base system | Debian Trixie `amd64` live image |
+| Desktop flow | GNOME + GDM welcome session before the live desktop |
+| Network model | Tor-first bootstrap with an outbound gate until readiness |
+| Persistence | LUKS2-backed encrypted persistence on the boot USB |
+| Developer workflow | Windows editor + WSL2 build + Rufus USB write |
+
+## Design Goals
+
+- Keep the live runtime small, inspectable, and easy to reason about.
+- Default to a safe network posture instead of optimistic connectivity.
+- Make persistence explicit, encrypted, and tied to the boot USB.
+- Support practical development from Windows without turning the image into a Windows-native build target.
+
+## Boot Flow
+
+```mermaid
+flowchart LR
+    A["USB Boot"] --> B["systemd services"]
+    B --> C["nmos-network-bootstrap.service"]
+    B --> D["nmos-persistent-storage.service"]
+    C --> E["Tor readiness gate"]
+    D --> F["Persistence backend on D-Bus"]
+    E --> G["GDM welcome session"]
+    F --> G
+    G --> H["nmos-greeter"]
+    H --> I["Live desktop session"]
+```
+
+## What Ships In The Current Alpha
+
+- Pre-login `nmos-greeter` for language, keyboard, network state, and persistence actions
+- System-bus persistence backend exposed as `org.nmos.PersistentStorage`
+- Tor bootstrap gate that blocks ordinary outbound traffic until readiness
+- Optional Brave Browser build hook for users who want a non-Tor privacy browser in the image
+- Repo hygiene and smoke checks for build/runtime wiring
+
+Brave support is optional and privacy-focused, but it is not a substitute for
+Tor Browser anonymity guarantees.
+
+## Quick Start
+
+### Windows + WSL2
 
 ```powershell
+.\build\install-deps.ps1
 .\build\build.ps1
 ```
 
-Optional Brave build (privacy-focused, not equivalent to Tor Browser
-anonymity):
+Optional Brave build:
 
 ```powershell
 .\build\build.ps1 -EnableBrave
 ```
 
-The build produces:
+### Linux / WSL2 Direct
+
+```bash
+./build/build.sh
+```
+
+Optional Brave build:
+
+```bash
+NMOS_ENABLE_BRAVE=1 ./build/build.sh
+```
+
+## Build Artifacts
+
+The build publishes:
 
 - `dist/nmos-amd64-<version>.img`
 - `dist/nmos-amd64-<version>.iso`
@@ -49,12 +112,39 @@ The build produces:
 - `dist/nmos-amd64-<version>.packages`
 - `dist/nmos-amd64-<version>.build-manifest`
 
-The `.img` file is the primary artifact for writing a USB stick from Windows.
-It is published as an `iso-hybrid` raw image, so the persistence backend fails
-closed unless the boot USB exposes a writable GPT partition table with safe
-trailing free space.
+For Windows USB testing, the primary artifact is the `.img` file.
 
-## Smoke checks
+## Repository Layout
+
+- `apps/` first-party greeter and backend services
+- `build/` build entry points, wrappers, and verification scripts
+- `config/` live-build project files and runtime image content
+- `docs/` operator notes, build workflow, and boot guidance
+- `hooks/` live-build hooks for runtime assembly
+- `tests/` smoke checks for repo hygiene, runtime wiring, and alpha safety rules
+
+## Status And Limits
+
+This repository already contains the alpha platform scaffold and a working
+structure for:
+
+- image assembly
+- pre-login GDM welcome flow
+- Tor-gated readiness tracking
+- persistence management
+- Windows-oriented build wrappers
+
+Still intentionally out of scope for the current alpha:
+
+- internal-disk installer
+- updater
+- full amnesic guarantees
+- broad application bundle
+- release-grade hardware validation
+
+## Smoke Checks
+
+Before a build:
 
 ```bash
 ./tests/smoke/verify-structure.sh
@@ -72,14 +162,14 @@ trailing free space.
 ./tests/smoke/verify-leaks.sh
 ```
 
-After a build completes:
+After a build:
 
 ```bash
 ./tests/smoke/verify-artifacts.sh
+./build/smoke-qemu.sh
 ```
 
-## Current status
+## License
 
-This repository contains the alpha platform scaffold: build system, GDM welcome
-flow, runtime services, persistence backend, and smoke checks. It is intended
-to be iterated on from a Windows editor + WSL2 build environment.
+NM-OS is licensed under `GPL-3.0-or-later`. See [LICENSE](LICENSE) and
+[COPYING](COPYING).

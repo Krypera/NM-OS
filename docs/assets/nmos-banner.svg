@@ -1,0 +1,59 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="640" rx="28" fill="#09111C"/>
+  <rect x="24" y="24" width="1232" height="592" rx="20" fill="url(#bg)"/>
+  <circle cx="1038" cy="160" r="180" fill="url(#glowOne)" fill-opacity="0.75"/>
+  <circle cx="930" cy="426" r="210" fill="url(#glowTwo)" fill-opacity="0.55"/>
+  <circle cx="210" cy="112" r="130" fill="#16314A" fill-opacity="0.52"/>
+  <path d="M0 520C168 448 266 420 382 420C522 420 618 486 740 486C862 486 958 424 1122 376C1184 358 1230 350 1280 350V640H0V520Z" fill="#08131F" fill-opacity="0.58"/>
+  <path d="M170 178H468" stroke="#87D8FF" stroke-width="3" stroke-linecap="round" stroke-opacity="0.88"/>
+  <path d="M170 458H344" stroke="#87D8FF" stroke-width="3" stroke-linecap="round" stroke-opacity="0.52"/>
+  <rect x="170" y="212" width="216" height="14" rx="7" fill="#5EEAD4"/>
+  <rect x="170" y="240" width="158" height="14" rx="7" fill="#78A9FF" fill-opacity="0.78"/>
+  <rect x="170" y="268" width="190" height="14" rx="7" fill="#78A9FF" fill-opacity="0.54"/>
+  <rect x="170" y="474" width="158" height="14" rx="7" fill="#5EEAD4" fill-opacity="0.82"/>
+  <rect x="170" y="502" width="232" height="14" rx="7" fill="#78A9FF" fill-opacity="0.52"/>
+  <g filter="url(#panel)">
+    <rect x="726" y="150" width="348" height="250" rx="26" fill="#0B1625" fill-opacity="0.9"/>
+    <rect x="760" y="188" width="162" height="16" rx="8" fill="#5EEAD4"/>
+    <rect x="760" y="220" width="250" height="12" rx="6" fill="#CFE9FF" fill-opacity="0.9"/>
+    <rect x="760" y="252" width="210" height="12" rx="6" fill="#CFE9FF" fill-opacity="0.72"/>
+    <rect x="760" y="306" width="282" height="46" rx="14" fill="#10253A"/>
+    <rect x="782" y="322" width="128" height="14" rx="7" fill="#78A9FF"/>
+    <circle cx="1010" cy="329" r="11" fill="#5EEAD4"/>
+  </g>
+  <text x="170" y="172" fill="#E8F5FF" font-family="'Segoe UI', Ubuntu, Arial, sans-serif" font-size="76" font-weight="700" letter-spacing="-1.8">NM-OS</text>
+  <text x="170" y="336" fill="#D8E9F7" font-family="'Segoe UI', Ubuntu, Arial, sans-serif" font-size="28" font-weight="500">
+    Tor-first live operating system for private sessions,
+  </text>
+  <text x="170" y="376" fill="#D8E9F7" font-family="'Segoe UI', Ubuntu, Arial, sans-serif" font-size="28" font-weight="500">
+    controlled persistence, and Windows-friendly development.
+  </text>
+  <text x="170" y="574" fill="#9BC7E5" font-family="'Segoe UI', Ubuntu, Arial, sans-serif" font-size="24" font-weight="500">
+    Debian Trixie   /   GNOME + GDM pre-login flow   /   LUKS2 persistence   /   Windows + WSL2
+  </text>
+  <defs>
+    <linearGradient id="bg" x1="54" y1="38" x2="1220" y2="612" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0C1A29"/>
+      <stop offset="0.48" stop-color="#102235"/>
+      <stop offset="1" stop-color="#091420"/>
+    </linearGradient>
+    <radialGradient id="glowOne" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1038 160) rotate(90) scale(180)">
+      <stop stop-color="#5EEAD4"/>
+      <stop offset="1" stop-color="#5EEAD4" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowTwo" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(930 426) rotate(90) scale(210)">
+      <stop stop-color="#60A5FA"/>
+      <stop offset="1" stop-color="#60A5FA" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="panel" x="702" y="126" width="396" height="298" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset/>
+      <feGaussianBlur stdDeviation="12"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0392157 0 0 0 0 0.121569 0 0 0 0 0.203922 0 0 0 0.42 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_2"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_2" result="shape"/>
+    </filter>
+  </defs>
+</svg>
