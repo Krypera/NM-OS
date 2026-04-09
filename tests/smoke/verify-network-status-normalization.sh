@@ -12,6 +12,7 @@ import tempfile
 from pathlib import Path
 
 root = Path(os.environ["NMOS_ROOT"])
+sys.path.insert(0, str(root / "apps" / "nmos_common"))
 sys.path.insert(0, str(root / "apps" / "nmos_greeter"))
 path = root / "apps" / "nmos_greeter" / "nmos_greeter" / "client.py"
 spec = importlib.util.spec_from_file_location("nmos_client", path)
@@ -23,9 +24,9 @@ tor_spec = importlib.util.spec_from_file_location("nmos_tor_status", tor_path)
 tor_module = importlib.util.module_from_spec(tor_spec)
 assert tor_spec.loader is not None
 tor_spec.loader.exec_module(tor_module)
-shared_path = root / "apps" / "nmos_greeter" / "nmos_greeter" / "network_status.py"
+shared_path = root / "apps" / "nmos_common" / "nmos_common" / "network_status.py"
 assert shared_path.exists()
-import nmos_greeter.network_status as shared_module
+import nmos_common.network_status as shared_module
 
 state = module.normalize_network_status({"ready": True, "progress": "145", "summary": "Ready", "last_error": None})
 assert state["ready"] is True

@@ -21,12 +21,8 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.state = load_state()
         self.network_status = {"ready": False, "progress": 0, "summary": "Waiting for Tor", "last_error": ""}
         self.persistence_state: dict = {}
+        self.persistence_client_factory = PersistenceClient
         self.persistence_init_error = ""
-        try:
-            self.persistence = PersistenceClient()
-        except Exception as exc:
-            self.persistence = None
-            self.persistence_init_error = str(exc)
         self.gdm_init_error = ""
         try:
             self.gdm_client = GdmLoginClient(
@@ -227,19 +223,13 @@ class GreeterWindow(Adw.ApplicationWindow):
     def refresh_persistence(self) -> None:
         if self.persistence_action_in_progress:
             return
-        if self.persistence is None:
-            self.persistence_state = {}
-            if self.persistence_init_error:
-                self.persistence_label.set_text(f"Persistence backend unavailable: {self.persistence_init_error}")
-            else:
-                self.persistence_label.set_text("Persistence backend unavailable.")
-            self.update_persistence_actions({})
-            self.update_navigation()
-            return
         try:
-            state = self.persistence.get_state()
+            client = self.persistence_client_factory()
+            state = client.get_state()
+            self.persistence_init_error = ""
         except Exception as exc:
             self.persistence_state = {}
+            self.persistence_init_error = str(exc)
             self.persistence_label.set_text(f"Persistence backend unavailable: {exc}")
             self.update_persistence_actions({})
             self.update_navigation()
@@ -324,23 +314,20 @@ class GreeterWindow(Adw.ApplicationWindow):
     def on_create_persistence(self, _button: Gtk.Button) -> None:
         passphrase = self.persistence_password.get_text()
         self.persistence_password.set_text("")
-        self.start_persistence_action("create", lambda: self.persistence.create(passphrase))
+        self.start_persistence_action("create", passphrase)
 
     def on_unlock_persistence(self, _button: Gtk.Button) -> None:
         passphrase = self.persistence_password.get_text()
         self.persistence_password.set_text("")
-        self.start_persistence_action("unlock", lambda: self.persistence.unlock(passphrase))
+        self.start_persistence_action("unlock", passphrase)
 
     def on_lock_persistence(self, _button: Gtk.Button) -> None:
-        self.start_persistence_action("lock", lambda: self.persistence.lock())
+        self.start_persistence_action("lock")
 
     def on_repair_persistence(self, _button: Gtk.Button) -> None:
-        self.start_persistence_action("repair", lambda: self.persistence.repair())
+        self.start_persistence_action("repair")
 
-    def start_persistence_action(self, action: str, callback) -> None:
-        if self.persistence is None:
-            self.persistence_label.set_text("Persistence backend unavailable.")
-            return
+    def start_persistence_action(self, action: str, passphrase: str | None = None) -> None:
         if self.persistence_action_in_progress:
             self.set_status(
                 f"Persistence {self.persistence_action_name} is still running. Please wait."
@@ -358,14 +345,24 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.set_status(f"Starting persistence {action}...")
         thread = threading.Thread(
             target=self.run_persistence_action_worker,
-            args=(action, callback),
+            args=(action, passphrase),
             daemon=True,
         )
         thread.start()
 
-    def run_persistence_action_worker(self, action: str, callback) -> None:
+    def run_persistence_action_worker(self, action: str, passphrase: str | None) -> None:
         try:
-            response = callback()
+            client = self.persistence_client_factory()
+            if action == "create":
+                response = client.create(passphrase or "")
+            elif action == "unlock":
+                response = client.unlock(passphrase or "")
+            elif action == "lock":
+                response = client.lock()
+            elif action == "repair":
+                response = client.repair()
+            else:
+                raise RuntimeError(f"unsupported persistence action: {action}")
             GLib.idle_add(self.complete_persistence_action, action, dict(response), "")
         except Exception as exc:
             GLib.idle_add(self.complete_persistence_action, action, None, str(exc))

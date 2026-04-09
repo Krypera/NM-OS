@@ -3,8 +3,9 @@
 set -euo pipefail
 
 install -d /opt/nmos/apps
-cp -a /usr/src/nmos/apps/nmos_greeter /opt/nmos/apps/
-cp -a /usr/src/nmos/apps/nmos_persistent_storage /opt/nmos/apps/
+cp -a /usr/src/nmos/apps/. /opt/nmos/apps/
+PYTHON_PURELIB="$(python3 -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
+install -d "${PYTHON_PURELIB}"
+cp -a /opt/nmos/apps/nmos_common/nmos_common "${PYTHON_PURELIB}/"
 chmod -R go+rX /opt/nmos/apps
 rm -rf /usr/src/nmos/apps
-

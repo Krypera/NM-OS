@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from nmos_greeter.network_status import normalize_network_status, parse_bootstrap_status
+from nmos_common.network_status import normalize_network_status, parse_bootstrap_status
 
 DBUS_NAME = "org.nmos.PersistentStorage"
 DBUS_PATH = "/org/nmos/PersistentStorage"
@@ -19,28 +19,32 @@ def load_dbus():
 
 
 class PersistenceClient:
-    def __init__(self) -> None:
+    def _interface(self):
         dbus = load_dbus()
-        self.bus = dbus.SystemBus()
+        bus = dbus.SystemBus()
         # Use explicit interface calls without runtime introspection so the
         # greeter can operate with a narrow D-Bus policy.
-        self.proxy = self.bus.get_object(DBUS_NAME, DBUS_PATH, introspect=False)
-        self.interface = dbus.Interface(self.proxy, DBUS_INTERFACE)
+        proxy = bus.get_object(DBUS_NAME, DBUS_PATH, introspect=False)
+        return dbus.Interface(proxy, DBUS_INTERFACE)
+
+    def _call(self, method_name: str, *args):
+        interface = self._interface()
+        return dict(getattr(interface, method_name)(*args))
 
     def get_state(self) -> dict:
-        return dict(self.interface.GetState())
+        return self._call("GetState")
 
     def create(self, passphrase: str) -> dict:
-        return dict(self.interface.Create(passphrase))
+        return self._call("Create", passphrase)
 
     def unlock(self, passphrase: str) -> dict:
-        return dict(self.interface.Unlock(passphrase))
+        return self._call("Unlock", passphrase)
 
     def lock(self) -> dict:
-        return dict(self.interface.Lock())
+        return self._call("Lock")
 
     def repair(self) -> dict:
-        return dict(self.interface.Repair())
+        return self._call("Repair")
 
 
 def read_network_status() -> dict:

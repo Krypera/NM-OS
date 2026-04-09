@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 root = Path(os.environ["NMOS_ROOT"])
+sys.path.insert(0, str(root / "apps" / "nmos_common"))
 sys.path.insert(0, str(root / "apps" / "nmos_greeter"))
 
 def load_module(name: str, path: Path):
@@ -37,6 +38,15 @@ storage = load_module(
 gdmclient_source = (root / "apps" / "nmos_greeter" / "nmos_greeter" / "gdmclient.py").read_text(encoding="utf-8")
 main_source = (root / "apps" / "nmos_greeter" / "nmos_greeter" / "main.py").read_text(encoding="utf-8")
 client_source = (root / "apps" / "nmos_greeter" / "nmos_greeter" / "client.py").read_text(encoding="utf-8")
+network_bootstrap_source = (
+    root / "config" / "live-build" / "includes.chroot" / "usr" / "local" / "lib" / "nmos" / "network_bootstrap.py"
+).read_text(encoding="utf-8")
+tor_status_source = (
+    root / "config" / "live-build" / "includes.chroot" / "usr" / "local" / "lib" / "nmos" / "tor_bootstrap_status.py"
+).read_text(encoding="utf-8")
+install_hook_source = (
+    root / "hooks" / "live" / "010-install-nmos-apps.hook.chroot"
+).read_text(encoding="utf-8")
 
 
 def class_function(module: ast.Module, class_name: str, function_name: str) -> ast.FunctionDef:
@@ -197,6 +207,18 @@ offline_message_matches_gate = any(
 assert offline_message_matches_gate, "Greeter offline bypass message does not describe that network stays blocked until Tor readiness"
 
 assert "subprocess.run" not in client_source, "Greeter network status reader still shells out synchronously instead of using runtime files"
+assert "discover_repo_greeter_path" not in network_bootstrap_source, "network bootstrap still uses repo path discovery fallback"
+assert "discover_repo_greeter_path" not in tor_status_source, "tor status helper still uses repo path discovery fallback"
+assert "sys.path.insert" not in network_bootstrap_source, "network bootstrap still mutates sys.path at runtime"
+assert "sys.path.insert" not in tor_status_source, "tor status helper still mutates sys.path at runtime"
+assert 'cp -a /opt/nmos/apps/nmos_common/nmos_common "${PYTHON_PURELIB}/"' in install_hook_source, (
+    "live-build install hook does not install nmos_common into Python purelib"
+)
+assert "self.bus" not in client_source, "PersistenceClient still stores a long-lived D-Bus bus handle"
+assert 'return self._call("Create", passphrase)' in client_source
+assert 'return self._call("Unlock", passphrase)' in client_source
+assert 'return self._call("Lock")' in client_source
+assert 'return self._call("Repair")' in client_source
 
 print("runtime logic checks passed")
 PY

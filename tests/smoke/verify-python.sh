@@ -10,6 +10,7 @@ from pathlib import Path
 
 root = Path(os.environ["NMOS_ROOT"])
 paths = [
+    *sorted((root / "apps" / "nmos_common" / "nmos_common").glob("*.py")),
     *sorted((root / "apps" / "nmos_greeter" / "nmos_greeter").glob("*.py")),
     *sorted((root / "apps" / "nmos_persistent_storage" / "nmos_persistent_storage").glob("*.py")),
     *sorted((root / "config" / "live-build" / "includes.chroot" / "usr" / "local" / "lib" / "nmos").glob("*.py")),

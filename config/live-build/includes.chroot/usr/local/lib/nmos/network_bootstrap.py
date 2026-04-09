@@ -2,7 +2,6 @@
 
 import json
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -13,45 +12,7 @@ STATUS_FILE = READY_DIR / "network-status.json"
 TOR_CONTROL_PORT = 9051
 BOOTSTRAP_TIMEOUT_SECONDS = 300
 
-
-def discover_repo_greeter_path() -> Path | None:
-    script_path = Path(__file__).resolve()
-    for parent in script_path.parents:
-        candidate = parent / "apps" / "nmos_greeter"
-        if candidate.exists():
-            return candidate
-    return None
-
-
-def ensure_greeter_pythonpath() -> None:
-    candidates = [Path("/opt/nmos/apps/nmos_greeter")]
-    repo_candidate = discover_repo_greeter_path()
-    if repo_candidate is not None:
-        candidates.append(repo_candidate)
-    for candidate in candidates:
-        if not candidate.exists():
-            continue
-        candidate_str = str(candidate)
-        if candidate_str in sys.path:
-            return
-        sys.path.insert(0, candidate_str)
-        return
-
-
-ensure_greeter_pythonpath()
-
-try:
-    from nmos_greeter.network_status import parse_bootstrap_status
-except Exception:
-    import re
-
-    def parse_bootstrap_status(status: str, default_summary: str = "Bootstrapping Tor") -> tuple[int, str]:
-        progress_match = re.search(r"PROGRESS=(\d+)", status)
-        summary_match = re.search(r'SUMMARY="([^"]+)"', status)
-        progress = int(progress_match.group(1)) if progress_match else 0
-        progress = max(0, min(100, progress))
-        summary = summary_match.group(1) if summary_match else default_summary
-        return progress, summary
+from nmos_common.network_status import parse_bootstrap_status
 
 
 def log(message: str) -> None:

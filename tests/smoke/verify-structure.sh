@@ -26,6 +26,7 @@ REQUIRED=(
     "${ROOT_DIR}/config/live-build/includes.chroot/usr/share/gdm/greeter/applications/nmos-greeter.desktop"
     "${ROOT_DIR}/config/live-build/includes.chroot/usr/share/gnome-shell/modes/gdm-nmos.json"
     "${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/main.py"
+    "${ROOT_DIR}/apps/nmos_common/nmos_common/network_status.py"
     "${ROOT_DIR}/apps/nmos_persistent_storage/nmos_persistent_storage/service.py"
     "${ROOT_DIR}/docs/windows-wsl.md"
     "${ROOT_DIR}/docs/usb-boot-checklist.md"
