@@ -1,0 +1,11 @@
+[Unit]
+Description=NM-OS boot marker
+After=local-fs.target systemd-user-sessions.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nmos-boot-marker
+StandardOutput=journal+console
+
+[Install]
+WantedBy=multi-user.target

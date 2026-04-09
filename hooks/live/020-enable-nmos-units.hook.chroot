@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -euo pipefail
+
+install -d /etc/systemd/system/multi-user.target.wants
+ln -sf /usr/lib/systemd/system/nmos-boot-marker.service /etc/systemd/system/multi-user.target.wants/nmos-boot-marker.service
+ln -sf /usr/lib/systemd/system/nmos-live-user-password.service /etc/systemd/system/multi-user.target.wants/nmos-live-user-password.service
+ln -sf /usr/lib/systemd/system/nmos-network-bootstrap.service /etc/systemd/system/multi-user.target.wants/nmos-network-bootstrap.service
+ln -sf /usr/lib/systemd/system/nmos-persistent-storage.service /etc/systemd/system/multi-user.target.wants/nmos-persistent-storage.service

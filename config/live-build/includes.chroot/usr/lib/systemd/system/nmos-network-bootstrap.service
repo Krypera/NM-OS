@@ -1,0 +1,16 @@
+[Unit]
+Description=NM-OS network bootstrap gate
+After=NetworkManager.service tor.service tor@default.service
+Wants=NetworkManager.service tor.service tor@default.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/lib/nmos/network_bootstrap.py
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=320
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target

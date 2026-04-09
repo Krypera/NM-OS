@@ -1,0 +1,49 @@
+#!/bin/bash
+
+set -eu
+
+STATE_FILE=/run/nmos/greeter-state.json
+
+if [ ! -s "${STATE_FILE}" ]; then
+    exit 0
+fi
+
+eval "$(
+python3 - <<'PY'
+import json
+import shlex
+from pathlib import Path
+
+state_file = Path("/run/nmos/greeter-state.json")
+console_keymaps = {
+    "us": "us",
+    "tr": "trq",
+    "de": "de",
+    "fr": "fr",
+}
+try:
+    state = json.loads(state_file.read_text(encoding="utf-8"))
+except Exception:
+    state = {}
+
+for key in ("locale", "keyboard"):
+    value = str(state.get(key, "") or "")
+    print(f"{key.upper()}={shlex.quote(value)}")
+print(f"CONSOLE_KEYMAP={shlex.quote(console_keymaps.get(str(state.get('keyboard', '') or ''), ''))}")
+PY
+)"
+
+if [ -n "${LOCALE}" ]; then
+    localectl set-locale "LANG=${LOCALE}" >/dev/null 2>&1 || true
+fi
+
+if [ -n "${KEYBOARD}" ]; then
+    localectl set-x11-keymap "${KEYBOARD}" >/dev/null 2>&1 || true
+fi
+
+if [ -n "${CONSOLE_KEYMAP}" ]; then
+    localectl set-keymap "${CONSOLE_KEYMAP}" >/dev/null 2>&1 || true
+fi
+
+printf '{}\n' > "${STATE_FILE}"
+exit 0

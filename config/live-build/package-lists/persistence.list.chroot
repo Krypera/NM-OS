@@ -1,0 +1,7 @@
+cryptsetup
+e2fsprogs
+gdisk
+parted
+util-linux
+dosfstools
+

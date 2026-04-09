@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "NMOS_BOOT_OK"
+if [ -w /dev/ttyS0 ]; then
+    echo "NMOS_BOOT_OK" > /dev/ttyS0
+fi
+

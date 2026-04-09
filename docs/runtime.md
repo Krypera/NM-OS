@@ -1,0 +1,72 @@
+# Runtime Notes
+
+## Boot flow
+
+1. live system boots into GDM
+2. `nmos-live-user-password.service` assigns the live-session password before GDM starts the user login
+3. `nmos-network-bootstrap.service` applies the outbound gate and waits for Tor
+4. `nmos-persistent-storage.service` exposes the persistence D-Bus backend
+5. the GDM welcome session starts `nmos-greeter` before the live desktop login
+6. GDM `PostLogin` applies the chosen locale and keyboard settings from `/run/nmos/greeter-state.json`
+
+## Disk safety defaults
+
+The alpha image is configured to avoid mounting internal disks automatically.
+
+- GNOME media automount is disabled
+- internal non-USB block devices are hidden from UDisks by default
+- persistence is created on the boot USB device only
+- automatic persistence creation is only allowed on writable GPT or DOS USB layouts
+
+This is meant to reduce accidental writes to the internal Windows disk during a
+live session.
+
+## Network gate
+
+The alpha network policy is intentionally strict:
+
+- loopback traffic is allowed
+- established traffic is allowed
+- DHCP, DNS, and NTP are allowed for bootstrap
+- traffic from the `debian-tor` user is allowed
+- all other outbound traffic is blocked until Tor bootstrap completes
+
+When Tor reaches bootstrap readiness, NM-OS removes the temporary nftables
+bootstrap table and marks the runtime as ready.
+
+When Tor reaches 100% bootstrap, the runtime marks the session as ready by
+creating `/run/nmos/network-ready` and starting `nmos-network-ready.target`.
+
+The runtime also records status in:
+
+- `/run/nmos/network-status.json`
+
+This gives the greeter and smoke tests a stable place to read progress, timeout,
+and failure information.
+
+## Persistence
+
+The persistence backend is exposed on the system bus as:
+
+- service: `org.nmos.PersistentStorage`
+- path: `/org/nmos/PersistentStorage`
+- interface: `org.nmos.PersistentStorage`
+
+Methods:
+
+- `Create(passphrase)`
+- `Unlock(passphrase)`
+- `Lock()`
+- `Repair()`
+- `GetState()`
+
+`GetState()` also reports:
+
+- `boot_device_supported`
+- `can_create`
+- `reason`
+- `device`
+
+The storage backend is designed for a single LUKS2 volume mounted at:
+
+- `/live/persistence/nmos-data`

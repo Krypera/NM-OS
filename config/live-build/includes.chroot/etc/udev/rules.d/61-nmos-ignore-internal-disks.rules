@@ -1,0 +1,10 @@
+ACTION!="add|change", GOTO="nmos_ignore_end"
+SUBSYSTEM!="block", GOTO="nmos_ignore_end"
+KERNEL=="loop*", GOTO="nmos_ignore_end"
+ENV{DM_NAME}!="", GOTO="nmos_ignore_end"
+ENV{ID_CDROM}=="1", GOTO="nmos_ignore_end"
+ENV{ID_BUS}=="usb", GOTO="nmos_ignore_end"
+ATTR{removable}=="1", GOTO="nmos_ignore_end"
+ENV{UDISKS_IGNORE}="1"
+LABEL="nmos_ignore_end"
+

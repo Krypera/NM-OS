@@ -1,0 +1,20 @@
+#!/bin/sh
+
+set -eu
+
+lb config noauto \
+    --architectures amd64 \
+    --distribution trixie \
+    --archive-areas "main contrib non-free non-free-firmware" \
+    --binary-images iso-hybrid \
+    --apt-recommends false \
+    --debian-installer false \
+    --firmware-binary true \
+    --firmware-chroot true \
+    --memtest none \
+    --iso-application "NM-OS" \
+    --iso-publisher "https://github.com/Krypera/NM-OS" \
+    --iso-volume "NM-OS ALPHA" \
+    --linux-flavours amd64 \
+    --bootappend-live "boot=live components noautologin hostname=nmos username=nmos quiet splash console=tty1 console=ttyS0,115200n8" \
+    "${@}"

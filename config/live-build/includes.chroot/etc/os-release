@@ -1,0 +1,10 @@
+NAME="NM-OS"
+ID="nmos"
+ID_LIKE="debian"
+PRETTY_NAME="NM-OS Alpha"
+VERSION="0.1.0-alpha.1"
+VERSION_ID="0.1.0-alpha.1"
+HOME_URL="https://github.com/Krypera/NM-OS"
+SUPPORT_URL="https://github.com/Krypera/NM-OS/issues"
+BUG_REPORT_URL="https://github.com/Krypera/NM-OS/issues"
+

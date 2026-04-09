@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [ "$(uname -s)" != "Linux" ]; then
+    echo "Dependency installation must run on Linux or WSL2." >&2
+    exit 1
+fi
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Re-running with sudo..."
+    exec sudo bash "$0"
+fi
+
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update
+apt-get install -y \
+    live-build \
+    debootstrap \
+    rsync \
+    util-linux \
+    xorriso \
+    dosfstools \
+    gdisk \
+    mtools \
+    parted \
+    python3 \
+    qemu-system-x86 \
+    squashfs-tools \
+    systemd-container \
+    wget
+
+echo "NM-OS build dependencies are installed."

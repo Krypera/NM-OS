@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -euo pipefail
+
+install -d /opt/nmos/apps
+cp -a /usr/src/nmos/apps/nmos_greeter /opt/nmos/apps/
+cp -a /usr/src/nmos/apps/nmos_persistent_storage /opt/nmos/apps/
+chmod -R go+rX /opt/nmos/apps
+rm -rf /usr/src/nmos/apps
+

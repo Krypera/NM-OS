@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=NM-OS Greeter
+Exec=/usr/local/bin/nmos-greeter
+Terminal=false
+NoDisplay=true
