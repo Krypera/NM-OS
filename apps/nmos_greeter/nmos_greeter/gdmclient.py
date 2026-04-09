@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 LIVE_RUNTIME_USERNAME_CONFIG = Path("/etc/live/config.d/username.conf")
+LIVE_RUNTIME_PASSWORD_FILE = Path("/run/nmos/live-user-password")
 LIVE_DEFAULTS_CONFIG = Path("/etc/nmos/live-user.conf")
 
 
@@ -43,7 +44,19 @@ def live_username(
     return value or configured_default
 
 
-def live_password(default: str = "live", *, defaults_config: Path = LIVE_DEFAULTS_CONFIG) -> str:
+def live_password(
+    default: str = "",
+    *,
+    defaults_config: Path = LIVE_DEFAULTS_CONFIG,
+    runtime_password_file: Path = LIVE_RUNTIME_PASSWORD_FILE,
+) -> str:
+    if runtime_password_file.exists():
+        try:
+            runtime_password = runtime_password_file.read_text(encoding="utf-8").strip()
+        except OSError:
+            runtime_password = ""
+        if runtime_password:
+            return runtime_password
     defaults = read_assignment_file(defaults_config)
     value = defaults.get("LIVE_PASSWORD")
     return value or default
@@ -51,14 +64,19 @@ def live_password(default: str = "live", *, defaults_config: Path = LIVE_DEFAULT
 
 def live_credentials(
     default_username: str = "nmos",
-    default_password: str = "live",
+    default_password: str = "",
     *,
     defaults_config: Path = LIVE_DEFAULTS_CONFIG,
     runtime_config: Path = LIVE_RUNTIME_USERNAME_CONFIG,
+    runtime_password_file: Path = LIVE_RUNTIME_PASSWORD_FILE,
 ) -> tuple[str, str]:
     return (
         live_username(default_username, defaults_config=defaults_config, runtime_config=runtime_config),
-        live_password(default_password, defaults_config=defaults_config),
+        live_password(
+            default_password,
+            defaults_config=defaults_config,
+            runtime_password_file=runtime_password_file,
+        ),
     )
 
 

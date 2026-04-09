@@ -21,15 +21,29 @@ with tempfile.TemporaryDirectory() as tmp:
     tmpdir = Path(tmp)
     defaults = tmpdir / "live-user.conf"
     runtime = tmpdir / "username.conf"
+    runtime_password = tmpdir / "live-user-password"
 
-    defaults.write_text('LIVE_USERNAME="nmos"\nLIVE_PASSWORD="live"\n', encoding="utf-8")
+    defaults.write_text('LIVE_USERNAME="nmos"\nLIVE_PASSWORD="configured-secret"\n', encoding="utf-8")
     runtime.write_text('LIVE_USERNAME="welcome"\n', encoding="utf-8")
+    runtime_password.write_text("runtime-secret\n", encoding="utf-8")
     assert module.live_username(defaults_config=defaults, runtime_config=runtime) == "welcome"
-    assert module.live_password(defaults_config=defaults) == "live"
-    assert module.live_credentials(defaults_config=defaults, runtime_config=runtime) == ("welcome", "live")
+    assert module.live_password(defaults_config=defaults, runtime_password_file=runtime_password) == "runtime-secret"
+    assert module.live_credentials(
+        defaults_config=defaults,
+        runtime_config=runtime,
+        runtime_password_file=runtime_password,
+    ) == ("welcome", "runtime-secret")
 
     runtime.unlink()
-    assert module.live_credentials(defaults_config=defaults, runtime_config=runtime) == ("nmos", "live")
+    runtime_password.unlink()
+    assert module.live_credentials(
+        defaults_config=defaults,
+        runtime_config=runtime,
+        runtime_password_file=runtime_password,
+    ) == ("nmos", "configured-secret")
+
+    defaults.write_text('LIVE_USERNAME="nmos"\n', encoding="utf-8")
+    assert module.live_password(defaults_config=defaults, runtime_password_file=runtime_password) == ""
 
 print("Live login configuration checks passed")
 PY

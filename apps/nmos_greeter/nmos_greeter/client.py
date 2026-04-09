@@ -1,46 +1,21 @@
 from __future__ import annotations
 
 import json
-import subprocess
+from pathlib import Path
 
+from nmos_greeter.network_status import normalize_network_status, parse_bootstrap_status
 
 DBUS_NAME = "org.nmos.PersistentStorage"
 DBUS_PATH = "/org/nmos/PersistentStorage"
 DBUS_INTERFACE = "org.nmos.PersistentStorage"
+NETWORK_READY_FILE = Path("/run/nmos/network-ready")
+NETWORK_STATUS_FILE = Path("/run/nmos/network-status.json")
 
 
 def load_dbus():
     import dbus
 
     return dbus
-
-
-def normalize_network_status(raw: object) -> dict:
-    if not isinstance(raw, dict):
-        return {"ready": False, "progress": 0, "summary": "Waiting for Tor bootstrap", "last_error": "invalid status payload"}
-
-    ready_value = raw.get("ready", False)
-    if isinstance(ready_value, bool):
-        ready = ready_value
-    elif isinstance(ready_value, (int, float)):
-        ready = ready_value != 0
-    elif isinstance(ready_value, str):
-        ready = ready_value.strip().lower() in {"1", "true", "yes", "on"}
-    else:
-        ready = False
-    summary = str(raw.get("summary", "Waiting for Tor bootstrap") or "Waiting for Tor bootstrap")
-    last_error = str(raw.get("last_error", "") or "")
-    try:
-        progress = int(raw.get("progress", 0))
-    except (TypeError, ValueError):
-        progress = 0
-    progress = max(0, min(100, progress))
-    return {
-        "ready": ready,
-        "progress": progress,
-        "summary": summary,
-        "last_error": last_error,
-    }
 
 
 class PersistenceClient:
@@ -69,10 +44,13 @@ class PersistenceClient:
 
 
 def read_network_status() -> dict:
-    proc = subprocess.run(
-        ["/usr/local/lib/nmos/tor_bootstrap_status.py"],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return normalize_network_status(json.loads(proc.stdout))
+    if NETWORK_READY_FILE.exists():
+        return {"ready": True, "progress": 100, "summary": "Tor is ready", "last_error": ""}
+
+    if NETWORK_STATUS_FILE.exists():
+        try:
+            return normalize_network_status(json.loads(NETWORK_STATUS_FILE.read_text(encoding="utf-8")))
+        except (OSError, ValueError) as exc:
+            return normalize_network_status({"last_error": str(exc)})
+
+    return normalize_network_status({})

@@ -9,9 +9,11 @@ import importlib.util
 import os
 import tempfile
 import ast
+import sys
 from pathlib import Path
 
 root = Path(os.environ["NMOS_ROOT"])
+sys.path.insert(0, str(root / "apps" / "nmos_greeter"))
 
 def load_module(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
@@ -34,6 +36,7 @@ storage = load_module(
 )
 gdmclient_source = (root / "apps" / "nmos_greeter" / "nmos_greeter" / "gdmclient.py").read_text(encoding="utf-8")
 main_source = (root / "apps" / "nmos_greeter" / "nmos_greeter" / "main.py").read_text(encoding="utf-8")
+client_source = (root / "apps" / "nmos_greeter" / "nmos_greeter" / "client.py").read_text(encoding="utf-8")
 
 
 def class_function(module: ast.Module, class_name: str, function_name: str) -> ast.FunctionDef:
@@ -73,7 +76,7 @@ with tempfile.TemporaryDirectory() as tmp:
 
 assert storage.boot_disk_is_supported("usb", False, False) is True
 assert storage.boot_disk_is_supported(None, True, False) is True
-assert storage.boot_disk_is_supported(None, False, True) is True
+assert storage.boot_disk_is_supported(None, False, True) is False
 assert storage.boot_disk_is_supported("sata", False, False) is False
 assert storage.partition_table_label_is_supported("gpt") is True
 assert storage.partition_table_label_is_supported("dos") is False
@@ -146,6 +149,54 @@ uses_session_handoff_guard = any(
     for node in ast.walk(poll_runtime)
 )
 assert uses_session_handoff_guard, "GreeterWindow.poll_runtime does not guard the in-progress GDM handoff state"
+
+refresh_network = class_function(main_ast, "GreeterWindow", "refresh_network")
+uses_network_status_force = any(
+    isinstance(node, ast.arg) and node.arg == "force_status"
+    for node in refresh_network.args.kwonlyargs
+)
+assert uses_network_status_force, "GreeterWindow.refresh_network does not support non-clobbering status updates"
+
+on_create_persistence = class_function(main_ast, "GreeterWindow", "on_create_persistence")
+create_uses_async_dispatch = any(
+    isinstance(node, ast.Call)
+    and isinstance(node.func, ast.Attribute)
+    and node.func.attr == "start_persistence_action"
+    for node in ast.walk(on_create_persistence)
+)
+assert create_uses_async_dispatch, "GreeterWindow.on_create_persistence does not dispatch through async persistence action handling"
+
+start_persistence_action = class_function(main_ast, "GreeterWindow", "start_persistence_action")
+spawns_worker_thread = any(
+    isinstance(node, ast.Call)
+    and isinstance(node.func, ast.Attribute)
+    and isinstance(node.func.value, ast.Name)
+    and node.func.value.id == "threading"
+    and node.func.attr == "Thread"
+    for node in ast.walk(start_persistence_action)
+)
+assert spawns_worker_thread, "GreeterWindow.start_persistence_action does not spawn a background worker thread"
+
+setup_network_watchers = class_function(main_ast, "GreeterWindow", "setup_network_watchers")
+uses_file_monitor = any(
+    isinstance(node, ast.Attribute)
+    and isinstance(node.value, ast.Name)
+    and node.value.id == "Gio"
+    and node.attr == "FileMonitorFlags"
+    for node in ast.walk(setup_network_watchers)
+)
+assert uses_file_monitor, "GreeterWindow.setup_network_watchers does not wire Gio file monitoring"
+
+on_allow_offline_toggled = class_function(main_ast, "GreeterWindow", "on_allow_offline_toggled")
+offline_message_matches_gate = any(
+    isinstance(node, ast.Constant)
+    and isinstance(node.value, str)
+    and "network traffic stays blocked until Tor is ready" in node.value
+    for node in ast.walk(on_allow_offline_toggled)
+)
+assert offline_message_matches_gate, "Greeter offline bypass message does not describe that network stays blocked until Tor readiness"
+
+assert "subprocess.run" not in client_source, "Greeter network status reader still shells out synchronously instead of using runtime files"
 
 print("runtime logic checks passed")
 PY

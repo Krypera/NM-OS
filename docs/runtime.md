@@ -9,6 +9,11 @@
 5. the GDM welcome session starts `nmos-greeter` before the live desktop login
 6. GDM `PostLogin` applies the chosen locale and keyboard settings from `/run/nmos/greeter-state.json`
 
+The live-user password is generated per boot unless `LIVE_PASSWORD` is
+explicitly configured. The generated password is written to
+`/run/nmos/live-user-password` so the `Debian-gdm` greeter session can start
+the live desktop login flow without a hardcoded repository secret.
+
 ## Disk safety defaults
 
 The alpha image is configured to avoid mounting internal disks automatically.
@@ -40,6 +45,10 @@ creating `/run/nmos/network-ready` and starting `nmos-network-ready.target`.
 The runtime also records status in:
 
 - `/run/nmos/network-status.json`
+
+The greeter "continue without network" option only bypasses UI readiness. It
+still keeps user network traffic blocked until Tor reaches readiness and the
+temporary firewall gate is removed.
 
 This gives the greeter and smoke tests a stable place to read progress, timeout,
 and failure information.

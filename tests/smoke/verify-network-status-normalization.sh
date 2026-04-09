@@ -7,10 +7,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PYTHONDONTWRITEBYTECODE=1 NMOS_ROOT="${ROOT_DIR}" python3 - <<'PY'
 import importlib.util
 import os
+import sys
 import tempfile
 from pathlib import Path
 
 root = Path(os.environ["NMOS_ROOT"])
+sys.path.insert(0, str(root / "apps" / "nmos_greeter"))
 path = root / "apps" / "nmos_greeter" / "nmos_greeter" / "client.py"
 spec = importlib.util.spec_from_file_location("nmos_client", path)
 module = importlib.util.module_from_spec(spec)
@@ -21,6 +23,9 @@ tor_spec = importlib.util.spec_from_file_location("nmos_tor_status", tor_path)
 tor_module = importlib.util.module_from_spec(tor_spec)
 assert tor_spec.loader is not None
 tor_spec.loader.exec_module(tor_module)
+shared_path = root / "apps" / "nmos_greeter" / "nmos_greeter" / "network_status.py"
+assert shared_path.exists()
+import nmos_greeter.network_status as shared_module
 
 state = module.normalize_network_status({"ready": True, "progress": "145", "summary": "Ready", "last_error": None})
 assert state["ready"] is True
@@ -42,8 +47,15 @@ assert state3["ready"] is False
 assert state3["progress"] == 0
 assert state3["last_error"] == "invalid status payload"
 
+assert module.parse_bootstrap_status('NOTICE BOOTSTRAP PROGRESS=42 SUMMARY="Loading"') == (42, "Loading")
+assert tor_module.parse_bootstrap_status('NOTICE BOOTSTRAP PROGRESS=42 SUMMARY="Loading"') == (42, "Loading")
+assert module.parse_bootstrap_status is shared_module.parse_bootstrap_status
+assert tor_module.normalize_network_status is shared_module.normalize_network_status
+
 with tempfile.TemporaryDirectory() as tmp:
     tmp_root = Path(tmp)
+    module.NETWORK_READY_FILE = tmp_root / "network-ready"
+    module.NETWORK_STATUS_FILE = tmp_root / "network-status.json"
     tor_module.READY_FILE = tmp_root / "network-ready"
     tor_module.STATUS_FILE = tmp_root / "network-status.json"
     tor_module.STATUS_FILE.write_text('{"ready":"yes","progress":"101","summary":"","last_error":null}', encoding="utf-8")
@@ -52,6 +64,15 @@ with tempfile.TemporaryDirectory() as tmp:
     assert tor_state["progress"] == 100
     assert tor_state["summary"] == "Waiting for Tor bootstrap"
     assert tor_state["last_error"] == ""
+
+    client_state = module.read_network_status()
+    assert client_state["ready"] is True
+    assert client_state["progress"] == 100
+
+    module.NETWORK_READY_FILE.unlink()
+    client_state = module.read_network_status()
+    assert client_state["ready"] is True
+    assert client_state["progress"] == 100
 
 print("Network status normalization checks passed")
 PY

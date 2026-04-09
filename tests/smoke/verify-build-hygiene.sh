@@ -56,6 +56,21 @@ grep -Fxq '*.ps1 text eol=crlf' "${GITATTRIBUTES}" || {
     exit 1
 }
 
+grep -Fxq 'config/live-build/auto/* text eol=lf' "${GITATTRIBUTES}" || {
+    echo ".gitattributes does not pin LF endings for live-build auto scripts." >&2
+    exit 1
+}
+
+grep -Fxq 'config/live-build/includes.chroot/usr/local/bin/* text eol=lf' "${GITATTRIBUTES}" || {
+    echo ".gitattributes does not pin LF endings for extensionless runtime launchers." >&2
+    exit 1
+}
+
+grep -Fxq 'config/live-build/includes.chroot/etc/gdm3/PostLogin/* text eol=lf' "${GITATTRIBUTES}" || {
+    echo ".gitattributes does not pin LF endings for GDM PostLogin hooks." >&2
+    exit 1
+}
+
 PYTHONDONTWRITEBYTECODE=1 NMOS_ROOT="${ROOT_DIR}" python3 - <<'PY'
 import os
 import subprocess

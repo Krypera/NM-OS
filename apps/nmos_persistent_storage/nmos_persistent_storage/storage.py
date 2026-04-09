@@ -25,7 +25,8 @@ class StorageError(RuntimeError):
 
 
 def boot_disk_is_supported(transport: str | None, removable: bool, hotplug: bool) -> bool:
-    return transport == "usb" or removable or hotplug
+    del hotplug
+    return transport == "usb" or removable
 
 
 def align_up(value: int, alignment: int) -> int:
@@ -417,6 +418,7 @@ class PersistentStorageManager:
         created_partition: dict | None = None
         mapper_opened = False
         mount_active = False
+        include_cached_error = False
         try:
             if not passphrase:
                 raise StorageError("passphrase is required", reason="invalid_request")
@@ -443,13 +445,14 @@ class PersistentStorageManager:
             self.last_error = str(exc)
             if cleanup_errors:
                 self.last_error = f"{self.last_error}; cleanup: {'; '.join(cleanup_errors)}"
-            return self.get_state(include_cached_error=True)
+            include_cached_error = True
         finally:
             self.busy = False
-        return self.get_state()
+        return self.get_state(include_cached_error=include_cached_error)
 
     def unlock(self, passphrase: str) -> dict:
         self.busy = True
+        include_cached_error = False
         try:
             if not passphrase:
                 raise StorageError("passphrase is required", reason="invalid_request")
@@ -464,35 +467,53 @@ class PersistentStorageManager:
             self.last_error = ""
         except Exception as exc:
             self.last_error = str(exc)
-            return self.get_state(include_cached_error=True)
+            include_cached_error = True
         finally:
             self.busy = False
-        return self.get_state()
+        return self.get_state(include_cached_error=include_cached_error)
 
     def lock(self) -> dict:
         self.busy = True
+        include_cached_error = False
         try:
-            subprocess.run(["umount", str(MOUNT_POINT)], check=False)
+            if subprocess.run(["mountpoint", "-q", str(MOUNT_POINT)], check=False).returncode == 0:
+                self.run("umount", str(MOUNT_POINT))
             if MAPPER_PATH.exists():
                 self.run("cryptsetup", "close", MAPPER_NAME)
             self.last_error = ""
         except Exception as exc:
             self.last_error = str(exc)
-            return self.get_state(include_cached_error=True)
+            include_cached_error = True
         finally:
             self.busy = False
-        return self.get_state()
+        return self.get_state(include_cached_error=include_cached_error)
 
     def repair(self) -> dict:
         self.busy = True
+        include_cached_error = False
+        remount_required = False
         try:
             if not MAPPER_PATH.exists():
                 raise StorageError("persistence volume must be unlocked before repair", reason="locked")
+            if subprocess.run(["mountpoint", "-q", str(MOUNT_POINT)], check=False).returncode == 0:
+                self.run("umount", str(MOUNT_POINT))
+                remount_required = True
             self.run("fsck.ext4", "-y", str(MAPPER_PATH))
             self.last_error = ""
         except Exception as exc:
             self.last_error = str(exc)
-            return self.get_state(include_cached_error=True)
+            include_cached_error = True
         finally:
+            if remount_required and MAPPER_PATH.exists():
+                try:
+                    if subprocess.run(["mountpoint", "-q", str(MOUNT_POINT)], check=False).returncode != 0:
+                        self.run("mount", str(MAPPER_PATH), str(MOUNT_POINT))
+                except Exception as exc:
+                    remount_error = f"failed to remount persistence after repair: {exc}"
+                    if self.last_error:
+                        self.last_error = f"{self.last_error}; {remount_error}"
+                    else:
+                        self.last_error = remount_error
+                    include_cached_error = True
             self.busy = False
-        return self.get_state()
+        return self.get_state(include_cached_error=include_cached_error)

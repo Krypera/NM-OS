@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import threading
+
 import gi
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
-from gi.repository import Adw, GLib, Gtk
+from gi.repository import Adw, Gio, GLib, Gtk
 
 from nmos_greeter.client import PersistenceClient, read_network_status
 from nmos_greeter.gdmclient import GdmLoginClient
@@ -37,6 +39,12 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.page_index = 0
         self.session_start_timeout_id = 0
         self.session_start_in_progress = False
+        self.persistence_action_in_progress = False
+        self.persistence_action_name = ""
+        self.status_source = ""
+        self.network_refresh_pending_id = 0
+        self.network_refresh_force = False
+        self.network_monitors: list[Gio.FileMonitor] = []
         self.pages: list[Gtk.Widget] = []
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
@@ -68,7 +76,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.network_label = Gtk.Label(xalign=0)
         self.network_refresh = Gtk.Button(label="Refresh network status")
         self.network_refresh.connect("clicked", self.on_refresh_network)
-        self.allow_offline = Gtk.CheckButton(label="Continue without network")
+        self.allow_offline = Gtk.CheckButton(label="Continue to desktop while network stays blocked")
         self.allow_offline.connect("toggled", self.on_allow_offline_toggled)
 
         self.persistence_label = Gtk.Label(xalign=0)
@@ -107,9 +115,10 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.set_content(root)
         self.restore_state()
         self.refresh_persistence()
-        self.refresh_network()
+        self.refresh_network(force_status=True)
+        self.setup_network_watchers()
         self.update_navigation()
-        GLib.timeout_add_seconds(3, self.poll_runtime)
+        GLib.timeout_add_seconds(10, self.poll_runtime)
 
     def _combo(self, values: list[str]) -> Gtk.DropDown:
         model = Gtk.StringList.new(values)
@@ -175,7 +184,10 @@ class GreeterWindow(Adw.ApplicationWindow):
             selected = 0
         return model.get_string(selected)
 
-    def set_status(self, text: str) -> None:
+    def set_status(self, text: str, *, source: str = "event", force: bool = True) -> None:
+        if not force and source == "network" and self.status_source not in {"", "network"}:
+            return
+        self.status_source = source
         self.session_status.set_text(text)
 
     def collect_state(self) -> dict:
@@ -192,11 +204,11 @@ class GreeterWindow(Adw.ApplicationWindow):
         return bool(self.network_status.get("ready")) or self.can_bypass_network()
 
     def can_finish(self) -> bool:
-        if self.persistence_state.get("busy"):
+        if self.persistence_state.get("busy") or self.persistence_action_in_progress:
             return False
         return self.can_advance_from_network()
 
-    def refresh_network(self) -> None:
+    def refresh_network(self, *, force_status: bool = False) -> None:
         try:
             status = read_network_status()
         except Exception as exc:
@@ -205,14 +217,16 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.network_label.set_text(f"{status['summary']} ({status['progress']}%)")
         self.network_progress.set_fraction(status["progress"] / 100.0)
         if status.get("last_error"):
-            self.set_status(f"Network status: {status['last_error']}")
+            self.set_status(f"Network status: {status['last_error']}", source="network", force=force_status)
         elif status["ready"]:
-            self.set_status("Tor connection is ready.")
+            self.set_status("Tor connection is ready.", source="network", force=force_status)
         else:
-            self.set_status("Waiting for Tor to become ready.")
+            self.set_status("Waiting for Tor to become ready.", source="network", force=force_status)
         self.update_navigation()
 
     def refresh_persistence(self) -> None:
+        if self.persistence_action_in_progress:
+            return
         if self.persistence is None:
             self.persistence_state = {}
             if self.persistence_init_error:
@@ -268,12 +282,12 @@ class GreeterWindow(Adw.ApplicationWindow):
     def update_persistence_actions(self, state: dict) -> None:
         created = bool(state.get("created"))
         unlocked = bool(state.get("unlocked"))
-        busy = bool(state.get("busy"))
+        busy = bool(state.get("busy")) or self.persistence_action_in_progress
         can_create = bool(state.get("can_create"))
         self.persistence_create.set_sensitive(can_create and not busy)
         self.persistence_unlock.set_sensitive(created and not unlocked and not busy)
         self.persistence_lock.set_sensitive(unlocked and not busy)
-        self.persistence_repair.set_sensitive(unlocked and not busy)
+        self.persistence_repair.set_sensitive(created and unlocked and not busy)
 
     def apply_locale(self) -> bool:
         locale = self.current_string(self.language_combo)
@@ -298,64 +312,81 @@ class GreeterWindow(Adw.ApplicationWindow):
         return True
 
     def on_refresh_network(self, _button: Gtk.Button) -> None:
-        self.refresh_network()
+        self.refresh_network(force_status=True)
 
     def on_allow_offline_toggled(self, _button: Gtk.CheckButton) -> None:
         if self.allow_offline.get_active():
-            self.set_status("Offline bypass enabled. You can continue without Tor.")
+            self.set_status("You can continue to desktop now, but network traffic stays blocked until Tor is ready.")
         else:
-            self.set_status("Offline bypass disabled.")
+            self.set_status("Continue without network is disabled. Wait for Tor readiness to proceed.")
         self.update_navigation()
 
     def on_create_persistence(self, _button: Gtk.Button) -> None:
-        if self.persistence is None:
-            self.persistence_label.set_text("Persistence backend unavailable.")
-            return
-        try:
-            response = self.persistence.create(self.persistence_password.get_text())
-        except Exception as exc:
-            self.set_status(f"Persistence create failed: {exc}")
-            return
-        self.handle_persistence_response("create", response)
+        passphrase = self.persistence_password.get_text()
+        self.persistence_password.set_text("")
+        self.start_persistence_action("create", lambda: self.persistence.create(passphrase))
 
     def on_unlock_persistence(self, _button: Gtk.Button) -> None:
-        if self.persistence is None:
-            self.persistence_label.set_text("Persistence backend unavailable.")
-            return
-        try:
-            response = self.persistence.unlock(self.persistence_password.get_text())
-        except Exception as exc:
-            self.set_status(f"Persistence unlock failed: {exc}")
-            return
-        self.handle_persistence_response("unlock", response)
+        passphrase = self.persistence_password.get_text()
+        self.persistence_password.set_text("")
+        self.start_persistence_action("unlock", lambda: self.persistence.unlock(passphrase))
 
     def on_lock_persistence(self, _button: Gtk.Button) -> None:
-        if self.persistence is None:
-            self.persistence_label.set_text("Persistence backend unavailable.")
-            return
-        try:
-            response = self.persistence.lock()
-        except Exception as exc:
-            self.set_status(f"Persistence lock failed: {exc}")
-            return
-        self.handle_persistence_response("lock", response)
+        self.start_persistence_action("lock", lambda: self.persistence.lock())
 
     def on_repair_persistence(self, _button: Gtk.Button) -> None:
+        self.start_persistence_action("repair", lambda: self.persistence.repair())
+
+    def start_persistence_action(self, action: str, callback) -> None:
         if self.persistence is None:
             self.persistence_label.set_text("Persistence backend unavailable.")
             return
-        try:
-            response = self.persistence.repair()
-        except Exception as exc:
-            self.set_status(f"Persistence repair failed: {exc}")
+        if self.persistence_action_in_progress:
+            self.set_status(
+                f"Persistence {self.persistence_action_name} is still running. Please wait."
+            )
             return
-        self.handle_persistence_response("repair", response)
+
+        self.persistence_action_in_progress = True
+        self.persistence_action_name = action
+        busy_state = dict(self.persistence_state)
+        busy_state["busy"] = True
+        self.persistence_state = busy_state
+        self.persistence_label.set_text(f"Persistence {action} is in progress...")
+        self.update_persistence_actions(busy_state)
+        self.update_navigation()
+        self.set_status(f"Starting persistence {action}...")
+        thread = threading.Thread(
+            target=self.run_persistence_action_worker,
+            args=(action, callback),
+            daemon=True,
+        )
+        thread.start()
+
+    def run_persistence_action_worker(self, action: str, callback) -> None:
+        try:
+            response = callback()
+            GLib.idle_add(self.complete_persistence_action, action, dict(response), "")
+        except Exception as exc:
+            GLib.idle_add(self.complete_persistence_action, action, None, str(exc))
+
+    def complete_persistence_action(self, action: str, response: dict | None, error: str) -> bool:
+        self.persistence_action_in_progress = False
+        self.persistence_action_name = ""
+        if error:
+            self.set_status(f"Persistence {action} failed: {error}")
+            self.refresh_persistence()
+            return GLib.SOURCE_REMOVE
+        if response is not None:
+            self.handle_persistence_response(action, response)
+        else:
+            self.refresh_persistence()
+        return GLib.SOURCE_REMOVE
 
     def handle_persistence_response(self, action: str, response: dict) -> None:
         self.persistence_state = dict(response)
         self.persistence_label.set_text(self.render_persistence_state(response))
         self.update_persistence_actions(response)
-        self.persistence_password.set_text("")
         self.update_navigation()
         if response.get("last_error"):
             self.set_status(f"Persistence {action} failed: {response['last_error']}")
@@ -419,8 +450,59 @@ class GreeterWindow(Adw.ApplicationWindow):
         if self.session_start_in_progress:
             return True
         self.refresh_network()
-        self.refresh_persistence()
+        if not self.persistence_action_in_progress:
+            self.refresh_persistence()
         return True
+
+    def setup_network_watchers(self) -> None:
+        for path in ("/run/nmos/network-status.json", "/run/nmos/network-ready"):
+            file_obj = Gio.File.new_for_path(path)
+            monitor = None
+            try:
+                monitor = file_obj.monitor_file(Gio.FileMonitorFlags.WATCH_MOVES, None)
+            except GLib.Error:
+                parent = file_obj.get_parent()
+                if parent is not None:
+                    try:
+                        monitor = parent.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, None)
+                    except GLib.Error:
+                        monitor = None
+            if monitor is None:
+                continue
+            monitor.connect("changed", self.on_network_file_changed)
+            self.network_monitors.append(monitor)
+
+    def on_network_file_changed(self, _monitor, _file, _other_file, event_type) -> None:
+        if event_type not in {
+            Gio.FileMonitorEvent.CREATED,
+            Gio.FileMonitorEvent.CHANGED,
+            Gio.FileMonitorEvent.CHANGES_DONE_HINT,
+            Gio.FileMonitorEvent.DELETED,
+            Gio.FileMonitorEvent.MOVED_IN,
+            Gio.FileMonitorEvent.MOVED_OUT,
+        }:
+            return
+        changed_names = set()
+        if _file is not None:
+            changed_names.add(_file.get_basename())
+        if _other_file is not None:
+            changed_names.add(_other_file.get_basename())
+        if changed_names and not changed_names.intersection({"network-status.json", "network-ready"}):
+            return
+        self.queue_network_refresh()
+
+    def queue_network_refresh(self, *, force_status: bool = False) -> None:
+        self.network_refresh_force = self.network_refresh_force or force_status
+        if self.network_refresh_pending_id:
+            return
+        self.network_refresh_pending_id = GLib.timeout_add(200, self.run_queued_network_refresh)
+
+    def run_queued_network_refresh(self) -> bool:
+        self.network_refresh_pending_id = 0
+        force_status = self.network_refresh_force
+        self.network_refresh_force = False
+        self.refresh_network(force_status=force_status)
+        return GLib.SOURCE_REMOVE
 
     def arm_session_start_timeout(self) -> None:
         self.clear_session_start_timeout()

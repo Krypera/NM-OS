@@ -1,4 +1,6 @@
 * text=auto
+.gitattributes text eol=lf
+.gitignore text eol=lf
 
 *.sh text eol=lf
 *.hook.chroot text eol=lf
@@ -12,5 +14,9 @@
 *.md text eol=lf
 *.yml text eol=lf
 *.toml text eol=lf
+
+config/live-build/auto/* text eol=lf
+config/live-build/includes.chroot/usr/local/bin/* text eol=lf
+config/live-build/includes.chroot/etc/gdm3/PostLogin/* text eol=lf
 
 *.ps1 text eol=crlf

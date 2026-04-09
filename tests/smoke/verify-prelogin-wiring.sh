@@ -61,6 +61,16 @@ grep -q '/run/nmos/greeter-state.json' "${POSTLOGIN_FILE}" || {
     exit 1
 }
 
+grep -q 'mapfile -t STATE_VALUES' "${POSTLOGIN_FILE}" || {
+    echo "GDM PostLogin hook does not parse greeter state through a fixed-value array handoff." >&2
+    exit 1
+}
+
+if grep -q '\beval\b' "${POSTLOGIN_FILE}"; then
+    echo "GDM PostLogin hook still uses eval for the greeter runtime handoff." >&2
+    exit 1
+fi
+
 grep -q 'localectl set-x11-keymap' "${POSTLOGIN_FILE}" || {
     echo "GDM PostLogin hook does not apply the selected X11 keyboard layout." >&2
     exit 1
@@ -106,8 +116,28 @@ grep -q 'noautologin' "${AUTO_CONFIG_FILE}" || {
     exit 1
 }
 
-grep -q 'LIVE_PASSWORD=' "${LIVE_USER_CONFIG}" || {
-    echo "live user defaults do not define a login password for the greeter handoff." >&2
+if grep -q 'LIVE_PASSWORD="live"' "${LIVE_USER_CONFIG}"; then
+    echo "live user defaults still hardcode LIVE_PASSWORD=live." >&2
+    exit 1
+fi
+
+grep -q 'generate_live_password' "${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib/nmos/ensure_live_user_password.py" || {
+    echo "live user password helper does not generate a per-boot random password." >&2
+    exit 1
+}
+
+grep -q '/run/nmos/live-user-password' "${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib/nmos/ensure_live_user_password.py" || {
+    echo "live user password helper does not publish the runtime password file for Debian-gdm." >&2
+    exit 1
+}
+
+grep -q '/run/nmos/live-user-password' "${GDM_CLIENT}" || {
+    echo "GDM client does not read the runtime live-user password file." >&2
+    exit 1
+}
+
+grep -q 'live-user-password' "${TMPFILES_FILE}" || {
+    echo "tmpfiles configuration does not provision the runtime live-user password file." >&2
     exit 1
 }
 

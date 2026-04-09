@@ -8,6 +8,7 @@ PYTHONDONTWRITEBYTECODE=1 NMOS_ROOT="${ROOT_DIR}" python3 - <<'PY'
 import importlib.util
 import os
 import tempfile
+from types import SimpleNamespace
 from pathlib import Path
 
 root = Path(os.environ["NMOS_ROOT"])
@@ -22,6 +23,7 @@ class FakeManager(module.PersistentStorageManager):
     def __init__(self):
         super().__init__()
         self._scenario = "ready"
+        self.fail_create = False
 
     def locate_partition(self):
         if self._scenario == "existing":
@@ -52,6 +54,11 @@ class FakeManager(module.PersistentStorageManager):
             "sector_size": 512,
             "partitions": [{"number": 1, "start_bytes": 1 * mib, "size_bytes": 2 * gib}],
         }
+
+    def create_partition(self):
+        if self.fail_create:
+            raise module.StorageError("create failed", reason="backend_error")
+        return {"path": "/dev/sdz2", "device": "/dev/sdz", "partition_number": 2}
 
 
 with tempfile.TemporaryDirectory() as tmp:
@@ -101,6 +108,65 @@ with tempfile.TemporaryDirectory() as tmp:
 
     state = manager.get_state(include_cached_error=True)
     assert state["last_error"] == "temporary failure"
+
+    manager.fail_create = True
+    state = manager.create("secret")
+    assert state["busy"] is False
+    assert state["last_error"]
+    manager.fail_create = False
+
+    manager._scenario = "ready"
+    state = manager.unlock("secret")
+    assert state["busy"] is False
+    assert state["last_error"]
+
+    module.MAPPER_PATH.write_text("mapped", encoding="utf-8")
+    mount_state = {"mounted": True}
+    repair_commands: list[tuple[str, ...]] = []
+    original_subprocess_run = module.subprocess.run
+    original_run = manager.run
+    original_get_state = manager.get_state
+
+    def fake_subprocess_run(args, check=False, capture_output=False, text=False, **kwargs):
+        if args[:2] == ["mountpoint", "-q"]:
+            return SimpleNamespace(returncode=0 if mount_state["mounted"] else 1, stdout="", stderr="")
+        return original_subprocess_run(args, check=check, capture_output=capture_output, text=text, **kwargs)
+
+    def fake_run(*args, input_text=None):
+        del input_text
+        repair_commands.append(tuple(args))
+        if args[0] == "umount":
+            mount_state["mounted"] = False
+            return ""
+        if args[0] == "mount":
+            mount_state["mounted"] = True
+            return ""
+        if args[0] == "fsck.ext4":
+            return ""
+        return ""
+
+    manager.get_state = lambda include_cached_error=False: {
+        "busy": manager.busy,
+        "last_error": manager.last_error if include_cached_error else "",
+    }
+    manager.run = fake_run
+    module.subprocess.run = fake_subprocess_run
+    try:
+        state = manager.repair()
+        assert state["busy"] is False
+        assert state["last_error"] == ""
+        assert [cmd[0] for cmd in repair_commands] == ["umount", "fsck.ext4", "mount"]
+        assert mount_state["mounted"] is True
+
+        module.MAPPER_PATH.unlink()
+        repair_commands.clear()
+        state = manager.repair()
+        assert "must be unlocked" in state["last_error"]
+        assert not any(cmd[0] == "fsck.ext4" for cmd in repair_commands)
+    finally:
+        manager.run = original_run
+        manager.get_state = original_get_state
+        module.subprocess.run = original_subprocess_run
 
 print("Persistence state machine checks passed")
 PY
