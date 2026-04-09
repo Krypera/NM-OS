@@ -19,6 +19,7 @@ persistence that fails closed on unsupported layouts.
 | Area | Current direction |
 | --- | --- |
 | Base system | Debian Trixie `amd64` live image |
+| Boot UX | mode menu at USB boot (`Strict`, `Flexible`, `Offline`, `Recovery`, `Hardware Compatibility`) |
 | Desktop flow | GNOME + GDM welcome session before the live desktop |
 | Network model | Tor-first bootstrap with an outbound gate until readiness |
 | Persistence | LUKS2-backed encrypted persistence on the boot USB |
@@ -35,16 +36,29 @@ persistence that fails closed on unsupported layouts.
 
 ```mermaid
 flowchart LR
-    A["USB Boot"] --> B["systemd services"]
-    B --> C["nmos-network-bootstrap.service"]
-    B --> D["nmos-persistent-storage.service"]
-    C --> E["Tor readiness gate"]
-    D --> F["Persistence backend on D-Bus"]
-    E --> G["GDM welcome session"]
-    F --> G
-    G --> H["nmos-greeter"]
-    H --> I["Live desktop session"]
+    A["USB Boot Menu"] --> B["Mode selection (nmos.mode=...)"]
+    B --> C["systemd services"]
+    C --> D["nmos-boot-profile.service"]
+    C --> E["nmos-network-bootstrap.service"]
+    C --> F["nmos-persistent-storage.service"]
+    E --> G["Tor readiness gate"]
+    F --> H["Persistence backend on D-Bus"]
+    D --> I["GDM welcome session"]
+    G --> I
+    H --> I
+    I --> J["nmos-greeter"]
+    J --> K["Live desktop session"]
 ```
+
+## Boot Modes
+
+NM-OS exposes these USB boot profiles:
+
+- `NM-OS (Strict)`: default Tor-first profile
+- `NM-OS (Flexible)`: Tor-first with a more relaxed greeter flow
+- `NM-OS (Offline)`: networking intentionally disabled
+- `NM-OS (Recovery)`: persistence/recovery-first flow, networking disabled
+- `NM-OS (Hardware Compatibility)`: strict profile with compatibility boot flags
 
 ## What Ships In The Current Alpha
 
@@ -132,6 +146,7 @@ Before a build:
 ./tests/smoke/verify-structure.sh
 ./tests/smoke/verify-python.sh
 ./tests/smoke/verify-build-hygiene.sh
+./tests/smoke/verify-boot-modes.sh
 ./tests/smoke/verify-brave-optional.sh
 ./tests/smoke/verify-greeter-state.sh
 ./tests/smoke/verify-live-login-config.sh

@@ -7,3 +7,22 @@ if [ -w /dev/ttyS0 ]; then
     echo "NMOS_BOOT_OK" > /dev/ttyS0
 fi
 
+if [ -s /run/nmos/boot-mode.json ]; then
+    mode="$(
+        python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/run/nmos/boot-mode.json")
+try:
+    data = json.loads(path.read_text(encoding="utf-8"))
+except Exception:
+    data = {}
+print(str(data.get("mode", "strict")))
+PY
+    )"
+    echo "NMOS_BOOT_MODE ${mode}"
+    if [ -w /dev/ttyS0 ]; then
+        echo "NMOS_BOOT_MODE ${mode}" > /dev/ttyS0
+    fi
+fi

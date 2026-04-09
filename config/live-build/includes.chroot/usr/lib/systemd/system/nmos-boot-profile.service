@@ -1,0 +1,12 @@
+[Unit]
+Description=NM-OS boot profile parser
+After=local-fs.target systemd-tmpfiles-setup.service
+Before=nmos-network-bootstrap.service display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/nmos/boot_profile.py
+StandardOutput=journal+console
+
+[Install]
+WantedBy=multi-user.target

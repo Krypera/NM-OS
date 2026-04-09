@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 
+from __future__ import annotations
+
 import json
 import subprocess
 import time
+from datetime import datetime, timezone
 from pathlib import Path
+
+from nmos_common.boot_mode import MODE_OFFLINE, MODE_RECOVERY, load_boot_mode_profile
+from nmos_common.network_status import parse_bootstrap_status
 
 
 READY_DIR = Path("/run/nmos")
@@ -11,8 +17,6 @@ READY_FILE = READY_DIR / "network-ready"
 STATUS_FILE = READY_DIR / "network-status.json"
 TOR_CONTROL_PORT = 9051
 BOOTSTRAP_TIMEOUT_SECONDS = 300
-
-from nmos_common.network_status import parse_bootstrap_status
 
 
 def log(message: str) -> None:
@@ -29,15 +33,28 @@ def run(*args: str) -> None:
     subprocess.run(args, check=True)
 
 
-def write_status(*, ready: bool, progress: int, summary: str, last_error: str = "") -> None:
+def now_utc_timestamp() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def write_status(
+    *,
+    ready: bool,
+    progress: int,
+    summary: str,
+    phase: str,
+    last_error: str = "",
+) -> None:
     READY_DIR.mkdir(parents=True, exist_ok=True)
     STATUS_FILE.write_text(
         json.dumps(
             {
                 "ready": ready,
                 "progress": progress,
+                "phase": phase,
                 "summary": summary,
                 "last_error": last_error,
+                "updated_at": now_utc_timestamp(),
             },
             indent=2,
         ),
@@ -68,6 +85,25 @@ table inet nmosfilter {{
     meta skuid {tor_uid} accept
   }}
 }}
+"""
+    subprocess.run(["nft", "-f", "-"], input=rules, text=True, check=True)
+
+
+def write_offline_firewall_rules() -> None:
+    subprocess.run(["nft", "delete", "table", "inet", "nmosfilter"], check=False)
+    rules = """
+table inet nmosfilter {
+  chain input {
+    type filter hook input priority 0; policy drop;
+    iifname "lo" accept
+    ct state established,related accept
+  }
+  chain output {
+    type filter hook output priority 0; policy drop;
+    oifname "lo" accept
+    ct state established,related accept
+  }
+}
 """
     subprocess.run(["nft", "-f", "-"], input=rules, text=True, check=True)
 
@@ -109,14 +145,20 @@ def wait_for_tor() -> None:
                 controller.authenticate()
                 status = controller.get_info("status/bootstrap-phase", "")
         except Exception as exc:
-            write_status(ready=False, progress=0, summary="Waiting for Tor control", last_error=str(exc))
+            write_status(
+                ready=False,
+                progress=0,
+                summary="Waiting for Tor control",
+                phase="bootstrap",
+                last_error=str(exc),
+            )
             time.sleep(2)
             if time.monotonic() >= deadline:
                 raise RuntimeError("timed out waiting for Tor control port") from exc
             continue
 
         progress, summary = parse_bootstrap_status(status)
-        write_status(ready=progress >= 100, progress=progress, summary=summary)
+        write_status(ready=progress >= 100, progress=progress, summary=summary, phase="bootstrap")
         if progress >= 100:
             return
 
@@ -128,22 +170,50 @@ def wait_for_tor() -> None:
 def mark_ready() -> None:
     READY_DIR.mkdir(parents=True, exist_ok=True)
     READY_FILE.write_text("ready\n", encoding="utf-8")
-    write_status(ready=True, progress=100, summary="Tor is ready")
+    write_status(ready=True, progress=100, summary="Tor is ready", phase="ready")
     log("NMOS_NETWORK_READY")
     run("systemctl", "start", "nmos-network-ready.target")
 
 
+def clear_ready_marker() -> None:
+    READY_FILE.unlink(missing_ok=True)
+
+
+def apply_disabled_mode(mode: str) -> None:
+    clear_ready_marker()
+    write_offline_firewall_rules()
+    write_status(
+        ready=False,
+        progress=0,
+        summary=f"Network is disabled by boot mode ({mode}).",
+        phase="disabled",
+        last_error="",
+    )
+    log(f"NMOS_NETWORK_DISABLED mode={mode}")
+
+
 def main() -> None:
+    profile = load_boot_mode_profile()
+    mode = str(profile.get("mode", "strict"))
     READY_DIR.mkdir(parents=True, exist_ok=True)
-    write_status(ready=False, progress=0, summary="Preparing network policy")
+    if mode in {MODE_OFFLINE, MODE_RECOVERY}:
+        apply_disabled_mode(mode)
+        return
+    write_status(ready=False, progress=0, summary="Preparing network policy", phase="policy")
     try:
         write_firewall_rules()
-        write_status(ready=False, progress=0, summary="Waiting for Tor bootstrap")
+        write_status(ready=False, progress=0, summary="Waiting for Tor bootstrap", phase="bootstrap")
         wait_for_tor()
         remove_firewall_gate()
         mark_ready()
     except Exception as exc:
-        write_status(ready=False, progress=0, summary="Network bootstrap failed", last_error=str(exc))
+        write_status(
+            ready=False,
+            progress=0,
+            summary="Network bootstrap failed",
+            phase="failed",
+            last_error=str(exc),
+        )
         log(f"NMOS_NETWORK_FAILED {exc}")
         raise
 

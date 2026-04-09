@@ -10,9 +10,12 @@
 ## First boot checks
 
 - system boots from USB, not from the internal Windows drive
+- boot menu shows `Strict`, `Flexible`, `Offline`, `Recovery`, and `Hardware Compatibility` entries
+- selected boot mode appears in the greeter header
 - GDM welcome screen appears before the desktop session starts
 - greeter window appears in that welcome session
-- network page shows Tor bootstrap progress
+- network page shows Tor bootstrap progress in `strict/flexible/compat`
+- `offline/recovery` show an intentional offline state instead of a Tor error
 - internal Windows partitions do not auto-mount in the desktop
 - persistence page can create or unlock the USB persistence volume
 

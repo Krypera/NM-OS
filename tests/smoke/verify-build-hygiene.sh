@@ -36,6 +36,11 @@ grep -Fq 'if [ -d "${WORK_DIR}/config/includes.chroot/usr/local/bin" ]; then' "$
     exit 1
 }
 
+grep -Fq 'find "${WORK_DIR}/config/hooks/live" -type f -name "*.hook.binary" -exec chmod +x {} +' "${COMMON_SH}" || {
+    echo "build staging does not mark binary hooks executable." >&2
+    exit 1
+}
+
 grep -Fq 'if [ -d "${WORK_DIR}/config/includes.chroot/usr/local/lib/nmos" ]; then' "${COMMON_SH}" || {
     echo "build staging does not guard chmod scans for usr/local/lib/nmos." >&2
     exit 1
@@ -48,6 +53,11 @@ grep -Fxq '*.sh text eol=lf' "${GITATTRIBUTES}" || {
 
 grep -Fxq '*.hook.chroot text eol=lf' "${GITATTRIBUTES}" || {
     echo ".gitattributes does not pin LF endings for chroot hooks." >&2
+    exit 1
+}
+
+grep -Fxq '*.hook.binary text eol=lf' "${GITATTRIBUTES}" || {
+    echo ".gitattributes does not pin LF endings for binary hooks." >&2
     exit 1
 }
 
@@ -78,7 +88,7 @@ from pathlib import Path
 
 root = Path(os.environ["NMOS_ROOT"])
 tracked = subprocess.check_output(["git", "-C", str(root), "ls-files"], text=True).splitlines()
-lf_patterns = (".sh", ".hook.chroot", ".py")
+lf_patterns = (".sh", ".hook.chroot", ".hook.binary", ".py")
 crlf_patterns = (".ps1",)
 lf_violations: list[str] = []
 crlf_violations: list[str] = []

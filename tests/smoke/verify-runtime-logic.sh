@@ -27,6 +27,10 @@ network_bootstrap = load_module(
     "network_bootstrap",
     root / "config" / "live-build" / "includes.chroot" / "usr" / "local" / "lib" / "nmos" / "network_bootstrap.py",
 )
+boot_mode = load_module(
+    "nmos_boot_mode",
+    root / "apps" / "nmos_common" / "nmos_common" / "boot_mode.py",
+)
 tor_status = load_module(
     "tor_bootstrap_status",
     root / "config" / "live-build" / "includes.chroot" / "usr" / "local" / "lib" / "nmos" / "tor_bootstrap_status.py",
@@ -46,6 +50,9 @@ tor_status_source = (
 ).read_text(encoding="utf-8")
 install_hook_source = (
     root / "hooks" / "live" / "010-install-nmos-apps.hook.chroot"
+).read_text(encoding="utf-8")
+boot_profile_source = (
+    root / "config" / "live-build" / "includes.chroot" / "usr" / "local" / "lib" / "nmos" / "boot_profile.py"
 ).read_text(encoding="utf-8")
 
 
@@ -92,6 +99,11 @@ assert storage.partition_table_label_is_supported("gpt") is True
 assert storage.partition_table_label_is_supported("dos") is False
 assert storage.partition_table_label_is_supported("bsd") is False
 assert hasattr(network_bootstrap, "remove_firewall_gate")
+assert hasattr(network_bootstrap, "write_offline_firewall_rules")
+assert boot_mode.parse_mode_from_cmdline("quiet splash nmos.mode=recovery") == "recovery"
+assert boot_mode.parse_mode_from_cmdline("quiet splash nmos.mode=invalid") == "strict"
+assert boot_mode.boot_mode_profile("offline")["network_policy"] == "disabled"
+assert boot_mode.boot_mode_profile("compat")["compat_enabled"] is True
 
 gib = 1024 * 1024 * 1024
 mib = 1024 * 1024
@@ -211,14 +223,21 @@ assert "discover_repo_greeter_path" not in network_bootstrap_source, "network bo
 assert "discover_repo_greeter_path" not in tor_status_source, "tor status helper still uses repo path discovery fallback"
 assert "sys.path.insert" not in network_bootstrap_source, "network bootstrap still mutates sys.path at runtime"
 assert "sys.path.insert" not in tor_status_source, "tor status helper still mutates sys.path at runtime"
+assert "MODE_OFFLINE" in network_bootstrap_source, "network bootstrap does not branch on offline mode"
+assert "MODE_RECOVERY" in network_bootstrap_source, "network bootstrap does not branch on recovery mode"
+assert "load_boot_mode_profile" in network_bootstrap_source, "network bootstrap does not read boot mode profile"
+assert "phase=\"disabled\"" in network_bootstrap_source, "network bootstrap does not emit a disabled phase"
 assert 'cp -a /opt/nmos/apps/nmos_common/nmos_common "${PYTHON_PURELIB}/"' in install_hook_source, (
     "live-build install hook does not install nmos_common into Python purelib"
 )
+assert "NMOS_BOOT_MODE" in boot_profile_source, "boot profile helper does not emit a boot mode marker"
 assert "self.bus" not in client_source, "PersistenceClient still stores a long-lived D-Bus bus handle"
 assert 'return self._call("Create", passphrase)' in client_source
 assert 'return self._call("Unlock", passphrase)' in client_source
 assert 'return self._call("Lock")' in client_source
 assert 'return self._call("Repair")' in client_source
+assert 'return ["persistence", "language", "keyboard", "network"]' in main_source
+assert "Mode: {self.mode_title()}" in main_source
 
 print("runtime logic checks passed")
 PY

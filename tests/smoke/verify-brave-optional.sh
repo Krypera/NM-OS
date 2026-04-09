@@ -6,6 +6,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD_SH="${ROOT_DIR}/build/build.sh"
 BUILD_PS1="${ROOT_DIR}/build/build.ps1"
 BRAVE_HOOK="${ROOT_DIR}/hooks/optional/050-install-brave-browser.hook.chroot"
+DESKTOP_MODE_SCRIPT="${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib/nmos/desktop_mode.py"
+AUTOSTART_FILE="${ROOT_DIR}/config/live-build/includes.chroot/etc/xdg/autostart/nmos-desktop-mode.desktop"
 
 [ -f "${BRAVE_HOOK}" ] || {
     echo "optional Brave hook is missing." >&2
@@ -34,6 +36,21 @@ grep -q 'EnableBrave' "${BUILD_PS1}" || {
 
 grep -q 'not equivalent to Tor Browser anonymity' "${BRAVE_HOOK}" || {
     echo "optional Brave hook does not include the anonymity warning note." >&2
+    exit 1
+}
+
+grep -q 'mode == "flexible"' "${DESKTOP_MODE_SCRIPT}" || {
+    echo "desktop mode helper does not keep Brave visible in flexible mode." >&2
+    exit 1
+}
+
+grep -q 'NoDisplay=true' "${DESKTOP_MODE_SCRIPT}" || {
+    echo "desktop mode helper does not hide Brave entries outside flexible mode." >&2
+    exit 1
+}
+
+grep -q 'Exec=/usr/local/lib/nmos/desktop_mode.py' "${AUTOSTART_FILE}" || {
+    echo "desktop mode policy helper is not wired into desktop autostart." >&2
     exit 1
 }
 

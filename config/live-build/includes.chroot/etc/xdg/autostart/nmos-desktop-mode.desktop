@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=NM-OS Desktop Mode Policy
+Exec=/usr/local/lib/nmos/desktop_mode.py
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

@@ -52,7 +52,8 @@ This script:
 3. copies first-party applications into the image source tree
 4. rejects staged `__pycache__`, `.pyc`, and `.pyo` artifacts
 5. runs `lb config` and `lb build`
-6. publishes both `.img` and `.iso` images, plus package manifest, checksum,
+6. applies a binary-stage boot menu hook for BIOS+UEFI mode profiles
+7. publishes both `.img` and `.iso` images, plus package manifest, checksum,
    and build manifest into `dist/`
 
 When `NMOS_ENABLE_BRAVE=1` is used, the build stages an optional hook that
@@ -89,6 +90,7 @@ Before a build:
 ./tests/smoke/verify-structure.sh
 ./tests/smoke/verify-python.sh
 ./tests/smoke/verify-build-hygiene.sh
+./tests/smoke/verify-boot-modes.sh
 ./tests/smoke/verify-brave-optional.sh
 ./tests/smoke/verify-greeter-state.sh
 ./tests/smoke/verify-live-login-config.sh

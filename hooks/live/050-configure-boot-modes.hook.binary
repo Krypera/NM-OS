@@ -1,0 +1,124 @@
+#!/bin/bash
+
+set -euo pipefail
+
+BINARY_DIR="${LB_BINARY_DIR:-binary}"
+GRUB_CFG="${BINARY_DIR}/boot/grub/grub.cfg"
+SYSLINUX_CFG=""
+
+if [ ! -d "${BINARY_DIR}" ] && [ -d "binary" ]; then
+    BINARY_DIR="binary"
+    GRUB_CFG="${BINARY_DIR}/boot/grub/grub.cfg"
+fi
+
+if [ -f "${BINARY_DIR}/isolinux/live.cfg" ]; then
+    SYSLINUX_CFG="${BINARY_DIR}/isolinux/live.cfg"
+elif [ -f "${BINARY_DIR}/syslinux/live.cfg" ]; then
+    SYSLINUX_CFG="${BINARY_DIR}/syslinux/live.cfg"
+fi
+
+if [ ! -f "${GRUB_CFG}" ] || [ -z "${SYSLINUX_CFG}" ]; then
+    echo "boot mode hook could not find both grub and syslinux live configs." >&2
+    exit 1
+fi
+
+normalize_options() {
+    local text="${1}"
+    text="$(echo "${text}" | sed -E 's/(^|[[:space:]])nmos\.mode=[^[:space:]]+//g')"
+    text="$(echo "${text}" | sed -E 's/(^|[[:space:]])nomodeset($|[[:space:]])/ /g')"
+    text="$(echo "${text}" | tr -s '[:space:]' ' ')"
+    text="${text# }"
+    text="${text% }"
+    echo "${text}"
+}
+
+GRUB_KERNEL="$(grep -m1 -E '^[[:space:]]*linux[[:space:]]+/live/' "${GRUB_CFG}" | awk '{print $2}' || true)"
+GRUB_INITRD="$(grep -m1 -E '^[[:space:]]*initrd[[:space:]]+/live/' "${GRUB_CFG}" | awk '{print $2}' || true)"
+GRUB_OPTIONS_RAW="$(grep -m1 -E '^[[:space:]]*linux[[:space:]]+/live/' "${GRUB_CFG}" | cut -d' ' -f3- || true)"
+
+if [ -z "${GRUB_KERNEL}" ] || [ -z "${GRUB_INITRD}" ]; then
+    echo "boot mode hook could not parse kernel/initrd from grub config." >&2
+    exit 1
+fi
+
+GRUB_OPTIONS="$(normalize_options "${GRUB_OPTIONS_RAW}")"
+
+SYSLINUX_KERNEL="$(grep -m1 -E '^[[:space:]]*KERNEL[[:space:]]+/live/' "${SYSLINUX_CFG}" | awk '{print $2}' || true)"
+SYSLINUX_APPEND_RAW="$(grep -m1 -E '^[[:space:]]*APPEND[[:space:]]+' "${SYSLINUX_CFG}" | sed -E 's/^[[:space:]]*APPEND[[:space:]]+//' || true)"
+SYSLINUX_INITRD="$(echo "${SYSLINUX_APPEND_RAW}" | sed -nE 's/.*(^|[[:space:]])initrd=([^[:space:]]+).*/\2/p')"
+
+if [ -z "${SYSLINUX_KERNEL}" ]; then
+    echo "boot mode hook could not parse kernel from syslinux config." >&2
+    exit 1
+fi
+if [ -z "${SYSLINUX_INITRD}" ]; then
+    SYSLINUX_INITRD="/live/initrd.img"
+fi
+
+SYSLINUX_OPTIONS="$(normalize_options "${SYSLINUX_APPEND_RAW}")"
+SYSLINUX_OPTIONS="$(echo "${SYSLINUX_OPTIONS}" | sed -E 's/(^|[[:space:]])initrd=[^[:space:]]+//g' | tr -s '[:space:]' ' ')"
+SYSLINUX_OPTIONS="${SYSLINUX_OPTIONS# }"
+SYSLINUX_OPTIONS="${SYSLINUX_OPTIONS% }"
+
+cat > "${GRUB_CFG}" <<EOF
+set default="0"
+set timeout=10
+
+menuentry "NM-OS (Strict)" {
+    linux ${GRUB_KERNEL} ${GRUB_OPTIONS} nmos.mode=strict
+    initrd ${GRUB_INITRD}
+}
+
+menuentry "NM-OS (Flexible)" {
+    linux ${GRUB_KERNEL} ${GRUB_OPTIONS} nmos.mode=flexible
+    initrd ${GRUB_INITRD}
+}
+
+menuentry "NM-OS (Offline)" {
+    linux ${GRUB_KERNEL} ${GRUB_OPTIONS} nmos.mode=offline
+    initrd ${GRUB_INITRD}
+}
+
+menuentry "NM-OS (Recovery)" {
+    linux ${GRUB_KERNEL} ${GRUB_OPTIONS} nmos.mode=recovery
+    initrd ${GRUB_INITRD}
+}
+
+menuentry "NM-OS (Hardware Compatibility)" {
+    linux ${GRUB_KERNEL} ${GRUB_OPTIONS} nmos.mode=compat nomodeset
+    initrd ${GRUB_INITRD}
+}
+EOF
+
+cat > "${SYSLINUX_CFG}" <<EOF
+UI menu.c32
+PROMPT 0
+MENU TITLE NM-OS Boot Menu
+TIMEOUT 60
+DEFAULT nmos-strict
+
+LABEL nmos-strict
+    MENU LABEL NM-OS (Strict)
+    KERNEL ${SYSLINUX_KERNEL}
+    APPEND initrd=${SYSLINUX_INITRD} ${SYSLINUX_OPTIONS} nmos.mode=strict
+
+LABEL nmos-flexible
+    MENU LABEL NM-OS (Flexible)
+    KERNEL ${SYSLINUX_KERNEL}
+    APPEND initrd=${SYSLINUX_INITRD} ${SYSLINUX_OPTIONS} nmos.mode=flexible
+
+LABEL nmos-offline
+    MENU LABEL NM-OS (Offline)
+    KERNEL ${SYSLINUX_KERNEL}
+    APPEND initrd=${SYSLINUX_INITRD} ${SYSLINUX_OPTIONS} nmos.mode=offline
+
+LABEL nmos-recovery
+    MENU LABEL NM-OS (Recovery)
+    KERNEL ${SYSLINUX_KERNEL}
+    APPEND initrd=${SYSLINUX_INITRD} ${SYSLINUX_OPTIONS} nmos.mode=recovery
+
+LABEL nmos-compat
+    MENU LABEL NM-OS (Hardware Compatibility)
+    KERNEL ${SYSLINUX_KERNEL}
+    APPEND initrd=${SYSLINUX_INITRD} ${SYSLINUX_OPTIONS} nmos.mode=compat nomodeset
+EOF

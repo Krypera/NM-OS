@@ -31,12 +31,14 @@ import nmos_common.network_status as shared_module
 state = module.normalize_network_status({"ready": True, "progress": "145", "summary": "Ready", "last_error": None})
 assert state["ready"] is True
 assert state["progress"] == 100
+assert state["phase"] == "bootstrap"
 assert state["summary"] == "Ready"
 assert state["last_error"] == ""
 
 state2 = module.normalize_network_status({"progress": -9})
 assert state2["ready"] is False
 assert state2["progress"] == 0
+assert state2["phase"] == "bootstrap"
 assert state2["summary"] == "Waiting for Tor bootstrap"
 
 state_bool = module.normalize_network_status({"ready": "false", "progress": 5, "summary": "Tor"})
@@ -46,6 +48,7 @@ assert state_bool["progress"] == 5
 state3 = module.normalize_network_status(["unexpected"])
 assert state3["ready"] is False
 assert state3["progress"] == 0
+assert state3["phase"] == "bootstrap"
 assert state3["last_error"] == "invalid status payload"
 
 assert module.parse_bootstrap_status('NOTICE BOOTSTRAP PROGRESS=42 SUMMARY="Loading"') == (42, "Loading")

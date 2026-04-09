@@ -45,7 +45,8 @@ The primary output for Windows testing is:
 2. Select the generated `.img` file.
 3. Write it to a USB stick.
 4. Reboot the computer and choose the USB device from the boot menu.
-5. NM-OS should start from the USB stick instead of Windows.
+5. Choose a boot profile (`Strict`, `Flexible`, `Offline`, `Recovery`, or `Hardware Compatibility`).
+6. NM-OS should start from the USB stick instead of Windows.
 
 When you shut down NM-OS and boot normally from your internal drive, Windows
 should continue as usual.

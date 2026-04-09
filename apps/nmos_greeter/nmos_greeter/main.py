@@ -8,7 +8,8 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, GLib, Gtk
 
-from nmos_greeter.client import PersistenceClient, read_network_status
+from nmos_common.boot_mode import MODE_COMPAT, MODE_FLEXIBLE, MODE_OFFLINE, MODE_RECOVERY, MODE_STRICT
+from nmos_greeter.client import PersistenceClient, read_boot_mode_profile, read_network_status
 from nmos_greeter.gdmclient import GdmLoginClient
 from nmos_greeter.state import load_state, save_state
 
@@ -19,7 +20,10 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.set_default_size(860, 560)
 
         self.state = load_state()
-        self.network_status = {"ready": False, "progress": 0, "summary": "Waiting for Tor", "last_error": ""}
+        self.boot_mode_profile = read_boot_mode_profile()
+        self.boot_mode = str(self.boot_mode_profile.get("mode", MODE_STRICT))
+        self.page_order = self.resolve_page_order()
+        self.network_status = self.default_network_status()
         self.persistence_state: dict = {}
         self.persistence_client_factory = PersistenceClient
         self.persistence_init_error = ""
@@ -41,7 +45,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.network_refresh_pending_id = 0
         self.network_refresh_force = False
         self.network_monitors: list[Gio.FileMonitor] = []
-        self.pages: list[Gtk.Widget] = []
+        self.page_widgets: dict[str, Gtk.Widget] = {}
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
         root.set_margin_top(24)
@@ -55,8 +59,11 @@ class GreeterWindow(Adw.ApplicationWindow):
         title.set_xalign(0)
         subtitle = Gtk.Label(label="Prepare your session before entering the desktop.")
         subtitle.set_xalign(0)
+        self.mode_banner = Gtk.Label(xalign=0)
+        self.mode_banner.add_css_class("caption")
         header.append(title)
         header.append(subtitle)
+        header.append(self.mode_banner)
         root.append(header)
 
         self.session_status = Gtk.Label(xalign=0)
@@ -86,13 +93,15 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.persistence_lock.connect("clicked", self.on_lock_persistence)
         self.persistence_repair.connect("clicked", self.on_repair_persistence)
 
-        self.pages.append(self._page("Language", "Choose the session language.", self.language_combo))
-        self.pages.append(self._page("Keyboard", "Choose the keyboard layout.", self.keyboard_combo))
-        self.pages.append(self._network_page())
-        self.pages.append(self._persistence_page())
+        self.page_widgets = {
+            "language": self._page("Language", "Choose the session language.", self.language_combo),
+            "keyboard": self._page("Keyboard", "Choose the keyboard layout.", self.keyboard_combo),
+            "network": self._network_page(),
+            "persistence": self._persistence_page(),
+        }
 
-        for index, page in enumerate(self.pages):
-            self.stack.add_titled(page, f"page-{index}", f"Page {index + 1}")
+        for index, key in enumerate(self.page_order):
+            self.stack.add_titled(self.page_widgets[key], f"page-{index}", f"Page {index + 1}")
 
         root.append(self.stack)
 
@@ -109,6 +118,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         root.append(nav)
 
         self.set_content(root)
+        self.apply_mode_ui_policy()
         self.restore_state()
         self.refresh_persistence()
         self.refresh_network(force_status=True)
@@ -156,12 +166,76 @@ class GreeterWindow(Adw.ApplicationWindow):
         box.append(actions)
         return box
 
+    def mode_title(self) -> str:
+        return {
+            MODE_STRICT: "Strict",
+            MODE_FLEXIBLE: "Flexible",
+            MODE_OFFLINE: "Offline",
+            MODE_RECOVERY: "Recovery",
+            MODE_COMPAT: "Hardware Compatibility",
+        }.get(self.boot_mode, "Strict")
+
+    def mode_description(self) -> str:
+        if self.boot_mode == MODE_FLEXIBLE:
+            return "Tor-first with a more relaxed onboarding flow."
+        if self.boot_mode == MODE_OFFLINE:
+            return "Networking is intentionally disabled for this session."
+        if self.boot_mode == MODE_RECOVERY:
+            return "Recovery-first session with networking intentionally disabled."
+        if self.boot_mode == MODE_COMPAT:
+            return "Compatibility boot options are enabled while keeping strict network policy."
+        return "Tor-first strict profile is active."
+
+    def is_network_disabled_mode(self) -> bool:
+        return self.boot_mode in {MODE_OFFLINE, MODE_RECOVERY}
+
+    def current_page_key(self) -> str:
+        return self.page_order[self.page_index]
+
+    def resolve_page_order(self) -> list[str]:
+        if self.boot_mode == MODE_RECOVERY:
+            return ["persistence", "language", "keyboard", "network"]
+        return ["language", "keyboard", "network", "persistence"]
+
+    def default_network_status(self) -> dict:
+        if self.boot_mode in {MODE_OFFLINE, MODE_RECOVERY}:
+            return {
+                "ready": False,
+                "progress": 0,
+                "phase": "disabled",
+                "summary": f"Network is disabled by boot mode ({self.boot_mode}).",
+                "last_error": "",
+                "updated_at": "",
+            }
+        return {
+            "ready": False,
+            "progress": 0,
+            "phase": "bootstrap",
+            "summary": "Waiting for Tor",
+            "last_error": "",
+            "updated_at": "",
+        }
+
+    def apply_mode_ui_policy(self) -> None:
+        self.mode_banner.set_text(f"Mode: {self.mode_title()} - {self.mode_description()}")
+        if self.is_network_disabled_mode():
+            self.allow_offline.set_active(True)
+            self.allow_offline.set_sensitive(False)
+            self.network_refresh.set_sensitive(False)
+        elif self.boot_mode == MODE_FLEXIBLE:
+            self.allow_offline.set_active(True)
+
     def restore_state(self) -> None:
         locale = self.state.get("locale", "en_US.UTF-8")
         keyboard = self.state.get("keyboard", "us")
         self._select_string(self.language_combo, locale)
         self._select_string(self.keyboard_combo, keyboard)
-        self.allow_offline.set_active(bool(self.state.get("allow_offline", False)))
+        if self.is_network_disabled_mode():
+            self.allow_offline.set_active(True)
+        elif self.boot_mode == MODE_FLEXIBLE and "allow_offline" not in self.state:
+            self.allow_offline.set_active(True)
+        else:
+            self.allow_offline.set_active(bool(self.state.get("allow_offline", False)))
 
     def _select_string(self, dropdown: Gtk.DropDown, value: str) -> None:
         model = dropdown.get_model()
@@ -194,9 +268,15 @@ class GreeterWindow(Adw.ApplicationWindow):
         }
 
     def can_bypass_network(self) -> bool:
+        if self.is_network_disabled_mode():
+            return True
+        if self.boot_mode == MODE_FLEXIBLE:
+            return True
         return self.allow_offline.get_active()
 
     def can_advance_from_network(self) -> bool:
+        if self.is_network_disabled_mode():
+            return True
         return bool(self.network_status.get("ready")) or self.can_bypass_network()
 
     def can_finish(self) -> bool:
@@ -205,14 +285,26 @@ class GreeterWindow(Adw.ApplicationWindow):
         return self.can_advance_from_network()
 
     def refresh_network(self, *, force_status: bool = False) -> None:
-        try:
-            status = read_network_status()
-        except Exception as exc:
-            status = {"ready": False, "progress": 0, "summary": "Unable to read network status", "last_error": str(exc)}
+        if self.is_network_disabled_mode():
+            status = self.default_network_status()
+        else:
+            try:
+                status = read_network_status()
+            except Exception as exc:
+                status = {
+                    "ready": False,
+                    "progress": 0,
+                    "phase": "failed",
+                    "summary": "Unable to read network status",
+                    "last_error": str(exc),
+                    "updated_at": "",
+                }
         self.network_status = status
         self.network_label.set_text(f"{status['summary']} ({status['progress']}%)")
         self.network_progress.set_fraction(status["progress"] / 100.0)
-        if status.get("last_error"):
+        if self.is_network_disabled_mode():
+            self.set_status("Network is intentionally disabled for this boot mode.", source="network", force=force_status)
+        elif status.get("last_error"):
             self.set_status(f"Network status: {status['last_error']}", source="network", force=force_status)
         elif status["ready"]:
             self.set_status("Tor connection is ready.", source="network", force=force_status)
@@ -305,7 +397,9 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.refresh_network(force_status=True)
 
     def on_allow_offline_toggled(self, _button: Gtk.CheckButton) -> None:
-        if self.allow_offline.get_active():
+        if self.is_network_disabled_mode():
+            self.set_status("This boot mode is intentionally offline.")
+        elif self.allow_offline.get_active():
             self.set_status("You can continue to desktop now, but network traffic stays blocked until Tor is ready.")
         else:
             self.set_status("Continue without network is disabled. Wait for Tor readiness to proceed.")
@@ -329,9 +423,7 @@ class GreeterWindow(Adw.ApplicationWindow):
 
     def start_persistence_action(self, action: str, passphrase: str | None = None) -> None:
         if self.persistence_action_in_progress:
-            self.set_status(
-                f"Persistence {self.persistence_action_name} is still running. Please wait."
-            )
+            self.set_status(f"Persistence {self.persistence_action_name} is still running. Please wait.")
             return
 
         self.persistence_action_in_progress = True
@@ -397,11 +489,12 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.update_navigation()
 
     def on_next(self, _button: Gtk.Button) -> None:
-        if self.page_index == 0 and not self.apply_locale():
+        current_key = self.current_page_key()
+        if current_key == "language" and not self.apply_locale():
             return
-        if self.page_index == 1 and not self.apply_keyboard():
+        if current_key == "keyboard" and not self.apply_keyboard():
             return
-        if self.page_index < len(self.pages) - 1:
+        if self.page_index < len(self.page_order) - 1:
             self.page_index += 1
         self.stack.set_visible_child_name(f"page-{self.page_index}")
         self.update_navigation()
@@ -435,23 +528,26 @@ class GreeterWindow(Adw.ApplicationWindow):
 
     def update_navigation(self) -> None:
         self.back_button.set_sensitive(self.page_index > 0)
-        self.next_button.set_visible(self.page_index < len(self.pages) - 1)
-        if self.page_index == 2:
+        self.next_button.set_visible(self.page_index < len(self.page_order) - 1)
+        if self.current_page_key() == "network":
             self.next_button.set_sensitive(self.can_advance_from_network())
         else:
             self.next_button.set_sensitive(True)
-        self.finish_button.set_visible(self.page_index == len(self.pages) - 1)
+        self.finish_button.set_visible(self.page_index == len(self.page_order) - 1)
         self.finish_button.set_sensitive(self.can_finish())
 
     def poll_runtime(self) -> bool:
         if self.session_start_in_progress:
             return True
-        self.refresh_network()
+        if not self.is_network_disabled_mode():
+            self.refresh_network()
         if not self.persistence_action_in_progress:
             self.refresh_persistence()
         return True
 
     def setup_network_watchers(self) -> None:
+        if self.is_network_disabled_mode():
+            return
         for path in ("/run/nmos/network-status.json", "/run/nmos/network-ready"):
             file_obj = Gio.File.new_for_path(path)
             monitor = None

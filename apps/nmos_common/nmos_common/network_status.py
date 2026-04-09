@@ -21,12 +21,16 @@ def normalize_network_status(raw: object) -> dict:
         return {
             "ready": False,
             "progress": 0,
+            "phase": "bootstrap",
             "summary": DEFAULT_WAITING_SUMMARY,
             "last_error": "invalid status payload",
+            "updated_at": "",
         }
 
     summary = str(raw.get("summary", DEFAULT_WAITING_SUMMARY) or DEFAULT_WAITING_SUMMARY)
     last_error = str(raw.get("last_error", "") or "")
+    phase = str(raw.get("phase", "bootstrap") or "bootstrap")
+    updated_at = str(raw.get("updated_at", "") or "")
     try:
         progress = int(raw.get("progress", 0))
     except (TypeError, ValueError):
@@ -35,8 +39,10 @@ def normalize_network_status(raw: object) -> dict:
     return {
         "ready": as_ready_flag(raw.get("ready", False)),
         "progress": progress,
+        "phase": phase,
         "summary": summary,
         "last_error": last_error,
+        "updated_at": updated_at,
     }
 
 

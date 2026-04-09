@@ -14,12 +14,15 @@ LEGACY_USER_UNIT="${ROOT_DIR}/config/live-build/includes.chroot/usr/lib/systemd/
 AUTO_CONFIG_FILE="${ROOT_DIR}/config/live-build/auto/config"
 LIVE_USER_CONFIG="${ROOT_DIR}/config/live-build/includes.chroot/etc/nmos/live-user.conf"
 LIVE_USER_PASSWORD_SERVICE="${ROOT_DIR}/config/live-build/includes.chroot/usr/lib/systemd/system/nmos-live-user-password.service"
+BOOT_PROFILE_SERVICE="${ROOT_DIR}/config/live-build/includes.chroot/usr/lib/systemd/system/nmos-boot-profile.service"
+BOOT_PROFILE_SCRIPT="${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib/nmos/boot_profile.py"
+BOOT_MARKER_SERVICE="${ROOT_DIR}/config/live-build/includes.chroot/usr/lib/systemd/system/nmos-boot-marker.service"
 DISPLAY_MANAGER_DROPIN="${ROOT_DIR}/config/live-build/includes.chroot/etc/systemd/system/display-manager.service.d/nmos-live-user-password.conf"
 GREETER_MAIN="${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/main.py"
 GDM_CLIENT="${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/gdmclient.py"
 GREETER_CLIENT="${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/client.py"
 
-for path in "${HOOK_FILE}" "${MODE_FILE}" "${GREETER_DESKTOP_FILE}" "${POSTLOGIN_FILE}" "${POLICY_FILE}" "${TMPFILES_FILE}" "${LIVE_USER_CONFIG}" "${LIVE_USER_PASSWORD_SERVICE}" "${DISPLAY_MANAGER_DROPIN}" "${GREETER_MAIN}" "${GDM_CLIENT}" "${GREETER_CLIENT}"; do
+for path in "${HOOK_FILE}" "${MODE_FILE}" "${GREETER_DESKTOP_FILE}" "${POSTLOGIN_FILE}" "${POLICY_FILE}" "${TMPFILES_FILE}" "${LIVE_USER_CONFIG}" "${LIVE_USER_PASSWORD_SERVICE}" "${BOOT_PROFILE_SERVICE}" "${BOOT_PROFILE_SCRIPT}" "${BOOT_MARKER_SERVICE}" "${DISPLAY_MANAGER_DROPIN}" "${GREETER_MAIN}" "${GDM_CLIENT}" "${GREETER_CLIENT}"; do
     [ -e "${path}" ] || {
         echo "missing required pre-login asset: ${path}" >&2
         exit 1
@@ -136,13 +139,38 @@ grep -q '/run/nmos/live-user-password' "${GDM_CLIENT}" || {
     exit 1
 }
 
+grep -q 'NMOS_BOOT_MODE' "${BOOT_PROFILE_SCRIPT}" || {
+    echo "boot profile helper does not emit a boot mode marker." >&2
+    exit 1
+}
+
 grep -q 'live-user-password' "${TMPFILES_FILE}" || {
     echo "tmpfiles configuration does not provision the runtime live-user password file." >&2
     exit 1
 }
 
+grep -q 'boot-mode.json' "${TMPFILES_FILE}" || {
+    echo "tmpfiles configuration does not provision the runtime boot mode file." >&2
+    exit 1
+}
+
 grep -q 'nmos-live-user-password.service' "${ENABLE_UNITS_HOOK}" || {
     echo "live user password service is not enabled in the image." >&2
+    exit 1
+}
+
+grep -q 'nmos-boot-profile.service' "${ENABLE_UNITS_HOOK}" || {
+    echo "boot profile service is not enabled in the image." >&2
+    exit 1
+}
+
+grep -q 'Before=nmos-network-bootstrap.service' "${BOOT_PROFILE_SERVICE}" || {
+    echo "boot profile service does not run before network bootstrap." >&2
+    exit 1
+}
+
+grep -q 'After=.*nmos-boot-profile.service' "${BOOT_MARKER_SERVICE}" || {
+    echo "boot marker service does not wait for the boot profile service." >&2
     exit 1
 }
 

@@ -41,6 +41,7 @@ EOF
     fi
     chmod +x "${WORK_DIR}/auto/config" "${WORK_DIR}/auto/build"
     find "${WORK_DIR}/config/hooks/live" -type f -name "*.hook.chroot" -exec chmod +x {} +
+    find "${WORK_DIR}/config/hooks/live" -type f -name "*.hook.binary" -exec chmod +x {} +
     if [ -d "${WORK_DIR}/config/includes.chroot/usr/local/bin" ]; then
         find "${WORK_DIR}/config/includes.chroot/usr/local/bin" -type f -exec chmod +x {} +
     fi

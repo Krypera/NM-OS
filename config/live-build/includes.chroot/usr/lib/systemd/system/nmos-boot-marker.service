@@ -1,6 +1,7 @@
 [Unit]
 Description=NM-OS boot marker
-After=local-fs.target systemd-user-sessions.service
+After=local-fs.target systemd-user-sessions.service nmos-boot-profile.service
+Wants=nmos-boot-profile.service
 
 [Service]
 Type=oneshot

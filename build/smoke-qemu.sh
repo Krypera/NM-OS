@@ -52,6 +52,11 @@ grep -q "NMOS_BOOT_OK" "${LOG_FILE}" || {
     exit 1
 }
 
+grep -q "NMOS_BOOT_MODE" "${LOG_FILE}" || {
+    echo "boot mode marker was not observed in QEMU output." >&2
+    exit 1
+}
+
 grep -q "NMOS_NETWORK_READY" "${LOG_FILE}" || {
     echo "network ready marker was not observed in QEMU output." >&2
     exit 1

@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from nmos_common.network_status import normalize_network_status, parse_bootstrap_status
+from nmos_common.boot_mode import BOOT_MODE_FILE, load_boot_mode_profile
+from nmos_common.network_status import normalize_network_status
 
 DBUS_NAME = "org.nmos.PersistentStorage"
 DBUS_PATH = "/org/nmos/PersistentStorage"
@@ -49,7 +50,15 @@ class PersistenceClient:
 
 def read_network_status() -> dict:
     if NETWORK_READY_FILE.exists():
-        return {"ready": True, "progress": 100, "summary": "Tor is ready", "last_error": ""}
+        return normalize_network_status(
+            {
+                "ready": True,
+                "progress": 100,
+                "phase": "ready",
+                "summary": "Tor is ready",
+                "last_error": "",
+            }
+        )
 
     if NETWORK_STATUS_FILE.exists():
         try:
@@ -58,3 +67,7 @@ def read_network_status() -> dict:
             return normalize_network_status({"last_error": str(exc)})
 
     return normalize_network_status({})
+
+
+def read_boot_mode_profile() -> dict:
+    return load_boot_mode_profile(BOOT_MODE_FILE)
