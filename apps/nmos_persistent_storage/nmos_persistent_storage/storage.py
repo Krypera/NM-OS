@@ -15,7 +15,7 @@ MOUNT_POINT = Path("/live/persistence/nmos-data")
 PARTLABEL = "NMOS_PERSIST"
 MIN_CREATE_BYTES = 1024 * 1024 * 1024
 ALIGNMENT_BYTES = 1024 * 1024
-SUPPORTED_PARTITION_LABELS = {"dos", "gpt"}
+SUPPORTED_PARTITION_LABELS = {"gpt"}
 
 
 class StorageError(RuntimeError):
@@ -79,13 +79,20 @@ class PersistentStorageManager:
         RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
 
     def run(self, *args: str, input_text: str | None = None) -> str:
-        proc = subprocess.run(
-            args,
-            check=True,
-            text=True,
-            input=input_text,
-            capture_output=True,
-        )
+        try:
+            proc = subprocess.run(
+                args,
+                check=True,
+                text=True,
+                input=input_text,
+                capture_output=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            stderr = str(exc.stderr or "").strip()
+            stdout = str(exc.stdout or "").strip()
+            detail = stderr or stdout or str(exc)
+            command = " ".join(args)
+            raise StorageError(f"command failed ({command}): {detail}") from exc
         return proc.stdout.strip()
 
     def is_true(self, value: object) -> bool:
@@ -146,7 +153,10 @@ class PersistentStorageManager:
             raise StorageError(f"unable to read boot USB partition table: {exc}") from exc
 
         table = data.get("partitiontable", {})
-        sector_size = int(table.get("sectorsize") or self.run("blockdev", "--getss", disk))
+        try:
+            sector_size = int(table.get("sectorsize") or self.run("blockdev", "--getss", disk))
+        except (TypeError, ValueError) as exc:
+            raise StorageError("invalid sector size in boot USB partition table", reason="unsupported_layout") from exc
         label = str(table.get("label", "")).lower()
         if not partition_table_label_is_supported(label):
             raise StorageError(
@@ -156,8 +166,11 @@ class PersistentStorageManager:
         partitions = []
         for item in table.get("partitions", []) or []:
             node = item.get("node", "")
-            start_sectors = int(item.get("start", 0))
-            size_sectors = int(item.get("size", 0))
+            try:
+                start_sectors = int(item.get("start", 0))
+                size_sectors = int(item.get("size", 0))
+            except (TypeError, ValueError) as exc:
+                raise StorageError("invalid boot USB partition offsets", reason="unsupported_layout") from exc
             partitions.append(
                 {
                     "path": node,
@@ -167,15 +180,23 @@ class PersistentStorageManager:
                 }
             )
 
+        try:
+            device_size = int(self.run("blockdev", "--getsize64", disk))
+        except (TypeError, ValueError) as exc:
+            raise StorageError("unable to read boot USB size", reason="backend_error") from exc
+
         return {
-            "device_size_bytes": int(self.run("blockdev", "--getsize64", disk)),
+            "device_size_bytes": device_size,
             "sector_size": sector_size,
             "label": label,
             "partitions": partitions,
         }
 
     def partition_belongs_to_disk(self, candidate: str, disk: str) -> bool:
-        parent = self.run("lsblk", "-ndo", "PKNAME", candidate).strip()
+        try:
+            parent = self.run("lsblk", "-ndo", "PKNAME", candidate).strip()
+        except Exception:
+            return False
         if not parent:
             return candidate == disk
         return f"/dev/{parent}" == disk
@@ -201,7 +222,7 @@ class PersistentStorageManager:
         except StorageError as exc:
             return {
                 "created": False,
-                "boot_device_supported": exc.reason != "unsupported_boot_device",
+                "boot_device_supported": False,
                 "can_create": False,
                 "reason": exc.reason,
                 "device": "",
@@ -327,7 +348,17 @@ class PersistentStorageManager:
         return state
 
     def get_state(self, include_cached_error: bool = False) -> dict:
-        details = self.describe_persistence()
+        try:
+            details = self.describe_persistence()
+        except Exception as exc:
+            details = {
+                "created": False,
+                "boot_device_supported": False,
+                "can_create": False,
+                "reason": "backend_error",
+                "device": "",
+                "detail_error": str(exc),
+            }
         detail_error = details.get("detail_error", "")
         last_error = detail_error
         if not detail_error and include_cached_error:
@@ -345,7 +376,12 @@ class PersistentStorageManager:
             "reason": details.get("reason", "backend_error"),
             "device": details.get("device", ""),
         }
-        return self.dump_state(state)
+        try:
+            return self.dump_state(state)
+        except OSError as exc:
+            state["last_error"] = state["last_error"] or f"state_write_failed: {exc}"
+            state["healthy"] = False
+            return state
 
     def cleanup_failed_create(
         self,

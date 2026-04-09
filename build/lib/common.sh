@@ -41,8 +41,12 @@ EOF
     fi
     chmod +x "${WORK_DIR}/auto/config" "${WORK_DIR}/auto/build"
     find "${WORK_DIR}/config/hooks/live" -type f -name "*.hook.chroot" -exec chmod +x {} +
-    find "${WORK_DIR}/config/includes.chroot/usr/local/bin" -type f -exec chmod +x {} +
-    find "${WORK_DIR}/config/includes.chroot/usr/local/lib/nmos" -type f -name "*.py" -exec chmod +x {} +
+    if [ -d "${WORK_DIR}/config/includes.chroot/usr/local/bin" ]; then
+        find "${WORK_DIR}/config/includes.chroot/usr/local/bin" -type f -exec chmod +x {} +
+    fi
+    if [ -d "${WORK_DIR}/config/includes.chroot/usr/local/lib/nmos" ]; then
+        find "${WORK_DIR}/config/includes.chroot/usr/local/lib/nmos" -type f -name "*.py" -exec chmod +x {} +
+    fi
     if [ -d "${WORK_DIR}/config/includes.chroot/etc/gdm3/PostLogin" ]; then
         find "${WORK_DIR}/config/includes.chroot/etc/gdm3/PostLogin" -type f -exec chmod +x {} +
     fi

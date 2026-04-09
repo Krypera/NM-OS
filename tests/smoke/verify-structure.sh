@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 REQUIRED=(
+    "${ROOT_DIR}/.gitattributes"
     "${ROOT_DIR}/README.md"
     "${ROOT_DIR}/COPYING"
     "${ROOT_DIR}/LICENSE"
@@ -29,14 +30,17 @@ REQUIRED=(
     "${ROOT_DIR}/docs/windows-wsl.md"
     "${ROOT_DIR}/docs/usb-boot-checklist.md"
     "${ROOT_DIR}/tests/smoke/verify-build-hygiene.sh"
+    "${ROOT_DIR}/tests/smoke/verify-brave-optional.sh"
     "${ROOT_DIR}/tests/smoke/verify-disk-safety.sh"
     "${ROOT_DIR}/tests/smoke/verify-greeter-state.sh"
     "${ROOT_DIR}/tests/smoke/verify-live-login-config.sh"
     "${ROOT_DIR}/tests/smoke/verify-network-gate-transition.sh"
+    "${ROOT_DIR}/tests/smoke/verify-network-status-normalization.sh"
     "${ROOT_DIR}/tests/smoke/verify-persistence-state-machine.sh"
     "${ROOT_DIR}/tests/smoke/verify-prelogin-wiring.sh"
     "${ROOT_DIR}/tests/smoke/verify-runtime-logic.sh"
     "${ROOT_DIR}/hooks/live/040-configure-gdm-session.hook.chroot"
+    "${ROOT_DIR}/hooks/optional/050-install-brave-browser.hook.chroot"
 )
 
 for path in "${REQUIRED[@]}"; do
@@ -45,5 +49,17 @@ for path in "${REQUIRED[@]}"; do
         exit 1
     }
 done
+
+command -v git >/dev/null 2>&1 || {
+    echo "missing required command: git" >&2
+    exit 1
+}
+
+CLEAN_ROOM_PATTERN='^(ta'"'"'ils-stable|upstream|private)/'
+
+if git -C "${ROOT_DIR}" ls-files | grep -Eq "${CLEAN_ROOM_PATTERN}"; then
+    echo "tracked files found under clean-room excluded directories." >&2
+    exit 1
+fi
 
 echo "Repository structure looks complete."

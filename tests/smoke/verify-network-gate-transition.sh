@@ -15,6 +15,11 @@ grep -q "def remove_firewall_gate" "${BOOTSTRAP_FILE}" || {
     exit 1
 }
 
+grep -q "def nft_table_exists" "${BOOTSTRAP_FILE}" || {
+    echo "network bootstrap does not verify whether the temporary nftables table still exists." >&2
+    exit 1
+}
+
 grep -q "remove_firewall_gate()" "${BOOTSTRAP_FILE}" || {
     echo "network bootstrap never removes the temporary firewall gate." >&2
     exit 1

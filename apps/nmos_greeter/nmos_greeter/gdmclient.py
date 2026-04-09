@@ -119,9 +119,14 @@ class GdmLoginClient:
 
     def _on_session_opened(self, _client, service_name: str, _unused) -> None:
         self.session_opened = True
+        try:
+            self.greeter.call_start_session_when_ready_sync(service_name, True, None)
+        except Exception as exc:
+            self.session_opened = False
+            self._report_problem(f"GDM could not start the live session: {exc}")
+            return
         if self.session_opened_cb is not None:
             self.session_opened_cb()
-        self.greeter.call_start_session_when_ready_sync(service_name, True, None)
 
     def _on_timed_login_requested(self, _client, user_name: str, seconds: int) -> None:
         self._report_problem(
@@ -129,6 +134,10 @@ class GdmLoginClient:
         )
 
     def start_session(self) -> None:
+        if not self.username:
+            raise RuntimeError("live username is missing")
+        if not self.password:
+            raise RuntimeError("live password is missing")
         self.last_problem = ""
         self.verification_complete = False
         self.session_opened = False

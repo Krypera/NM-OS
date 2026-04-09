@@ -15,8 +15,11 @@ AUTO_CONFIG_FILE="${ROOT_DIR}/config/live-build/auto/config"
 LIVE_USER_CONFIG="${ROOT_DIR}/config/live-build/includes.chroot/etc/nmos/live-user.conf"
 LIVE_USER_PASSWORD_SERVICE="${ROOT_DIR}/config/live-build/includes.chroot/usr/lib/systemd/system/nmos-live-user-password.service"
 DISPLAY_MANAGER_DROPIN="${ROOT_DIR}/config/live-build/includes.chroot/etc/systemd/system/display-manager.service.d/nmos-live-user-password.conf"
+GREETER_MAIN="${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/main.py"
+GDM_CLIENT="${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/gdmclient.py"
+GREETER_CLIENT="${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/client.py"
 
-for path in "${HOOK_FILE}" "${MODE_FILE}" "${GREETER_DESKTOP_FILE}" "${POSTLOGIN_FILE}" "${POLICY_FILE}" "${TMPFILES_FILE}" "${LIVE_USER_CONFIG}" "${LIVE_USER_PASSWORD_SERVICE}" "${DISPLAY_MANAGER_DROPIN}"; do
+for path in "${HOOK_FILE}" "${MODE_FILE}" "${GREETER_DESKTOP_FILE}" "${POSTLOGIN_FILE}" "${POLICY_FILE}" "${TMPFILES_FILE}" "${LIVE_USER_CONFIG}" "${LIVE_USER_PASSWORD_SERVICE}" "${DISPLAY_MANAGER_DROPIN}" "${GREETER_MAIN}" "${GDM_CLIENT}" "${GREETER_CLIENT}"; do
     [ -e "${path}" ] || {
         echo "missing required pre-login asset: ${path}" >&2
         exit 1
@@ -28,8 +31,28 @@ grep -q 'gdm-shell-nmos' "${HOOK_FILE}" || {
     exit 1
 }
 
+grep -q '"isGreeter": true' "${MODE_FILE}" || {
+    echo "Custom GNOME shell mode is not marked as a greeter session." >&2
+    exit 1
+}
+
 grep -q 'Debian-gdm' "${POLICY_FILE}" || {
     echo "D-Bus policy does not grant Debian-gdm access to the persistence backend." >&2
+    exit 1
+}
+
+grep -q 'context="default"' "${POLICY_FILE}" || {
+    echo "D-Bus policy does not define a default deny policy for org.nmos.PersistentStorage." >&2
+    exit 1
+}
+
+grep -q 'deny send_destination="org.nmos.PersistentStorage"' "${POLICY_FILE}" || {
+    echo "D-Bus policy does not block non-whitelisted users from the persistence backend." >&2
+    exit 1
+}
+
+grep -q 'send_interface="org.nmos.PersistentStorage"' "${POLICY_FILE}" || {
+    echo "D-Bus policy does not restrict Debian-gdm calls to the NM-OS persistence interface." >&2
     exit 1
 }
 
@@ -45,6 +68,36 @@ grep -q 'localectl set-x11-keymap' "${POSTLOGIN_FILE}" || {
 
 grep -q '^Exec=/usr/local/bin/nmos-greeter$' "${GREETER_DESKTOP_FILE}" || {
     echo "GDM greeter desktop entry does not launch /usr/local/bin/nmos-greeter." >&2
+    exit 1
+}
+
+grep -q 'if self.persistence_state.get("busy")' "${GREETER_MAIN}" || {
+    echo "Greeter finish flow does not block session start during active persistence operations." >&2
+    exit 1
+}
+
+grep -q 'self.persistence_password.set_text("")' "${GREETER_MAIN}" || {
+    echo "Greeter does not clear persistence passphrases after persistence actions." >&2
+    exit 1
+}
+
+grep -q 'self.session_start_in_progress = True' "${GREETER_MAIN}" || {
+    echo "Greeter does not mark the live session start flow as in-progress before handing off to GDM." >&2
+    exit 1
+}
+
+grep -q 'if self.session_start_in_progress:' "${GREETER_MAIN}" || {
+    echo "Greeter runtime polling does not pause while the live session handoff is in progress." >&2
+    exit 1
+}
+
+grep -q 'GDM could not start the live session' "${GDM_CLIENT}" || {
+    echo "GDM client does not report session start failures from call_start_session_when_ready_sync." >&2
+    exit 1
+}
+
+grep -q 'introspect=False' "${GREETER_CLIENT}" || {
+    echo "Greeter D-Bus client does not disable runtime introspection for the persistence backend." >&2
     exit 1
 }
 

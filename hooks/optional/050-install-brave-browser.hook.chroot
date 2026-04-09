@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+
+install -d /etc/apt/keyrings
+curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg \
+    -o /etc/apt/keyrings/brave-browser-archive-keyring.gpg
+
+cat > /etc/apt/sources.list.d/brave-browser-release.list <<'EOF'
+deb [signed-by=/etc/apt/keyrings/brave-browser-archive-keyring.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main
+EOF
+
+apt-get update
+apt-get install -y --no-install-recommends brave-browser
+
+install -d /etc/nmos/features
+cat > /etc/nmos/features/brave <<'EOF'
+enabled=true
+privacy_mode=optional
+anonymity_warning=Brave is privacy-focused but not equivalent to Tor Browser anonymity.
+EOF

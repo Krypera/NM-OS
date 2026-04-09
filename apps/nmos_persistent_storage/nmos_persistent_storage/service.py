@@ -19,9 +19,8 @@ class PersistentStorageService(dbus.service.Object):
         try:
             return callback(*args)
         except Exception as exc:
-            if not self.manager.last_error:
-                self.manager.last_error = str(exc)
-            return self.manager.get_state()
+            self.manager.last_error = str(exc)
+            return self.manager.get_state(include_cached_error=True)
 
     @dbus.service.method(DBUS_INTERFACE, in_signature="", out_signature="a{sv}")
     def GetState(self) -> dict:

@@ -17,9 +17,12 @@ def load_state() -> dict:
     if not raw:
         return {}
     try:
-        return json.loads(raw)
+        data = json.loads(raw)
     except json.JSONDecodeError:
         return {}
+    if not isinstance(data, dict):
+        return {}
+    return data
 
 
 def save_state(state: dict) -> None:

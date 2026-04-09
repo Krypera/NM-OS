@@ -34,6 +34,13 @@ For Windows development, use WSL2 and the PowerShell wrappers in `build/`.
 .\build\build.ps1
 ```
 
+Optional Brave build (privacy-focused, not equivalent to Tor Browser
+anonymity):
+
+```powershell
+.\build\build.ps1 -EnableBrave
+```
+
 The build produces:
 
 - `dist/nmos-amd64-<version>.img`
@@ -44,8 +51,8 @@ The build produces:
 
 The `.img` file is the primary artifact for writing a USB stick from Windows.
 It is published as an `iso-hybrid` raw image, so the persistence backend fails
-closed unless the boot USB exposes a writable GPT or DOS partition table with
-safe trailing free space.
+closed unless the boot USB exposes a writable GPT partition table with safe
+trailing free space.
 
 ## Smoke checks
 
@@ -53,9 +60,11 @@ safe trailing free space.
 ./tests/smoke/verify-structure.sh
 ./tests/smoke/verify-python.sh
 ./tests/smoke/verify-build-hygiene.sh
+./tests/smoke/verify-brave-optional.sh
 ./tests/smoke/verify-greeter-state.sh
 ./tests/smoke/verify-live-login-config.sh
 ./tests/smoke/verify-network-gate-transition.sh
+./tests/smoke/verify-network-status-normalization.sh
 ./tests/smoke/verify-prelogin-wiring.sh
 ./tests/smoke/verify-persistence-state-machine.sh
 ./tests/smoke/verify-runtime-logic.sh

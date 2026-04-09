@@ -16,7 +16,7 @@ The alpha image is configured to avoid mounting internal disks automatically.
 - GNOME media automount is disabled
 - internal non-USB block devices are hidden from UDisks by default
 - persistence is created on the boot USB device only
-- automatic persistence creation is only allowed on writable GPT or DOS USB layouts
+- automatic persistence creation is only allowed on writable GPT USB layouts
 
 This is meant to reduce accidental writes to the internal Windows disk during a
 live session.
@@ -70,3 +70,11 @@ Methods:
 The storage backend is designed for a single LUKS2 volume mounted at:
 
 - `/live/persistence/nmos-data`
+
+## Optional Brave support
+
+NM-OS can optionally include Brave Browser at build time.
+
+- this is disabled by default
+- this is intended as a privacy-focused browser option
+- this is not equivalent to Tor Browser anonymity guarantees

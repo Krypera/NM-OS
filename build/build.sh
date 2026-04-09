@@ -19,6 +19,24 @@ require_cmd cp
 "${ROOT_DIR}/build/verify-no-leaks.sh"
 stage_live_build_tree
 
+ENABLED_FEATURES=()
+if [ "${NMOS_ENABLE_BRAVE:-0}" = "1" ]; then
+    OPTIONAL_BRAVE_HOOK_SOURCE="${ROOT_DIR}/hooks/optional/050-install-brave-browser.hook.chroot"
+    OPTIONAL_BRAVE_HOOK_TARGET="${WORK_DIR}/config/hooks/live/050-install-brave-browser.hook.chroot"
+    [ -f "${OPTIONAL_BRAVE_HOOK_SOURCE}" ] || {
+        echo "missing optional Brave hook: ${OPTIONAL_BRAVE_HOOK_SOURCE}" >&2
+        exit 1
+    }
+    cp "${OPTIONAL_BRAVE_HOOK_SOURCE}" "${OPTIONAL_BRAVE_HOOK_TARGET}"
+    chmod +x "${OPTIONAL_BRAVE_HOOK_TARGET}"
+    ENABLED_FEATURES+=("brave")
+fi
+
+FEATURES_VALUE="none"
+if [ "${#ENABLED_FEATURES[@]}" -gt 0 ]; then
+    FEATURES_VALUE="$(IFS=,; echo "${ENABLED_FEATURES[*]}")"
+fi
+
 pushd "${WORK_DIR}" >/dev/null
 lb clean --purge || true
 ./auto/config
@@ -56,6 +74,7 @@ iso=${ISO_NAME}
 build_host=$(hostname)
 built_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 source_repo=https://github.com/Krypera/NM-OS.git
+features=${FEATURES_VALUE}
 EOF
 
 "${ROOT_DIR}/build/verify-artifacts.sh"

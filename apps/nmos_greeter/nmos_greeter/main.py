@@ -18,19 +18,25 @@ class GreeterWindow(Adw.ApplicationWindow):
 
         self.state = load_state()
         self.network_status = {"ready": False, "progress": 0, "summary": "Waiting for Tor", "last_error": ""}
+        self.persistence_state: dict = {}
+        self.persistence_init_error = ""
         try:
             self.persistence = PersistenceClient()
-        except Exception:
+        except Exception as exc:
             self.persistence = None
+            self.persistence_init_error = str(exc)
+        self.gdm_init_error = ""
         try:
             self.gdm_client = GdmLoginClient(
                 session_opened_cb=self.on_session_opened,
                 problem_cb=self.on_session_problem,
             )
-        except Exception:
+        except Exception as exc:
             self.gdm_client = None
+            self.gdm_init_error = str(exc)
         self.page_index = 0
         self.session_start_timeout_id = 0
+        self.session_start_in_progress = False
         self.pages: list[Gtk.Widget] = []
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
@@ -161,7 +167,13 @@ class GreeterWindow(Adw.ApplicationWindow):
 
     def current_string(self, dropdown: Gtk.DropDown) -> str:
         model = dropdown.get_model()
-        return model.get_string(dropdown.get_selected())
+        selected = dropdown.get_selected()
+        if selected == Gtk.INVALID_LIST_POSITION or selected >= model.get_n_items():
+            if model.get_n_items() == 0:
+                return ""
+            dropdown.set_selected(0)
+            selected = 0
+        return model.get_string(selected)
 
     def set_status(self, text: str) -> None:
         self.session_status.set_text(text)
@@ -180,6 +192,8 @@ class GreeterWindow(Adw.ApplicationWindow):
         return bool(self.network_status.get("ready")) or self.can_bypass_network()
 
     def can_finish(self) -> bool:
+        if self.persistence_state.get("busy"):
+            return False
         return self.can_advance_from_network()
 
     def refresh_network(self) -> None:
@@ -200,17 +214,26 @@ class GreeterWindow(Adw.ApplicationWindow):
 
     def refresh_persistence(self) -> None:
         if self.persistence is None:
-            self.persistence_label.set_text("Persistence backend unavailable.")
+            self.persistence_state = {}
+            if self.persistence_init_error:
+                self.persistence_label.set_text(f"Persistence backend unavailable: {self.persistence_init_error}")
+            else:
+                self.persistence_label.set_text("Persistence backend unavailable.")
             self.update_persistence_actions({})
+            self.update_navigation()
             return
         try:
             state = self.persistence.get_state()
         except Exception as exc:
+            self.persistence_state = {}
             self.persistence_label.set_text(f"Persistence backend unavailable: {exc}")
             self.update_persistence_actions({})
+            self.update_navigation()
             return
+        self.persistence_state = dict(state)
         self.persistence_label.set_text(self.render_persistence_state(state))
         self.update_persistence_actions(state)
+        self.update_navigation()
 
     def render_persistence_state(self, state: dict) -> str:
         created = state.get("created", False)
@@ -329,8 +352,11 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.handle_persistence_response("repair", response)
 
     def handle_persistence_response(self, action: str, response: dict) -> None:
+        self.persistence_state = dict(response)
         self.persistence_label.set_text(self.render_persistence_state(response))
         self.update_persistence_actions(response)
+        self.persistence_password.set_text("")
+        self.update_navigation()
         if response.get("last_error"):
             self.set_status(f"Persistence {action} failed: {response['last_error']}")
             return
@@ -362,14 +388,19 @@ class GreeterWindow(Adw.ApplicationWindow):
             self.set_status(f"Failed to save greeter state: {exc}")
             return
         if self.gdm_client is None:
-            self.set_status("Greeter state saved, but GDM session control is unavailable.")
+            if self.gdm_init_error:
+                self.set_status(f"GDM session control is unavailable: {self.gdm_init_error}")
+            else:
+                self.set_status("Greeter state saved, but GDM session control is unavailable.")
             return
+        self.session_start_in_progress = True
         self.set_sensitive(False)
         self.set_status("Starting the live session...")
         self.arm_session_start_timeout()
         try:
             self.gdm_client.start_session()
         except Exception as exc:
+            self.session_start_in_progress = False
             self.clear_session_start_timeout()
             self.set_sensitive(True)
             self.set_status(f"Failed to start the live session: {exc}")
@@ -385,6 +416,8 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.finish_button.set_sensitive(self.can_finish())
 
     def poll_runtime(self) -> bool:
+        if self.session_start_in_progress:
+            return True
         self.refresh_network()
         self.refresh_persistence()
         return True
@@ -400,15 +433,18 @@ class GreeterWindow(Adw.ApplicationWindow):
 
     def on_session_start_timeout(self) -> bool:
         self.session_start_timeout_id = 0
+        self.session_start_in_progress = False
         self.set_sensitive(True)
         self.set_status("Live session start timed out.")
         return GLib.SOURCE_REMOVE
 
     def on_session_opened(self) -> None:
+        self.session_start_in_progress = False
         self.clear_session_start_timeout()
         self.close()
 
     def on_session_problem(self, problem: str) -> None:
+        self.session_start_in_progress = False
         self.clear_session_start_timeout()
         self.set_sensitive(True)
         self.set_status(f"Live session start failed: {problem}")

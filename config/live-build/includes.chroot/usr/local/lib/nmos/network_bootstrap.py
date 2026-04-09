@@ -48,6 +48,7 @@ def parse_bootstrap_status(status: str) -> tuple[int, str]:
     progress_match = re.search(r"PROGRESS=(\d+)", status)
     summary_match = re.search(r'SUMMARY="([^"]+)"', status)
     progress = int(progress_match.group(1)) if progress_match else 0
+    progress = max(0, min(100, progress))
     summary = summary_match.group(1) if summary_match else "Bootstrapping Tor"
     return progress, summary
 
@@ -79,10 +80,31 @@ table inet nmosfilter {{
     subprocess.run(["nft", "-f", "-"], input=rules, text=True, check=True)
 
 
+def nft_table_exists() -> bool:
+    return (
+        subprocess.run(
+            ["nft", "list", "table", "inet", "nmosfilter"],
+            check=False,
+            capture_output=True,
+            text=True,
+        ).returncode
+        == 0
+    )
+
+
 def remove_firewall_gate() -> None:
     # The bootstrap gate is only intended to block user traffic until Tor is
     # ready. Remove the temporary table once readiness is reached.
-    subprocess.run(["nft", "delete", "table", "inet", "nmosfilter"], check=False)
+    if not nft_table_exists():
+        return
+    subprocess.run(
+        ["nft", "delete", "table", "inet", "nmosfilter"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if nft_table_exists():
+        raise RuntimeError("failed to remove temporary network bootstrap firewall table")
 
 
 def wait_for_tor() -> None:

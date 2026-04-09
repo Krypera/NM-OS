@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-NMOS_ROOT="${ROOT_DIR}" python3 - <<'PY'
+PYTHONDONTWRITEBYTECODE=1 NMOS_ROOT="${ROOT_DIR}" python3 - <<'PY'
 import importlib.util
 import os
 import tempfile
@@ -26,6 +26,8 @@ with tempfile.TemporaryDirectory() as tmp:
     assert saved["locale"] == "tr_TR.UTF-8"
     assert saved["keyboard"] == "tr"
     assert saved["allow_offline"] is True
+    state_file.write_text('["unexpected", "array"]', encoding="utf-8")
+    assert module.load_state() == {}
     module.clear_state()
     assert module.load_state() == {}
 

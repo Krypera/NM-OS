@@ -1,6 +1,6 @@
 {
     "hasNotifications": true,
-    "isGreeter": false,
+    "isGreeter": true,
     "isPrimary": true,
     "unlockDialog": null,
     "isLocked": true,
