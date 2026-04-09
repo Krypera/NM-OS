@@ -1,23 +1,5 @@
 # NM-OS
 
-<p align="center">
-  <img src="docs/assets/nmos-banner.svg" alt="NM-OS banner" width="100%">
-</p>
-
-<p align="center">
-  Tor-first, Debian-based live operating system focused on private sessions,
-  controlled persistence, and a small, auditable runtime.
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/status-alpha-C46F1A?style=for-the-badge" alt="Alpha status">
-  <img src="https://img.shields.io/badge/license-GPL--3.0--or--later-2563EB?style=for-the-badge" alt="GPL-3.0-or-later">
-  <img src="https://img.shields.io/badge/base-Debian%20Trixie-A81D33?style=for-the-badge" alt="Debian Trixie">
-  <img src="https://img.shields.io/badge/network-Tor--first-0F766E?style=for-the-badge" alt="Tor-first">
-  <img src="https://img.shields.io/badge/workflow-Windows%20%2B%20WSL2-1D4ED8?style=for-the-badge" alt="Windows plus WSL2">
-  <img src="https://img.shields.io/badge/arch-amd64-111827?style=for-the-badge" alt="amd64">
-</p>
-
 ## Overview
 
 NM-OS is being built as a USB-booted live operating system with a privacy-first
