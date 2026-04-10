@@ -299,7 +299,7 @@ assert 'return self._call("Unlock", passphrase)' in client_source
 assert 'return self._call("Lock")' in client_source
 assert 'return self._call("Repair")' in client_source
 assert 'return ["persistence", "language", "keyboard", "network"]' in main_source
-assert "Mode: {self.mode_title()}" in main_source
+assert "Mode: {mode} - {description}" in main_source
 
 print("runtime logic checks passed")
 PY
