@@ -12,6 +12,7 @@ persistence that fails closed on unsupported layouts.
 - [Windows + WSL2 workflow](docs/windows-wsl.md)
 - [Build notes](docs/build.md)
 - [Runtime notes](docs/runtime.md)
+- [Security profiles](docs/security-profiles.md)
 - [USB boot checklist](docs/usb-boot-checklist.md)
 
 ## Alpha Focus
@@ -147,6 +148,7 @@ Before a build:
 ./tests/smoke/verify-structure.sh
 ./tests/smoke/verify-python.sh
 ./tests/smoke/verify-build-hygiene.sh
+./tests/smoke/verify-version-policy.sh
 ./tests/smoke/verify-boot-modes.sh
 ./tests/smoke/verify-brave-optional.sh
 ./tests/smoke/verify-greeter-state.sh

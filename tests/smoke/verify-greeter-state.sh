@@ -12,10 +12,15 @@ from pathlib import Path
 
 root = Path(os.environ["NMOS_ROOT"])
 path = root / "apps" / "nmos_greeter" / "nmos_greeter" / "state.py"
+source = path.read_text(encoding="utf-8")
 spec = importlib.util.spec_from_file_location("nmos_state", path)
 module = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
 spec.loader.exec_module(module)
+
+assert "ensure_state_path_safe" in source
+assert "write_state_payload" in source
+assert "STATE_FILE_MODE = 0o660" in source
 
 with tempfile.TemporaryDirectory() as tmp:
     state_file = Path(tmp) / "greeter-state.json"

@@ -9,12 +9,26 @@ DIST_DIR="${ROOT_DIR}/dist"
 LIVE_BUILD_SOURCE="${ROOT_DIR}/config/live-build"
 HOOKS_SOURCE="${ROOT_DIR}/hooks/live"
 APPS_SOURCE="${ROOT_DIR}/apps"
+VERSION_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$'
 
 require_cmd() {
     command -v "$1" >/dev/null 2>&1 || {
         echo "missing required command: $1" >&2
         exit 1
     }
+}
+
+validate_version_format() {
+    local value="${1:-${VERSION}}"
+    if [[ -z "${value}" ]]; then
+        echo "config/version is empty." >&2
+        exit 1
+    fi
+    if [[ ! "${value}" =~ ${VERSION_PATTERN} ]]; then
+        echo "config/version has unsupported format: ${value}" >&2
+        echo "expected format: MAJOR.MINOR.PATCH[-prerelease[.tag]]" >&2
+        exit 1
+    fi
 }
 
 prepare_directories() {

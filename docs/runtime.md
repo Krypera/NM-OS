@@ -62,6 +62,8 @@ and failure information.
   disabled status phase in `/run/nmos/network-status.json`.
 - invalid or missing `nmos.mode` values fail closed to `strict`.
 
+Profile intent and limits are documented in [security-profiles.md](security-profiles.md).
+
 ## Persistence
 
 The persistence backend is exposed on the system bus as:

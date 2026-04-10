@@ -15,6 +15,7 @@ require_cmd lb
 require_cmd sha256sum
 require_cmd grep
 require_cmd cp
+validate_version_format "${VERSION}"
 
 "${ROOT_DIR}/build/verify-no-leaks.sh"
 stage_live_build_tree

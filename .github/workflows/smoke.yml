@@ -26,6 +26,7 @@ jobs:
           bash ./tests/smoke/verify-structure.sh
           bash ./tests/smoke/verify-python.sh
           bash ./tests/smoke/verify-build-hygiene.sh
+          bash ./tests/smoke/verify-version-policy.sh
           bash ./tests/smoke/verify-boot-modes.sh
           bash ./tests/smoke/verify-brave-optional.sh
           bash ./tests/smoke/verify-greeter-state.sh
