@@ -130,6 +130,8 @@ with tempfile.TemporaryDirectory() as tmp:
     def fake_subprocess_run(args, check=False, capture_output=False, text=False, **kwargs):
         if args[:2] == ["mountpoint", "-q"]:
             return SimpleNamespace(returncode=0 if mount_state["mounted"] else 1, stdout="", stderr="")
+        if args and args[0] == "fsck.ext4" and "-n" in args:
+            return SimpleNamespace(returncode=4, stdout="filesystem needs repair", stderr="")
         return original_subprocess_run(args, check=check, capture_output=capture_output, text=text, **kwargs)
 
     def fake_run(*args, input_text=None):

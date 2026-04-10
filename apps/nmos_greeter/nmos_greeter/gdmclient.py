@@ -103,6 +103,11 @@ class GdmLoginClient:
         self.user_verifier.connect("reset", self._on_reset)
         self.user_verifier.connect("verification-complete", self._on_verification_complete)
 
+    def _reset_verification_state(self) -> None:
+        self.last_problem = ""
+        self.verification_complete = False
+        self.session_opened = False
+
     def _report_problem(self, message: str) -> None:
         if not message:
             return
@@ -151,14 +156,40 @@ class GdmLoginClient:
             f"Unexpected timed login request for {user_name} in {seconds} seconds while NM-OS welcome flow is active."
         )
 
+    def _best_effort_cancel_verification(self) -> None:
+        cancel_attempts = [
+            ("call_cancel_sync", (None,)),
+            ("call_cancel", (None, None, None)),
+            ("cancel_sync", (None,)),
+            ("cancel", ()),
+        ]
+        for method_name, args in cancel_attempts:
+            method = getattr(self.user_verifier, method_name, None)
+            if not callable(method):
+                continue
+            try:
+                method(*args)
+                return
+            except TypeError:
+                try:
+                    method()
+                    return
+                except Exception:
+                    continue
+            except Exception:
+                continue
+
+    def cancel_pending_login(self) -> None:
+        self._best_effort_cancel_verification()
+        self._reset_verification_state()
+
     def start_session(self) -> None:
+        self.username, self.password = live_credentials()
         if not self.username:
             raise RuntimeError("live username is missing")
         if not self.password:
             raise RuntimeError("live password is missing")
-        self.last_problem = ""
-        self.verification_complete = False
-        self.session_opened = False
+        self._reset_verification_state()
         self.user_verifier.call_begin_verification_for_user_sync(
             "gdm-password",
             self.username,

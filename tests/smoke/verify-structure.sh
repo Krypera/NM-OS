@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 REQUIRED=(
     "${ROOT_DIR}/.gitattributes"
+    "${ROOT_DIR}/.github/workflows/smoke.yml"
     "${ROOT_DIR}/README.md"
     "${ROOT_DIR}/COPYING"
     "${ROOT_DIR}/LICENSE"
@@ -26,6 +27,7 @@ REQUIRED=(
     "${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib/nmos/ensure_live_user_password.py"
     "${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib/nmos/boot_profile.py"
     "${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib/nmos/desktop_mode.py"
+    "${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib/nmos/brave_policy.py"
     "${ROOT_DIR}/config/live-build/includes.chroot/usr/share/gdm/greeter/applications/nmos-greeter.desktop"
     "${ROOT_DIR}/config/live-build/includes.chroot/usr/share/gnome-shell/modes/gdm-nmos.json"
     "${ROOT_DIR}/config/live-build/includes.chroot/etc/xdg/autostart/nmos-desktop-mode.desktop"

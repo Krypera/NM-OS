@@ -41,6 +41,8 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.session_start_in_progress = False
         self.persistence_action_in_progress = False
         self.persistence_action_name = ""
+        self.persistence_refresh_in_progress = False
+        self.persistence_refresh_pending = False
         self.status_source = ""
         self.network_refresh_pending_id = 0
         self.network_refresh_force = False
@@ -120,6 +122,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.set_content(root)
         self.apply_mode_ui_policy()
         self.restore_state()
+        self.update_persistence_actions({})
         self.refresh_persistence()
         self.refresh_network(force_status=True)
         self.setup_network_watchers()
@@ -280,7 +283,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         return bool(self.network_status.get("ready")) or self.can_bypass_network()
 
     def can_finish(self) -> bool:
-        if self.persistence_state.get("busy") or self.persistence_action_in_progress:
+        if self.persistence_state.get("busy") or self.persistence_action_in_progress or self.persistence_refresh_in_progress:
             return False
         return self.can_advance_from_network()
 
@@ -315,21 +318,42 @@ class GreeterWindow(Adw.ApplicationWindow):
     def refresh_persistence(self) -> None:
         if self.persistence_action_in_progress:
             return
+        if self.persistence_refresh_in_progress:
+            self.persistence_refresh_pending = True
+            return
+        self.persistence_refresh_in_progress = True
+        self.update_persistence_actions(self.persistence_state)
+        self.update_navigation()
+        thread = threading.Thread(target=self.run_persistence_refresh_worker, daemon=True)
+        thread.start()
+
+    def run_persistence_refresh_worker(self) -> None:
         try:
             client = self.persistence_client_factory()
             state = client.get_state()
-            self.persistence_init_error = ""
+            GLib.idle_add(self.complete_persistence_refresh, dict(state), "")
         except Exception as exc:
+            GLib.idle_add(self.complete_persistence_refresh, None, str(exc))
+
+    def complete_persistence_refresh(self, state: dict | None, error: str) -> bool:
+        self.persistence_refresh_in_progress = False
+        if error:
             self.persistence_state = {}
-            self.persistence_init_error = str(exc)
-            self.persistence_label.set_text(f"Persistence backend unavailable: {exc}")
+            self.persistence_init_error = error
+            self.persistence_label.set_text(f"Persistence backend unavailable: {error}")
             self.update_persistence_actions({})
             self.update_navigation()
-            return
-        self.persistence_state = dict(state)
-        self.persistence_label.set_text(self.render_persistence_state(state))
-        self.update_persistence_actions(state)
-        self.update_navigation()
+        elif state is not None:
+            self.persistence_state = dict(state)
+            self.persistence_init_error = ""
+            self.persistence_label.set_text(self.render_persistence_state(state))
+            self.update_persistence_actions(state)
+            self.update_navigation()
+
+        if self.persistence_refresh_pending and not self.persistence_action_in_progress:
+            self.persistence_refresh_pending = False
+            self.refresh_persistence()
+        return GLib.SOURCE_REMOVE
 
     def render_persistence_state(self, state: dict) -> str:
         created = state.get("created", False)
@@ -364,7 +388,7 @@ class GreeterWindow(Adw.ApplicationWindow):
     def update_persistence_actions(self, state: dict) -> None:
         created = bool(state.get("created"))
         unlocked = bool(state.get("unlocked"))
-        busy = bool(state.get("busy")) or self.persistence_action_in_progress
+        busy = bool(state.get("busy")) or self.persistence_action_in_progress or self.persistence_refresh_in_progress
         can_create = bool(state.get("can_create"))
         self.persistence_create.set_sensitive(can_create and not busy)
         self.persistence_unlock.set_sensitive(created and not unlocked and not busy)
@@ -424,6 +448,10 @@ class GreeterWindow(Adw.ApplicationWindow):
     def start_persistence_action(self, action: str, passphrase: str | None = None) -> None:
         if self.persistence_action_in_progress:
             self.set_status(f"Persistence {self.persistence_action_name} is still running. Please wait.")
+            return
+        if self.persistence_refresh_in_progress:
+            self.set_status("Persistence status is refreshing. Please wait.")
+            self.persistence_refresh_pending = True
             return
 
         self.persistence_action_in_progress = True
@@ -609,8 +637,17 @@ class GreeterWindow(Adw.ApplicationWindow):
     def on_session_start_timeout(self) -> bool:
         self.session_start_timeout_id = 0
         self.session_start_in_progress = False
+        cancel_error = ""
+        if self.gdm_client is not None:
+            try:
+                self.gdm_client.cancel_pending_login()
+            except Exception as exc:
+                cancel_error = str(exc)
         self.set_sensitive(True)
-        self.set_status("Live session start timed out.")
+        if cancel_error:
+            self.set_status(f"Live session start timed out. Login flow reset failed: {cancel_error}")
+        else:
+            self.set_status("Live session start timed out. Login flow was reset.")
         return GLib.SOURCE_REMOVE
 
     def on_session_opened(self) -> None:
@@ -621,6 +658,11 @@ class GreeterWindow(Adw.ApplicationWindow):
     def on_session_problem(self, problem: str) -> None:
         self.session_start_in_progress = False
         self.clear_session_start_timeout()
+        if self.gdm_client is not None:
+            try:
+                self.gdm_client.cancel_pending_login()
+            except Exception:
+                pass
         self.set_sensitive(True)
         self.set_status(f"Live session start failed: {problem}")
 

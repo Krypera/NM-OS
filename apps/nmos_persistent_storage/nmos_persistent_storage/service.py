@@ -6,7 +6,7 @@ import dbus.service
 from gi.repository import GLib
 
 from nmos_persistent_storage import DBUS_INTERFACE, DBUS_NAME, DBUS_PATH
-from nmos_persistent_storage.storage import PersistentStorageManager
+from nmos_persistent_storage.storage import PersistentStorageManager, StorageError
 
 
 class PersistentStorageService(dbus.service.Object):
@@ -18,8 +18,11 @@ class PersistentStorageService(dbus.service.Object):
     def safe_call(self, callback, *args) -> dict:
         try:
             return callback(*args)
+        except StorageError as exc:
+            self.manager.set_last_error(str(exc), reason=exc.reason)
+            return self.manager.get_state(include_cached_error=True)
         except Exception as exc:
-            self.manager.last_error = str(exc)
+            self.manager.set_last_error(str(exc))
             return self.manager.get_state(include_cached_error=True)
 
     @dbus.service.method(DBUS_INTERFACE, in_signature="", out_signature="a{sv}")

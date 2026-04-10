@@ -15,6 +15,29 @@ EOF
 apt-get update
 apt-get install -y --no-install-recommends brave-browser
 
+install_binary_policy_wrapper() {
+    local binary_path="${1}"
+    local wrapped_target="${binary_path}.real"
+    if [ ! -x "${binary_path}" ] && [ ! -x "${wrapped_target}" ]; then
+        return 0
+    fi
+    if [ ! -x "${wrapped_target}" ] && [ -x "${binary_path}" ]; then
+        mv "${binary_path}" "${wrapped_target}"
+    fi
+    cat > "${binary_path}" <<'EOF'
+#!/bin/bash
+
+set -euo pipefail
+
+exec /usr/local/lib/nmos/brave_policy.py "__TARGET__" "$@"
+EOF
+    sed -i "s|__TARGET__|${wrapped_target}|g" "${binary_path}"
+    chmod 0755 "${binary_path}"
+}
+
+install_binary_policy_wrapper /usr/bin/brave-browser
+install_binary_policy_wrapper /usr/bin/brave-browser-stable
+
 install -d /etc/nmos/features
 cat > /etc/nmos/features/brave <<'EOF'
 enabled=true

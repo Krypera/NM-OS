@@ -8,9 +8,15 @@ BUILD_PS1="${ROOT_DIR}/build/build.ps1"
 BRAVE_HOOK="${ROOT_DIR}/hooks/optional/050-install-brave-browser.hook.chroot"
 DESKTOP_MODE_SCRIPT="${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib/nmos/desktop_mode.py"
 AUTOSTART_FILE="${ROOT_DIR}/config/live-build/includes.chroot/etc/xdg/autostart/nmos-desktop-mode.desktop"
+BRAVE_POLICY_SCRIPT="${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib/nmos/brave_policy.py"
 
 [ -f "${BRAVE_HOOK}" ] || {
     echo "optional Brave hook is missing." >&2
+    exit 1
+}
+
+[ -f "${BRAVE_POLICY_SCRIPT}" ] || {
+    echo "Brave policy runtime helper is missing." >&2
     exit 1
 }
 
@@ -51,6 +57,26 @@ grep -q 'NoDisplay=true' "${DESKTOP_MODE_SCRIPT}" || {
 
 grep -q 'Exec=/usr/local/lib/nmos/desktop_mode.py' "${AUTOSTART_FILE}" || {
     echo "desktop mode policy helper is not wired into desktop autostart." >&2
+    exit 1
+}
+
+grep -q 'ALLOWED_MODES = {"flexible"}' "${BRAVE_POLICY_SCRIPT}" || {
+    echo "Brave policy helper does not enforce the flexible-mode allowlist." >&2
+    exit 1
+}
+
+grep -q 'install_binary_policy_wrapper' "${BRAVE_HOOK}" || {
+    echo "optional Brave hook does not install binary policy wrappers." >&2
+    exit 1
+}
+
+grep -q '/usr/local/lib/nmos/brave_policy.py' "${BRAVE_HOOK}" || {
+    echo "optional Brave hook does not route Brave launch through the runtime policy helper." >&2
+    exit 1
+}
+
+grep -q '\.real' "${BRAVE_HOOK}" || {
+    echo "optional Brave hook does not preserve original Brave binaries behind a wrapper." >&2
     exit 1
 }
 

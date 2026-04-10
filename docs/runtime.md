@@ -97,3 +97,4 @@ NM-OS can optionally include Brave Browser at build time.
 - this is intended as a privacy-focused browser option
 - this is not equivalent to Tor Browser anonymity guarantees
 - when Brave is included, the launcher is only shown in `flexible` mode
+- when Brave is included, a runtime binary policy also blocks execution outside `flexible` mode

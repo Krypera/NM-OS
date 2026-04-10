@@ -42,6 +42,9 @@ storage = load_module(
 gdmclient_source = (root / "apps" / "nmos_greeter" / "nmos_greeter" / "gdmclient.py").read_text(encoding="utf-8")
 main_source = (root / "apps" / "nmos_greeter" / "nmos_greeter" / "main.py").read_text(encoding="utf-8")
 client_source = (root / "apps" / "nmos_greeter" / "nmos_greeter" / "client.py").read_text(encoding="utf-8")
+storage_source = (root / "apps" / "nmos_persistent_storage" / "nmos_persistent_storage" / "storage.py").read_text(
+    encoding="utf-8"
+)
 network_bootstrap_source = (
     root / "config" / "live-build" / "includes.chroot" / "usr" / "local" / "lib" / "nmos" / "network_bootstrap.py"
 ).read_text(encoding="utf-8")
@@ -157,6 +160,15 @@ has_update_navigation = any(
     for node in ast.walk(refresh_persistence)
 )
 assert has_update_navigation, "GreeterWindow.refresh_persistence does not refresh navigation state"
+refresh_dispatches_worker = any(
+    isinstance(node, ast.Call)
+    and isinstance(node.func, ast.Attribute)
+    and isinstance(node.func.value, ast.Name)
+    and node.func.value.id == "threading"
+    and node.func.attr == "Thread"
+    for node in ast.walk(refresh_persistence)
+)
+assert refresh_dispatches_worker, "GreeterWindow.refresh_persistence does not dispatch D-Bus state reads through a worker thread"
 
 current_string = class_function(main_ast, "GreeterWindow", "current_string")
 uses_invalid_position_guard = any(
@@ -218,6 +230,37 @@ offline_message_matches_gate = any(
 )
 assert offline_message_matches_gate, "Greeter offline bypass message does not describe that network stays blocked until Tor readiness"
 
+on_session_start_timeout = class_function(main_ast, "GreeterWindow", "on_session_start_timeout")
+timeout_resets_login_flow = any(
+    isinstance(node, ast.Attribute)
+    and isinstance(node.value, ast.Name)
+    and node.value.id == "self"
+    and node.attr == "gdm_client"
+    for node in ast.walk(on_session_start_timeout)
+) and any(
+    isinstance(node, ast.Attribute) and node.attr == "cancel_pending_login"
+    for node in ast.walk(on_session_start_timeout)
+)
+assert timeout_resets_login_flow, "Greeter session timeout handler does not reset the pending GDM login flow"
+
+gdm_cancel_supported = "def cancel_pending_login" in gdmclient_source
+assert gdm_cancel_supported, "GdmLoginClient does not expose a cancel_pending_login reset helper"
+
+storage_ast = ast.parse(storage_source)
+repair_fn = class_function(storage_ast, "PersistentStorageManager", "repair")
+repair_uses_fsck_precheck = any(
+    isinstance(node, ast.Constant) and node.value == "-n"
+    for node in ast.walk(repair_fn)
+)
+repair_uses_fsck_repair = any(
+    isinstance(node, ast.Constant) and node.value == "-y"
+    for node in ast.walk(repair_fn)
+)
+assert repair_uses_fsck_precheck, "Persistent storage repair does not run a non-destructive fsck pre-check"
+assert repair_uses_fsck_repair, "Persistent storage repair does not retain a corrective fsck path"
+assert 'REASON_TIMEOUT = "command_timeout"' in storage_source, "Persistent storage backend does not define a timeout reason code"
+assert "timeout_seconds=" in storage_source, "Persistent storage backend does not pass command timeouts to subprocess wrappers"
+
 assert "subprocess.run" not in client_source, "Greeter network status reader still shells out synchronously instead of using runtime files"
 assert "discover_repo_greeter_path" not in network_bootstrap_source, "network bootstrap still uses repo path discovery fallback"
 assert "discover_repo_greeter_path" not in tor_status_source, "tor status helper still uses repo path discovery fallback"
@@ -226,6 +269,7 @@ assert "sys.path.insert" not in tor_status_source, "tor status helper still muta
 assert "MODE_OFFLINE" in network_bootstrap_source, "network bootstrap does not branch on offline mode"
 assert "MODE_RECOVERY" in network_bootstrap_source, "network bootstrap does not branch on recovery mode"
 assert "load_boot_mode_profile" in network_bootstrap_source, "network bootstrap does not read boot mode profile"
+assert "ensure_online_bootstrap_services" in network_bootstrap_source, "network bootstrap does not start online-mode services conditionally"
 assert "phase=\"disabled\"" in network_bootstrap_source, "network bootstrap does not emit a disabled phase"
 assert 'cp -a /opt/nmos/apps/nmos_common/nmos_common "${PYTHON_PURELIB}/"' in install_hook_source, (
     "live-build install hook does not install nmos_common into Python purelib"

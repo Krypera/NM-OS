@@ -1,0 +1,39 @@
+name: NM-OS Smoke
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Smoke Checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./tests/smoke/verify-structure.sh
+          bash ./tests/smoke/verify-python.sh
+          bash ./tests/smoke/verify-build-hygiene.sh
+          bash ./tests/smoke/verify-boot-modes.sh
+          bash ./tests/smoke/verify-brave-optional.sh
+          bash ./tests/smoke/verify-greeter-state.sh
+          bash ./tests/smoke/verify-live-login-config.sh
+          bash ./tests/smoke/verify-network-gate-transition.sh
+          bash ./tests/smoke/verify-network-status-normalization.sh
+          bash ./tests/smoke/verify-prelogin-wiring.sh
+          bash ./tests/smoke/verify-persistence-state-machine.sh
+          bash ./tests/smoke/verify-runtime-logic.sh
+          bash ./tests/smoke/verify-disk-safety.sh
+          bash ./tests/smoke/verify-leaks.sh

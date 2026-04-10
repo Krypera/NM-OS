@@ -32,9 +32,27 @@ normalize_options() {
     echo "${text}"
 }
 
-GRUB_KERNEL="$(grep -m1 -E '^[[:space:]]*linux[[:space:]]+/live/' "${GRUB_CFG}" | awk '{print $2}' || true)"
-GRUB_INITRD="$(grep -m1 -E '^[[:space:]]*initrd[[:space:]]+/live/' "${GRUB_CFG}" | awk '{print $2}' || true)"
-GRUB_OPTIONS_RAW="$(grep -m1 -E '^[[:space:]]*linux[[:space:]]+/live/' "${GRUB_CFG}" | cut -d' ' -f3- || true)"
+extract_grub_linux_line() {
+    awk '/^[[:space:]]*linux[[:space:]]+\/live\// { print; exit }' "${GRUB_CFG}"
+}
+
+extract_grub_initrd_line() {
+    awk '/^[[:space:]]*initrd[[:space:]]+\/live\// { print; exit }' "${GRUB_CFG}"
+}
+
+extract_syslinux_kernel() {
+    awk '/^[[:space:]]*KERNEL[[:space:]]+\/live\// { print $2; exit }' "${SYSLINUX_CFG}"
+}
+
+extract_syslinux_append() {
+    awk '/^[[:space:]]*APPEND[[:space:]]+/ { sub(/^[[:space:]]*APPEND[[:space:]]+/, ""); print; exit }' "${SYSLINUX_CFG}"
+}
+
+GRUB_LINUX_LINE="$(extract_grub_linux_line || true)"
+GRUB_INITRD_LINE="$(extract_grub_initrd_line || true)"
+GRUB_KERNEL="$(echo "${GRUB_LINUX_LINE}" | awk '{print $2}' || true)"
+GRUB_INITRD="$(echo "${GRUB_INITRD_LINE}" | awk '{print $2}' || true)"
+GRUB_OPTIONS_RAW="$(echo "${GRUB_LINUX_LINE}" | awk '{$1=""; $2=""; sub(/^[[:space:]]+/, ""); print}' || true)"
 
 if [ -z "${GRUB_KERNEL}" ] || [ -z "${GRUB_INITRD}" ]; then
     echo "boot mode hook could not parse kernel/initrd from grub config." >&2
@@ -42,9 +60,12 @@ if [ -z "${GRUB_KERNEL}" ] || [ -z "${GRUB_INITRD}" ]; then
 fi
 
 GRUB_OPTIONS="$(normalize_options "${GRUB_OPTIONS_RAW}")"
+if [ -z "${GRUB_OPTIONS}" ]; then
+    GRUB_OPTIONS="boot=live components"
+fi
 
-SYSLINUX_KERNEL="$(grep -m1 -E '^[[:space:]]*KERNEL[[:space:]]+/live/' "${SYSLINUX_CFG}" | awk '{print $2}' || true)"
-SYSLINUX_APPEND_RAW="$(grep -m1 -E '^[[:space:]]*APPEND[[:space:]]+' "${SYSLINUX_CFG}" | sed -E 's/^[[:space:]]*APPEND[[:space:]]+//' || true)"
+SYSLINUX_KERNEL="$(extract_syslinux_kernel || true)"
+SYSLINUX_APPEND_RAW="$(extract_syslinux_append || true)"
 SYSLINUX_INITRD="$(echo "${SYSLINUX_APPEND_RAW}" | sed -nE 's/.*(^|[[:space:]])initrd=([^[:space:]]+).*/\2/p')"
 
 if [ -z "${SYSLINUX_KERNEL}" ]; then
@@ -59,6 +80,9 @@ SYSLINUX_OPTIONS="$(normalize_options "${SYSLINUX_APPEND_RAW}")"
 SYSLINUX_OPTIONS="$(echo "${SYSLINUX_OPTIONS}" | sed -E 's/(^|[[:space:]])initrd=[^[:space:]]+//g' | tr -s '[:space:]' ' ')"
 SYSLINUX_OPTIONS="${SYSLINUX_OPTIONS# }"
 SYSLINUX_OPTIONS="${SYSLINUX_OPTIONS% }"
+if [ -z "${SYSLINUX_OPTIONS}" ]; then
+    SYSLINUX_OPTIONS="boot=live components"
+fi
 
 cat > "${GRUB_CFG}" <<EOF
 set default="0"

@@ -69,7 +69,8 @@ NM-OS exposes these USB boot profiles:
 - Repo hygiene and smoke checks for build/runtime wiring
 
 Brave support is optional and privacy-focused, but it is not a substitute for
-Tor Browser anonymity guarantees.
+Tor Browser anonymity guarantees. When Brave is included, NM-OS only allows it
+to run in `Flexible` mode.
 
 ## Quick Start
 

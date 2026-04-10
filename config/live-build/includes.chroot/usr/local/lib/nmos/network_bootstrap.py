@@ -17,6 +17,7 @@ READY_FILE = READY_DIR / "network-ready"
 STATUS_FILE = READY_DIR / "network-status.json"
 TOR_CONTROL_PORT = 9051
 BOOTSTRAP_TIMEOUT_SECONDS = 300
+SERVICE_START_TIMEOUT_SECONDS = 20
 
 
 def log(message: str) -> None:
@@ -135,6 +136,20 @@ def remove_firewall_gate() -> None:
         raise RuntimeError("failed to remove temporary network bootstrap firewall table")
 
 
+def ensure_online_bootstrap_services() -> None:
+    for unit in ("NetworkManager.service", "tor.service", "tor@default.service"):
+        try:
+            subprocess.run(
+                ["systemctl", "start", unit],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=SERVICE_START_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            log(f"NMOS_NETWORK_WARN timeout starting {unit}")
+
+
 def wait_for_tor() -> None:
     from stem.control import Controller
 
@@ -199,6 +214,7 @@ def main() -> None:
     if mode in {MODE_OFFLINE, MODE_RECOVERY}:
         apply_disabled_mode(mode)
         return
+    ensure_online_bootstrap_services()
     write_status(ready=False, progress=0, summary="Preparing network policy", phase="policy")
     try:
         write_firewall_rules()
