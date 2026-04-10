@@ -40,6 +40,7 @@ REQUIRED=(
     "${ROOT_DIR}/apps/nmos_common/nmos_common/runtime_state.py"
     "${ROOT_DIR}/apps/nmos_persistent_storage/nmos_persistent_storage/service.py"
     "${ROOT_DIR}/docs/windows-wsl.md"
+    "${ROOT_DIR}/docs/translations.md"
     "${ROOT_DIR}/docs/security-profiles.md"
     "${ROOT_DIR}/docs/usb-boot-checklist.md"
     "${ROOT_DIR}/tests/smoke/verify-build-hygiene.sh"

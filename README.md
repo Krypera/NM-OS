@@ -52,6 +52,7 @@ NMOS_ENABLE_BRAVE=1 ./build/build.sh
 
 - [Build notes](docs/build.md)
 - [Runtime notes](docs/runtime.md)
+- [Translation guide](docs/translations.md)
 - [Windows + WSL2 workflow](docs/windows-wsl.md)
 - [Security profiles](docs/security-profiles.md)
 - [USB boot checklist](docs/usb-boot-checklist.md)
@@ -80,6 +81,14 @@ Not part of the current alpha yet:
 - updater
 - large application bundle
 - release-grade hardware validation
+
+## Translations
+
+English is the source language for NM-OS, and Spanish is the first additional UI translation.
+
+Translation help is welcome. If you want to add or improve another language, feel free to open a PR.
+
+The current translation workflow is documented in [docs/translations.md](docs/translations.md).
 
 ## License
 
