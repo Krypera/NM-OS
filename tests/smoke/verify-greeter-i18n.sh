@@ -3,11 +3,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-GREETER_MAIN="${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/main.py"
+I18N_FILE="${ROOT_DIR}/apps/nmos_common/nmos_common/i18n.py"
 DESKTOP_ENTRY="${ROOT_DIR}/config/live-build/includes.chroot/usr/share/applications/nmos-greeter.desktop"
 GDM_DESKTOP_ENTRY="${ROOT_DIR}/config/live-build/includes.chroot/usr/share/gdm/greeter/applications/nmos-greeter.desktop"
 
-grep -q 'es_ES.UTF-8' "${GREETER_MAIN}" || {
+grep -q 'es_ES.UTF-8' "${I18N_FILE}" || {
     echo "Greeter language selector does not include Spanish." >&2
     exit 1
 }
