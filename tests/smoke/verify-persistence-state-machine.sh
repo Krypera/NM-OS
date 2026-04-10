@@ -13,6 +13,7 @@ from pathlib import Path
 
 root = Path(os.environ["NMOS_ROOT"])
 sys.path.insert(0, str(root / "apps" / "nmos_common"))
+sys.path.insert(0, str(root / "apps" / "nmos_persistent_storage"))
 path = root / "apps" / "nmos_persistent_storage" / "nmos_persistent_storage" / "storage.py"
 spec = importlib.util.spec_from_file_location("nmos_storage", path)
 module = importlib.util.module_from_spec(spec)
