@@ -20,6 +20,7 @@ lb config noauto \
     --iso-application "NM-OS" \
     --iso-publisher "https://github.com/Krypera/NM-OS" \
     --iso-volume "NM-OS ALPHA" \
+    --linux-packages "linux-image-amd64" \
     --linux-flavours amd64 \
     --bootappend-live "boot=live components noautologin hostname=nmos username=nmos quiet splash console=tty1 console=ttyS0,115200n8 nmos.mode=strict" \
     "${@}"
