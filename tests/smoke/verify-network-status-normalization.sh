@@ -70,11 +70,12 @@ with tempfile.TemporaryDirectory() as tmp:
     assert tor_state["summary"] == "Waiting for Tor bootstrap"
     assert tor_state["last_error"] == ""
 
+    module.NETWORK_READY_FILE.write_text("ready\n", encoding="utf-8")
     client_state = module.read_network_status()
     assert client_state["ready"] is True
     assert client_state["progress"] == 100
 
-    module.NETWORK_READY_FILE.unlink()
+    module.NETWORK_READY_FILE.unlink(missing_ok=True)
     client_state = module.read_network_status()
     assert client_state["ready"] is True
     assert client_state["progress"] == 100
