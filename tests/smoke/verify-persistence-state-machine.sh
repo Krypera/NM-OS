@@ -136,8 +136,8 @@ with tempfile.TemporaryDirectory() as tmp:
             return SimpleNamespace(returncode=4, stdout="filesystem needs repair", stderr="")
         return original_subprocess_run(args, check=check, capture_output=capture_output, text=text, **kwargs)
 
-    def fake_run(*args, input_text=None):
-        del input_text
+    def fake_run(*args, input_text=None, **kwargs):
+        del input_text, kwargs
         repair_commands.append(tuple(args))
         if args[0] == "umount":
             mount_state["mounted"] = False
@@ -158,6 +158,7 @@ with tempfile.TemporaryDirectory() as tmp:
     try:
         state = manager.repair()
         assert state["busy"] is False
+        assert state["last_error"] == ""
         assert [cmd[0] for cmd in repair_commands] == ["umount", "fsck.ext4", "mount"]
         assert mount_state["mounted"] is True
 
