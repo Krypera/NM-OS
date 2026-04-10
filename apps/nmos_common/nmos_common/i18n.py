@@ -104,6 +104,7 @@ TRANSLATIONS = {
         "Unexpected timed login request for {user_name} in {seconds} seconds while NM-OS welcome flow is active.": "Solicitud inesperada de acceso temporizado para {user_name} en {seconds} segundos mientras el flujo de bienvenida de NM-OS est\u00e1 activo.",
         "live username is missing": "falta el nombre de usuario de la sesi\u00f3n en vivo",
         "live password is missing": "falta la contrase\u00f1a de la sesi\u00f3n en vivo",
+        "internal error": "error interno",
     }
 }
 

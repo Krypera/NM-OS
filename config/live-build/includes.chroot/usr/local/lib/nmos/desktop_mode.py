@@ -2,27 +2,15 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
+
+from nmos_common.config_helpers import load_mode
 
 BOOT_MODE_FILE = Path("/run/nmos/boot-mode.json")
 BRAVE_FEATURE_FILE = Path("/etc/nmos/features/brave")
 BRAVE_DESKTOP_SOURCE = Path("/usr/share/applications/brave-browser.desktop")
 BRAVE_DESKTOP_OVERRIDE = Path.home() / ".local/share/applications/brave-browser.desktop"
 MANAGED_MARKER = "X-NMOS-Managed=true"
-
-
-def load_mode() -> str:
-    if not BOOT_MODE_FILE.exists():
-        return "strict"
-    try:
-        data = json.loads(BOOT_MODE_FILE.read_text(encoding="utf-8"))
-    except (OSError, ValueError, json.JSONDecodeError):
-        return "strict"
-    if not isinstance(data, dict):
-        return "strict"
-    return str(data.get("mode", "strict") or "strict")
-
 
 def remove_override() -> None:
     if BRAVE_DESKTOP_OVERRIDE.exists():
@@ -54,7 +42,7 @@ def main() -> None:
     if not BRAVE_FEATURE_FILE.exists():
         remove_override()
         return
-    mode = load_mode()
+    mode = load_mode(BOOT_MODE_FILE)
     if mode == "flexible":
         remove_override()
         return

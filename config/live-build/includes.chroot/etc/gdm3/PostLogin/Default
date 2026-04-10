@@ -38,16 +38,37 @@ LOCALE="${STATE_VALUES[0]:-}"
 KEYBOARD="${STATE_VALUES[1]:-}"
 CONSOLE_KEYMAP="${STATE_VALUES[2]:-}"
 
+log_localectl_failure() {
+    local action="$1"
+    local detail="$2"
+    if command -v logger >/dev/null 2>&1; then
+        logger -t nmos-postlogin "localectl ${action} failed: ${detail}"
+    else
+        echo "localectl ${action} failed: ${detail}" >&2
+    fi
+}
+
+run_localectl() {
+    local action="$1"
+    shift
+    local output=""
+    if ! output="$(localectl "$@" 2>&1)"; then
+        log_localectl_failure "${action}" "${output}"
+        return 1
+    fi
+    return 0
+}
+
 if [ -n "${LOCALE}" ]; then
-    localectl set-locale "LANG=${LOCALE}" >/dev/null 2>&1 || true
+    run_localectl "set-locale" set-locale "LANG=${LOCALE}" || true
 fi
 
 if [ -n "${KEYBOARD}" ]; then
-    localectl set-x11-keymap "${KEYBOARD}" >/dev/null 2>&1 || true
+    run_localectl "set-x11-keymap" set-x11-keymap "${KEYBOARD}" || true
 fi
 
 if [ -n "${CONSOLE_KEYMAP}" ]; then
-    localectl set-keymap "${CONSOLE_KEYMAP}" >/dev/null 2>&1 || true
+    run_localectl "set-keymap" set-keymap "${CONSOLE_KEYMAP}" || true
 fi
 
 python3 - <<'PY'

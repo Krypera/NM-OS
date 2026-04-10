@@ -19,10 +19,13 @@ BOOT_PROFILE_SCRIPT="${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib
 BOOT_MARKER_SERVICE="${ROOT_DIR}/config/live-build/includes.chroot/usr/lib/systemd/system/nmos-boot-marker.service"
 DISPLAY_MANAGER_DROPIN="${ROOT_DIR}/config/live-build/includes.chroot/etc/systemd/system/display-manager.service.d/nmos-live-user-password.conf"
 GREETER_MAIN="${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/main.py"
+GREETER_UI_COMPOSITION="${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/ui_composition.py"
+GREETER_PERSISTENCE_ACTIONS="${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/persistence_actions.py"
+GREETER_GDM_HANDOFF="${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/gdm_handoff.py"
 GDM_CLIENT="${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/gdmclient.py"
 GREETER_CLIENT="${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/client.py"
 
-for path in "${HOOK_FILE}" "${MODE_FILE}" "${GREETER_DESKTOP_FILE}" "${POSTLOGIN_FILE}" "${POLICY_FILE}" "${TMPFILES_FILE}" "${LIVE_USER_CONFIG}" "${LIVE_USER_PASSWORD_SERVICE}" "${BOOT_PROFILE_SERVICE}" "${BOOT_PROFILE_SCRIPT}" "${BOOT_MARKER_SERVICE}" "${DISPLAY_MANAGER_DROPIN}" "${GREETER_MAIN}" "${GDM_CLIENT}" "${GREETER_CLIENT}"; do
+for path in "${HOOK_FILE}" "${MODE_FILE}" "${GREETER_DESKTOP_FILE}" "${POSTLOGIN_FILE}" "${POLICY_FILE}" "${TMPFILES_FILE}" "${LIVE_USER_CONFIG}" "${LIVE_USER_PASSWORD_SERVICE}" "${BOOT_PROFILE_SERVICE}" "${BOOT_PROFILE_SCRIPT}" "${BOOT_MARKER_SERVICE}" "${DISPLAY_MANAGER_DROPIN}" "${GREETER_MAIN}" "${GREETER_UI_COMPOSITION}" "${GREETER_PERSISTENCE_ACTIONS}" "${GREETER_GDM_HANDOFF}" "${GDM_CLIENT}" "${GREETER_CLIENT}"; do
     [ -e "${path}" ] || {
         echo "missing required pre-login asset: ${path}" >&2
         exit 1
@@ -79,8 +82,13 @@ if grep -q '\beval\b' "${POSTLOGIN_FILE}"; then
     exit 1
 fi
 
-grep -q 'localectl set-x11-keymap' "${POSTLOGIN_FILE}" || {
+grep -q 'set-x11-keymap' "${POSTLOGIN_FILE}" || {
     echo "GDM PostLogin hook does not apply the selected X11 keyboard layout." >&2
+    exit 1
+}
+
+grep -q 'logger -t nmos-postlogin' "${POSTLOGIN_FILE}" || {
+    echo "GDM PostLogin hook does not log localectl failures to journald." >&2
     exit 1
 }
 
@@ -89,17 +97,17 @@ grep -q '^Exec=/usr/local/bin/nmos-greeter$' "${GREETER_DESKTOP_FILE}" || {
     exit 1
 }
 
-grep -q 'if self.persistence_state.get("busy")' "${GREETER_MAIN}" || {
+grep -q 'persistence_state.get("busy")' "${GREETER_UI_COMPOSITION}" || {
     echo "Greeter finish flow does not block session start during active persistence operations." >&2
     exit 1
 }
 
-grep -q 'self.persistence_password.set_text("")' "${GREETER_MAIN}" || {
+grep -q 'persistence_password.set_text("")' "${GREETER_PERSISTENCE_ACTIONS}" || {
     echo "Greeter does not clear persistence passphrases after persistence actions." >&2
     exit 1
 }
 
-grep -q 'self.session_start_in_progress = True' "${GREETER_MAIN}" || {
+grep -q 'session_start_in_progress = True' "${GREETER_GDM_HANDOFF}" || {
     echo "Greeter does not mark the live session start flow as in-progress before handing off to GDM." >&2
     exit 1
 }

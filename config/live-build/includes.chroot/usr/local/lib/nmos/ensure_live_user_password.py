@@ -8,6 +8,7 @@ import string
 import subprocess
 from pathlib import Path
 
+from nmos_common.config_helpers import read_assignment_file
 from nmos_common.runtime_state import write_runtime_text
 
 LIVE_RUNTIME_USERNAME_CONFIG = Path("/etc/live/config.d/username.conf")
@@ -17,20 +18,6 @@ RUNTIME_PASSWORD_FILE = Path("/run/nmos/live-user-password")
 RUNTIME_PASSWORD_GROUP = "Debian-gdm"
 PASSWORD_ALPHABET = string.ascii_letters + string.digits
 PASSWORD_LENGTH = 24
-
-
-def read_assignment_file(path: Path) -> dict[str, str]:
-    if not path.exists():
-        return {}
-
-    data: dict[str, str] = {}
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        data[key.strip()] = value.strip().strip('"').strip("'")
-    return data
 
 
 def resolve_live_username() -> str:

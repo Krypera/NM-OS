@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+import logging
+
 import dbus
 import dbus.mainloop.glib
 import dbus.service
 from gi.repository import GLib
 
 from nmos_persistent_storage import DBUS_INTERFACE, DBUS_NAME, DBUS_PATH
-from nmos_persistent_storage.storage import PersistentStorageManager, StorageError
+from nmos_persistent_storage.storage import (
+    REASON_BACKEND_ERROR,
+    PersistentStorageManager,
+    StorageError,
+)
+
+LOGGER = logging.getLogger("nmos.persistence.service")
 
 
 class PersistentStorageService(dbus.service.Object):
@@ -19,10 +27,12 @@ class PersistentStorageService(dbus.service.Object):
         try:
             return callback(*args)
         except StorageError as exc:
+            LOGGER.warning("storage operation failed: %s", exc)
             self.manager.set_last_error(str(exc), reason=exc.reason)
             return self.manager.get_state(include_cached_error=True)
-        except Exception as exc:
-            self.manager.set_last_error(str(exc))
+        except (OSError, RuntimeError, ValueError, TypeError):
+            LOGGER.exception("unexpected persistent storage service error")
+            self.manager.set_last_error("internal backend error", reason=REASON_BACKEND_ERROR)
             return self.manager.get_state(include_cached_error=True)
 
     @dbus.service.method(DBUS_INTERFACE, in_signature="", out_signature="a{sv}")

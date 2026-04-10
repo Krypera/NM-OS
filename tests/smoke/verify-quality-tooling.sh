@@ -48,6 +48,7 @@ resolve_tool() {
 
 RUFF_BIN="$(resolve_tool ruff)"
 MYPY_BIN="$(resolve_tool mypy)"
+PYTEST_BIN="$(resolve_tool pytest)"
 
 mapfile -t PYTHON_FILES < <(cd "${ROOT_DIR}" && git ls-files '*.py')
 [ "${#PYTHON_FILES[@]}" -gt 0 ] || {
@@ -83,5 +84,7 @@ mapfile -t SHELL_FILES < <(
     cd "${ROOT_DIR}"
     "${MYPY_BIN}" --config-file "${QUALITY_CONFIG}"
 )
+
+"${PYTEST_BIN}" --version >/dev/null
 
 echo "Quality tooling checks passed"

@@ -3,21 +3,17 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+DEV_TOOLS_PYTEST="${ROOT_DIR}/.dev-tools/quality/bin/pytest"
 
-PYTHONDONTWRITEBYTECODE=1 NMOS_ROOT="${ROOT_DIR}" python3 - <<'PY'
-import os
-from pathlib import Path
+if command -v pytest >/dev/null 2>&1; then
+    PYTEST_BIN="$(command -v pytest)"
+elif [ -x "${DEV_TOOLS_PYTEST}" ]; then
+    PYTEST_BIN="${DEV_TOOLS_PYTEST}"
+else
+    echo "missing required command: pytest" >&2
+    exit 1
+fi
 
-root = Path(os.environ["NMOS_ROOT"])
-paths = [
-    *sorted((root / "apps" / "nmos_common" / "nmos_common").glob("*.py")),
-    *sorted((root / "apps" / "nmos_greeter" / "nmos_greeter").glob("*.py")),
-    *sorted((root / "apps" / "nmos_persistent_storage" / "nmos_persistent_storage").glob("*.py")),
-    *sorted((root / "config" / "live-build" / "includes.chroot" / "usr" / "local" / "lib" / "nmos").glob("*.py")),
-]
-for path in paths:
-    source = path.read_text(encoding="utf-8")
-    compile(source, str(path), "exec")
-PY
+PYTHONDONTWRITEBYTECODE=1 "${PYTEST_BIN}" -q -p no:cacheprovider "${ROOT_DIR}/tests/python/test_compile_sources.py"
 
 echo "Python sources compile."

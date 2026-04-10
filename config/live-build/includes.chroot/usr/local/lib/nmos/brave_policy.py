@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+from nmos_common.config_helpers import load_mode
 
 BOOT_MODE_FILE = Path("/run/nmos/boot-mode.json")
 BRAVE_FEATURE_FILE = Path("/etc/nmos/features/brave")
@@ -22,18 +23,6 @@ def log_policy_message(message: str) -> None:
         )
     except Exception:
         pass
-
-
-def load_mode() -> str:
-    if not BOOT_MODE_FILE.exists():
-        return "strict"
-    try:
-        payload = json.loads(BOOT_MODE_FILE.read_text(encoding="utf-8"))
-    except (OSError, ValueError, json.JSONDecodeError):
-        return "strict"
-    if not isinstance(payload, dict):
-        return "strict"
-    return str(payload.get("mode", "strict") or "strict")
 
 
 def brave_feature_enabled() -> bool:
@@ -69,7 +58,7 @@ def main() -> int:
     if not brave_feature_enabled():
         return deny("Brave is not enabled in this NM-OS build.")
 
-    mode = load_mode()
+    mode = load_mode(BOOT_MODE_FILE)
     if mode not in ALLOWED_MODES:
         return deny(f"Brave is disabled in '{mode}' mode. Reboot into Flexible mode to use Brave.")
 

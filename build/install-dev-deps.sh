@@ -25,7 +25,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 python3 -m venv "${DEV_TOOLS_DIR}"
 "${DEV_TOOLS_DIR}/bin/python" -m pip install --upgrade pip
-"${DEV_TOOLS_DIR}/bin/python" -m pip install mypy ruff
+"${DEV_TOOLS_DIR}/bin/python" -m pip install mypy pytest ruff
 
 echo "Local smoke tooling is installed in ${DEV_TOOLS_DIR}."
 echo "You can export PATH=\"${DEV_TOOLS_DIR}/bin:\$PATH\" before running smoke checks."

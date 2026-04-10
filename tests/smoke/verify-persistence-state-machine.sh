@@ -9,7 +9,6 @@ import importlib.util
 import os
 import sys
 import tempfile
-from types import SimpleNamespace
 from pathlib import Path
 
 root = Path(os.environ["NMOS_ROOT"])
@@ -61,6 +60,67 @@ class FakeManager(module.PersistentStorageManager):
         if self.fail_create:
             raise module.StorageError("create failed", reason="backend_error")
         return {"path": "/dev/sdz2", "device": "/dev/sdz", "partition_number": 2}
+
+    def describe_persistence(self):
+        if self._scenario == "unsupported":
+            return {
+                "created": False,
+                "boot_device_supported": False,
+                "can_create": False,
+                "reason": "unsupported_boot_device",
+                "device": "",
+                "detail_error": "boot medium is not a removable USB device",
+                "free_bytes": 0,
+            }
+        if self._scenario == "read_only":
+            return {
+                "created": False,
+                "boot_device_supported": True,
+                "can_create": False,
+                "reason": "read_only",
+                "device": "/dev/sdz",
+                "detail_error": "",
+                "free_bytes": 0,
+            }
+        if self._scenario == "existing":
+            return {
+                "created": True,
+                "boot_device_supported": True,
+                "can_create": False,
+                "reason": "already_exists",
+                "device": "/dev/sdz",
+                "detail_error": "",
+                "free_bytes": 0,
+            }
+        if self._scenario == "no_free_space":
+            return {
+                "created": False,
+                "boot_device_supported": True,
+                "can_create": False,
+                "reason": "no_free_space",
+                "device": "/dev/sdz",
+                "detail_error": "",
+                "free_bytes": 0,
+            }
+        if self._scenario == "unsupported_layout":
+            return {
+                "created": False,
+                "boot_device_supported": True,
+                "can_create": False,
+                "reason": "unsupported_layout",
+                "device": "/dev/sdz",
+                "detail_error": "unsupported boot USB partition table label: bsd",
+                "free_bytes": 0,
+            }
+        return {
+            "created": False,
+            "boot_device_supported": True,
+            "can_create": True,
+            "reason": "ready",
+            "device": "/dev/sdz",
+            "detail_error": "",
+            "free_bytes": 5 * 1024 * 1024 * 1024,
+        }
 
 
 with tempfile.TemporaryDirectory() as tmp:
@@ -125,36 +185,26 @@ with tempfile.TemporaryDirectory() as tmp:
     module.MAPPER_PATH.write_text("mapped", encoding="utf-8")
     mount_state = {"mounted": True}
     repair_commands: list[tuple[str, ...]] = []
-    original_subprocess_run = module.subprocess.run
-    original_run = manager.run
     original_get_state = manager.get_state
-
-    def fake_subprocess_run(args, check=False, capture_output=False, text=False, **kwargs):
-        if args[:2] == ["mountpoint", "-q"]:
-            return SimpleNamespace(returncode=0 if mount_state["mounted"] else 1, stdout="", stderr="")
-        if args and args[0] == "fsck.ext4" and "-n" in args:
-            return SimpleNamespace(returncode=4, stdout="filesystem needs repair", stderr="")
-        return original_subprocess_run(args, check=check, capture_output=capture_output, text=text, **kwargs)
-
-    def fake_run(*args, input_text=None, **kwargs):
-        del input_text, kwargs
-        repair_commands.append(tuple(args))
-        if args[0] == "umount":
-            mount_state["mounted"] = False
-            return ""
-        if args[0] == "mount":
-            mount_state["mounted"] = True
-            return ""
-        if args[0] == "fsck.ext4":
-            return ""
-        return ""
+    original_is_mount_active = manager.crypto_ops.is_mount_active
+    original_unmount_mapper = manager.crypto_ops.unmount_mapper
+    original_run_repair = manager.crypto_ops.run_repair
+    original_mount_mapper = manager.crypto_ops.mount_mapper
 
     manager.get_state = lambda include_cached_error=False: {
         "busy": manager.busy,
         "last_error": manager.last_error if include_cached_error else "",
     }
-    manager.run = fake_run
-    module.subprocess.run = fake_subprocess_run
+    manager.crypto_ops.is_mount_active = lambda _path: mount_state["mounted"]
+    manager.crypto_ops.unmount_mapper = lambda: (
+        repair_commands.append(("umount", str(module.MOUNT_POINT))),
+        mount_state.update({"mounted": False}),
+    )
+    manager.crypto_ops.run_repair = lambda: repair_commands.append(("fsck.ext4", str(module.MAPPER_PATH)))
+    manager.crypto_ops.mount_mapper = lambda: (
+        repair_commands.append(("mount", str(module.MAPPER_PATH), str(module.MOUNT_POINT))),
+        mount_state.update({"mounted": True}),
+    )
     try:
         state = manager.repair()
         assert state["busy"] is False
@@ -168,9 +218,11 @@ with tempfile.TemporaryDirectory() as tmp:
         assert "must be unlocked" in state["last_error"]
         assert not any(cmd[0] == "fsck.ext4" for cmd in repair_commands)
     finally:
-        manager.run = original_run
         manager.get_state = original_get_state
-        module.subprocess.run = original_subprocess_run
+        manager.crypto_ops.is_mount_active = original_is_mount_active
+        manager.crypto_ops.unmount_mapper = original_unmount_mapper
+        manager.crypto_ops.run_repair = original_run_repair
+        manager.crypto_ops.mount_mapper = original_mount_mapper
 
 print("Persistence state machine checks passed")
 PY
