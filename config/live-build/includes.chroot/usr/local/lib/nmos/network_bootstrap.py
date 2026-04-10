@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -10,6 +9,7 @@ from pathlib import Path
 
 from nmos_common.boot_mode import MODE_OFFLINE, MODE_RECOVERY, load_boot_mode_profile
 from nmos_common.network_status import parse_bootstrap_status
+from nmos_common.runtime_state import write_runtime_json, write_runtime_text
 
 
 READY_DIR = Path("/run/nmos")
@@ -47,19 +47,17 @@ def write_status(
     last_error: str = "",
 ) -> None:
     READY_DIR.mkdir(parents=True, exist_ok=True)
-    STATUS_FILE.write_text(
-        json.dumps(
-            {
-                "ready": ready,
-                "progress": progress,
-                "phase": phase,
-                "summary": summary,
-                "last_error": last_error,
-                "updated_at": now_utc_timestamp(),
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
+    write_runtime_json(
+        STATUS_FILE,
+        {
+            "ready": ready,
+            "progress": progress,
+            "phase": phase,
+            "summary": summary,
+            "last_error": last_error,
+            "updated_at": now_utc_timestamp(),
+        },
+        mode=0o644,
     )
 
 
@@ -184,7 +182,7 @@ def wait_for_tor() -> None:
 
 def mark_ready() -> None:
     READY_DIR.mkdir(parents=True, exist_ok=True)
-    READY_FILE.write_text("ready\n", encoding="utf-8")
+    write_runtime_text(READY_FILE, "ready\n", mode=0o644)
     write_status(ready=True, progress=100, summary="Tor is ready", phase="ready")
     log("NMOS_NETWORK_READY")
     run("systemctl", "start", "nmos-network-ready.target")

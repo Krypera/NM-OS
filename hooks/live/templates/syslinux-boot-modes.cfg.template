@@ -1,0 +1,30 @@
+UI menu.c32
+PROMPT 0
+MENU TITLE NM-OS Boot Menu
+TIMEOUT 60
+DEFAULT nmos-strict
+
+LABEL nmos-strict
+    MENU LABEL NM-OS (Strict)
+    KERNEL __KERNEL__
+    APPEND initrd=__INITRD__ __OPTIONS__ nmos.mode=strict
+
+LABEL nmos-flexible
+    MENU LABEL NM-OS (Flexible)
+    KERNEL __KERNEL__
+    APPEND initrd=__INITRD__ __OPTIONS__ nmos.mode=flexible
+
+LABEL nmos-offline
+    MENU LABEL NM-OS (Offline)
+    KERNEL __KERNEL__
+    APPEND initrd=__INITRD__ __OPTIONS__ nmos.mode=offline
+
+LABEL nmos-recovery
+    MENU LABEL NM-OS (Recovery)
+    KERNEL __KERNEL__
+    APPEND initrd=__INITRD__ __OPTIONS__ nmos.mode=recovery
+
+LABEL nmos-compat
+    MENU LABEL NM-OS (Hardware Compatibility)
+    KERNEL __KERNEL__
+    APPEND initrd=__INITRD__ __OPTIONS__ nmos.mode=compat nomodeset

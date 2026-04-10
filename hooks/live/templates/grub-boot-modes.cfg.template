@@ -1,0 +1,27 @@
+set default="0"
+set timeout=10
+
+menuentry "NM-OS (Strict)" {
+    linux __KERNEL__ __OPTIONS__ nmos.mode=strict
+    initrd __INITRD__
+}
+
+menuentry "NM-OS (Flexible)" {
+    linux __KERNEL__ __OPTIONS__ nmos.mode=flexible
+    initrd __INITRD__
+}
+
+menuentry "NM-OS (Offline)" {
+    linux __KERNEL__ __OPTIONS__ nmos.mode=offline
+    initrd __INITRD__
+}
+
+menuentry "NM-OS (Recovery)" {
+    linux __KERNEL__ __OPTIONS__ nmos.mode=recovery
+    initrd __INITRD__
+}
+
+menuentry "NM-OS (Hardware Compatibility)" {
+    linux __KERNEL__ __OPTIONS__ nmos.mode=compat nomodeset
+    initrd __INITRD__
+}

@@ -1,0 +1,24 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+exclude = [
+  ".build",
+  "dist",
+  ".tmp-tests",
+]
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_configs = true
+show_error_codes = true
+check_untyped_defs = false
+files = [
+  "apps/nmos_common",
+  "apps/nmos_greeter",
+  "apps/nmos_persistent_storage",
+  "config/live-build/includes.chroot/usr/local/lib/nmos",
+]

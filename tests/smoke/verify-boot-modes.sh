@@ -4,41 +4,71 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BOOT_HOOK="${ROOT_DIR}/hooks/live/050-configure-boot-modes.hook.binary"
+GRUB_TEMPLATE="${ROOT_DIR}/hooks/live/templates/grub-boot-modes.cfg.template"
+SYSLINUX_TEMPLATE="${ROOT_DIR}/hooks/live/templates/syslinux-boot-modes.cfg.template"
 BOOT_MODE_SERVICE="${ROOT_DIR}/config/live-build/includes.chroot/usr/lib/systemd/system/nmos-boot-profile.service"
 BOOT_MODE_SCRIPT="${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib/nmos/boot_profile.py"
 BOOT_MODE_MODULE="${ROOT_DIR}/apps/nmos_common/nmos_common/boot_mode.py"
 TMPFILES_FILE="${ROOT_DIR}/config/live-build/includes.chroot/usr/lib/tmpfiles.d/nmos.conf"
 GREETER_MAIN="${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/main.py"
 
-for path in "${BOOT_HOOK}" "${BOOT_MODE_SERVICE}" "${BOOT_MODE_SCRIPT}" "${BOOT_MODE_MODULE}" "${TMPFILES_FILE}" "${GREETER_MAIN}"; do
+for path in "${BOOT_HOOK}" "${GRUB_TEMPLATE}" "${SYSLINUX_TEMPLATE}" "${BOOT_MODE_SERVICE}" "${BOOT_MODE_SCRIPT}" "${BOOT_MODE_MODULE}" "${TMPFILES_FILE}" "${GREETER_MAIN}"; do
     [ -f "${path}" ] || {
         echo "missing boot-mode path: ${path}" >&2
         exit 1
     }
 done
 
-grep -q 'NM-OS (Strict)' "${BOOT_HOOK}" || {
-    echo "boot hook does not define the strict menu entry." >&2
+grep -q 'render_template "${GRUB_TEMPLATE}" "${GRUB_CFG}"' "${BOOT_HOOK}" || {
+    echo "boot hook does not render grub menu from template." >&2
     exit 1
 }
-grep -q 'NM-OS (Flexible)' "${BOOT_HOOK}" || {
-    echo "boot hook does not define the flexible menu entry." >&2
+grep -q 'render_template "${SYSLINUX_TEMPLATE}" "${SYSLINUX_CFG}"' "${BOOT_HOOK}" || {
+    echo "boot hook does not render syslinux menu from template." >&2
     exit 1
 }
-grep -q 'NM-OS (Offline)' "${BOOT_HOOK}" || {
-    echo "boot hook does not define the offline menu entry." >&2
+grep -q '__KERNEL__' "${GRUB_TEMPLATE}" || {
+    echo "grub template is missing kernel placeholder." >&2
     exit 1
 }
-grep -q 'NM-OS (Recovery)' "${BOOT_HOOK}" || {
-    echo "boot hook does not define the recovery menu entry." >&2
+grep -q '__OPTIONS__' "${GRUB_TEMPLATE}" || {
+    echo "grub template is missing options placeholder." >&2
     exit 1
 }
-grep -q 'NM-OS (Hardware Compatibility)' "${BOOT_HOOK}" || {
-    echo "boot hook does not define the compatibility menu entry." >&2
+grep -q 'NM-OS (Strict)' "${GRUB_TEMPLATE}" || {
+    echo "grub template does not define strict menu entry." >&2
     exit 1
 }
-grep -q 'nmos.mode=compat nomodeset' "${BOOT_HOOK}" || {
-    echo "compat entry is missing nomodeset or the nmos.mode flag." >&2
+grep -q 'NM-OS (Flexible)' "${GRUB_TEMPLATE}" || {
+    echo "grub template does not define flexible menu entry." >&2
+    exit 1
+}
+grep -q 'NM-OS (Offline)' "${GRUB_TEMPLATE}" || {
+    echo "grub template does not define offline menu entry." >&2
+    exit 1
+}
+grep -q 'NM-OS (Recovery)' "${GRUB_TEMPLATE}" || {
+    echo "grub template does not define recovery menu entry." >&2
+    exit 1
+}
+grep -q 'NM-OS (Hardware Compatibility)' "${GRUB_TEMPLATE}" || {
+    echo "grub template does not define compatibility menu entry." >&2
+    exit 1
+}
+grep -q 'nmos.mode=compat nomodeset' "${GRUB_TEMPLATE}" || {
+    echo "grub compat entry is missing nomodeset or the nmos.mode flag." >&2
+    exit 1
+}
+grep -q 'NM-OS (Strict)' "${SYSLINUX_TEMPLATE}" || {
+    echo "syslinux template does not define strict menu entry." >&2
+    exit 1
+}
+grep -q 'NM-OS (Hardware Compatibility)' "${SYSLINUX_TEMPLATE}" || {
+    echo "syslinux template does not define compatibility menu entry." >&2
+    exit 1
+}
+grep -q 'nmos.mode=compat nomodeset' "${SYSLINUX_TEMPLATE}" || {
+    echo "syslinux compat entry is missing nomodeset or the nmos.mode flag." >&2
     exit 1
 }
 grep -q '/run/nmos/boot-mode.json' "${TMPFILES_FILE}" || {

@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import grp
-import os
 import pwd
 import secrets
 import string
 import subprocess
 from pathlib import Path
+
+from nmos_common.runtime_state import write_runtime_text
 
 
 LIVE_RUNTIME_USERNAME_CONFIG = Path("/etc/live/config.d/username.conf")
@@ -59,17 +60,20 @@ def validate_credential_field(name: str, value: str) -> str:
 
 
 def store_runtime_password(password: str) -> None:
-    RUNTIME_PASSWORD_FILE.parent.mkdir(parents=True, exist_ok=True)
-    RUNTIME_PASSWORD_FILE.write_text(f"{password}\n", encoding="utf-8")
-    gid = -1
+    gid: int | None = None
     mode = 0o600
     try:
         gid = grp.getgrnam(RUNTIME_PASSWORD_GROUP).gr_gid
         mode = 0o640
     except KeyError:
-        gid = -1
-    os.chmod(RUNTIME_PASSWORD_FILE, mode)
-    os.chown(RUNTIME_PASSWORD_FILE, 0, gid)
+        gid = None
+    write_runtime_text(
+        RUNTIME_PASSWORD_FILE,
+        f"{password}\n",
+        mode=mode,
+        owner_uid=0,
+        owner_gid=gid,
+    )
 
 
 def main() -> None:

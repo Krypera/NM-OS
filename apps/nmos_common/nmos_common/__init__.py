@@ -12,3 +12,8 @@ from nmos_common.boot_mode import (
     parse_mode_from_cmdline,
 )
 from nmos_common.network_status import DEFAULT_WAITING_SUMMARY, normalize_network_status, parse_bootstrap_status
+from nmos_common.runtime_state import (
+    ensure_runtime_state_path_safe,
+    write_runtime_json,
+    write_runtime_text,
+)

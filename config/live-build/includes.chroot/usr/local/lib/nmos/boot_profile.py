@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from nmos_common.boot_mode import BOOT_MODE_FILE, boot_mode_profile, parse_mode_from_cmdline
+from nmos_common.runtime_state import write_runtime_json
 
 
 def log(message: str) -> None:
@@ -26,8 +26,7 @@ def read_cmdline(path: Path = Path("/proc/cmdline")) -> str:
 
 
 def write_profile(profile: dict, path: Path = BOOT_MODE_FILE) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(profile, indent=2), encoding="utf-8")
+    write_runtime_json(path, profile, mode=0o644)
 
 
 def main() -> None:

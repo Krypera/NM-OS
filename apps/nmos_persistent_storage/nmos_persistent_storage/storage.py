@@ -6,6 +6,8 @@ import subprocess
 import time
 from pathlib import Path
 
+from nmos_common.runtime_state import write_runtime_json
+
 
 RUNTIME_DIR = Path("/run/nmos")
 STATE_FILE = RUNTIME_DIR / "persistent-storage.json"
@@ -486,7 +488,7 @@ class PersistentStorageManager:
         }
 
     def dump_state(self, state: dict) -> dict:
-        STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
+        write_runtime_json(STATE_FILE, state, mode=0o640)
         return state
 
     def get_state(self, include_cached_error: bool = False) -> dict:

@@ -57,6 +57,12 @@ install_hook_source = (
 boot_profile_source = (
     root / "config" / "live-build" / "includes.chroot" / "usr" / "local" / "lib" / "nmos" / "boot_profile.py"
 ).read_text(encoding="utf-8")
+runtime_state_source = (
+    root / "apps" / "nmos_common" / "nmos_common" / "runtime_state.py"
+).read_text(encoding="utf-8")
+tmpfiles_source = (
+    root / "config" / "live-build" / "includes.chroot" / "usr" / "lib" / "tmpfiles.d" / "nmos.conf"
+).read_text(encoding="utf-8")
 
 
 def class_function(module: ast.Module, class_name: str, function_name: str) -> ast.FunctionDef:
@@ -271,10 +277,22 @@ assert "MODE_RECOVERY" in network_bootstrap_source, "network bootstrap does not 
 assert "load_boot_mode_profile" in network_bootstrap_source, "network bootstrap does not read boot mode profile"
 assert "ensure_online_bootstrap_services" in network_bootstrap_source, "network bootstrap does not start online-mode services conditionally"
 assert "phase=\"disabled\"" in network_bootstrap_source, "network bootstrap does not emit a disabled phase"
+assert "write_runtime_json" in network_bootstrap_source, "network bootstrap does not use secure runtime status writes"
+assert "write_runtime_text" in network_bootstrap_source, "network bootstrap does not use secure runtime ready marker writes"
+assert "STATUS_FILE.write_text" not in network_bootstrap_source, "network bootstrap still writes status with direct write_text calls"
+assert "READY_FILE.write_text" not in network_bootstrap_source, "network bootstrap still writes ready marker with direct write_text calls"
 assert 'cp -a /opt/nmos/apps/nmos_common/nmos_common "${PYTHON_PURELIB}/"' in install_hook_source, (
     "live-build install hook does not install nmos_common into Python purelib"
 )
 assert "NMOS_BOOT_MODE" in boot_profile_source, "boot profile helper does not emit a boot mode marker"
+assert "write_runtime_json" in boot_profile_source, "boot profile helper does not use secure runtime state writes"
+assert "path.write_text" not in boot_profile_source, "boot profile helper still writes runtime state with direct write_text"
+assert "write_runtime_json" in storage_source, "persistence storage state writer does not use secure runtime state helper"
+assert "STATE_FILE.write_text" not in storage_source, "persistence storage state writer still uses direct write_text"
+assert "O_NOFOLLOW" in runtime_state_source, "runtime state helper does not use nofollow protection when available"
+assert "/run/nmos/network-status.json" in tmpfiles_source, "tmpfiles does not provision network status file permissions"
+assert "/run/nmos/network-ready" in tmpfiles_source, "tmpfiles does not provision network ready marker permissions"
+assert "/run/nmos/persistent-storage.json" in tmpfiles_source, "tmpfiles does not provision persistence state file permissions"
 assert "self.bus" not in client_source, "PersistenceClient still stores a long-lived D-Bus bus handle"
 assert 'return self._call("Create", passphrase)' in client_source
 assert 'return self._call("Unlock", passphrase)' in client_source

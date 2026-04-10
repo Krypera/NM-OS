@@ -19,12 +19,22 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install Quality Tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install ruff mypy
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
       - name: Run Smoke Checks
         shell: bash
         run: |
           set -euo pipefail
           bash ./tests/smoke/verify-structure.sh
           bash ./tests/smoke/verify-python.sh
+          bash ./tests/smoke/verify-quality-tooling.sh
           bash ./tests/smoke/verify-build-hygiene.sh
           bash ./tests/smoke/verify-version-policy.sh
           bash ./tests/smoke/verify-boot-modes.sh
@@ -38,3 +48,10 @@ jobs:
           bash ./tests/smoke/verify-runtime-logic.sh
           bash ./tests/smoke/verify-disk-safety.sh
           bash ./tests/smoke/verify-leaks.sh
+
+      - name: Optional MyPy Check
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          mypy --config-file pyproject.toml

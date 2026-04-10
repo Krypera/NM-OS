@@ -2,9 +2,13 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEMPLATE_DIR="${SCRIPT_DIR}/templates"
 BINARY_DIR="${LB_BINARY_DIR:-binary}"
 GRUB_CFG="${BINARY_DIR}/boot/grub/grub.cfg"
 SYSLINUX_CFG=""
+GRUB_TEMPLATE="${TEMPLATE_DIR}/grub-boot-modes.cfg.template"
+SYSLINUX_TEMPLATE="${TEMPLATE_DIR}/syslinux-boot-modes.cfg.template"
 
 if [ ! -d "${BINARY_DIR}" ] && [ -d "binary" ]; then
     BINARY_DIR="binary"
@@ -30,6 +34,36 @@ normalize_options() {
     text="${text# }"
     text="${text% }"
     echo "${text}"
+}
+
+escape_sed_replacement() {
+    printf '%s' "${1}" | sed -e 's/[&|]/\\&/g'
+}
+
+render_template() {
+    local template_path="${1}"
+    local output_path="${2}"
+    shift 2
+
+    if [ ! -f "${template_path}" ]; then
+        echo "boot mode hook could not find template: ${template_path}" >&2
+        exit 1
+    fi
+
+    local temp_output
+    temp_output="$(mktemp "${output_path}.tmp.XXXXXX")"
+    cp "${template_path}" "${temp_output}"
+
+    while [ "$#" -ge 2 ]; do
+        local key="${1}"
+        local value="${2}"
+        local escaped
+        shift 2
+        escaped="$(escape_sed_replacement "${value}")"
+        sed -i "s|${key}|${escaped}|g" "${temp_output}"
+    done
+
+    mv "${temp_output}" "${output_path}"
 }
 
 extract_grub_linux_line() {
@@ -84,65 +118,12 @@ if [ -z "${SYSLINUX_OPTIONS}" ]; then
     SYSLINUX_OPTIONS="boot=live components"
 fi
 
-cat > "${GRUB_CFG}" <<EOF
-set default="0"
-set timeout=10
+render_template "${GRUB_TEMPLATE}" "${GRUB_CFG}" \
+    "__KERNEL__" "${GRUB_KERNEL}" \
+    "__INITRD__" "${GRUB_INITRD}" \
+    "__OPTIONS__" "${GRUB_OPTIONS}"
 
-menuentry "NM-OS (Strict)" {
-    linux ${GRUB_KERNEL} ${GRUB_OPTIONS} nmos.mode=strict
-    initrd ${GRUB_INITRD}
-}
-
-menuentry "NM-OS (Flexible)" {
-    linux ${GRUB_KERNEL} ${GRUB_OPTIONS} nmos.mode=flexible
-    initrd ${GRUB_INITRD}
-}
-
-menuentry "NM-OS (Offline)" {
-    linux ${GRUB_KERNEL} ${GRUB_OPTIONS} nmos.mode=offline
-    initrd ${GRUB_INITRD}
-}
-
-menuentry "NM-OS (Recovery)" {
-    linux ${GRUB_KERNEL} ${GRUB_OPTIONS} nmos.mode=recovery
-    initrd ${GRUB_INITRD}
-}
-
-menuentry "NM-OS (Hardware Compatibility)" {
-    linux ${GRUB_KERNEL} ${GRUB_OPTIONS} nmos.mode=compat nomodeset
-    initrd ${GRUB_INITRD}
-}
-EOF
-
-cat > "${SYSLINUX_CFG}" <<EOF
-UI menu.c32
-PROMPT 0
-MENU TITLE NM-OS Boot Menu
-TIMEOUT 60
-DEFAULT nmos-strict
-
-LABEL nmos-strict
-    MENU LABEL NM-OS (Strict)
-    KERNEL ${SYSLINUX_KERNEL}
-    APPEND initrd=${SYSLINUX_INITRD} ${SYSLINUX_OPTIONS} nmos.mode=strict
-
-LABEL nmos-flexible
-    MENU LABEL NM-OS (Flexible)
-    KERNEL ${SYSLINUX_KERNEL}
-    APPEND initrd=${SYSLINUX_INITRD} ${SYSLINUX_OPTIONS} nmos.mode=flexible
-
-LABEL nmos-offline
-    MENU LABEL NM-OS (Offline)
-    KERNEL ${SYSLINUX_KERNEL}
-    APPEND initrd=${SYSLINUX_INITRD} ${SYSLINUX_OPTIONS} nmos.mode=offline
-
-LABEL nmos-recovery
-    MENU LABEL NM-OS (Recovery)
-    KERNEL ${SYSLINUX_KERNEL}
-    APPEND initrd=${SYSLINUX_INITRD} ${SYSLINUX_OPTIONS} nmos.mode=recovery
-
-LABEL nmos-compat
-    MENU LABEL NM-OS (Hardware Compatibility)
-    KERNEL ${SYSLINUX_KERNEL}
-    APPEND initrd=${SYSLINUX_INITRD} ${SYSLINUX_OPTIONS} nmos.mode=compat nomodeset
-EOF
+render_template "${SYSLINUX_TEMPLATE}" "${SYSLINUX_CFG}" \
+    "__KERNEL__" "${SYSLINUX_KERNEL}" \
+    "__INITRD__" "${SYSLINUX_INITRD}" \
+    "__OPTIONS__" "${SYSLINUX_OPTIONS}"
