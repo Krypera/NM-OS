@@ -18,7 +18,7 @@ require_cmd grep
 require_cmd cp
 validate_version_format "${VERSION}"
 
-"${ROOT_DIR}/build/verify-no-leaks.sh"
+bash "${ROOT_DIR}/build/verify-no-leaks.sh"
 stage_live_build_tree
 
 ENABLED_FEATURES=()
@@ -79,6 +79,6 @@ source_repo=https://github.com/Krypera/NM-OS.git
 features=${FEATURES_VALUE}
 EOF
 
-"${ROOT_DIR}/build/verify-artifacts.sh"
+bash "${ROOT_DIR}/build/verify-artifacts.sh"
 
 echo "Build complete: ${IMG_TARGET} and ${ISO_TARGET}"
