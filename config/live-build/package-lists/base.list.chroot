@@ -1,5 +1,6 @@
 live-boot
 live-config
+linux-image-amd64
 user-setup
 systemd
 systemd-sysv
