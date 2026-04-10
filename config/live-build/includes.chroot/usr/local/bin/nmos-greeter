@@ -3,5 +3,4 @@
 set -euo pipefail
 
 export PYTHONUNBUFFERED=1
-export PYTHONPATH="/opt/nmos/apps/nmos_greeter:${PYTHONPATH:-}"
 exec python3 -m nmos_greeter.main

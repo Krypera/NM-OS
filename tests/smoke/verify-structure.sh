@@ -71,6 +71,8 @@ REQUIRED=(
     "${ROOT_DIR}/tests/smoke/verify-prelogin-wiring.sh"
     "${ROOT_DIR}/tests/smoke/verify-quality-tooling.sh"
     "${ROOT_DIR}/tests/smoke/verify-runtime-logic.sh"
+    "${ROOT_DIR}/tests/smoke/verify-systemd-hardening.sh"
+    "${ROOT_DIR}/tests/smoke/verify-windows-wsl-bridge.ps1"
     "${ROOT_DIR}/hooks/live/040-configure-gdm-session.hook.chroot"
     "${ROOT_DIR}/hooks/live/050-configure-boot-modes.hook.binary"
     "${ROOT_DIR}/hooks/live/templates/grub-boot-modes.cfg.template"

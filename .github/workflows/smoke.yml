@@ -38,6 +38,7 @@ jobs:
           bash ./tests/smoke/verify-build-hygiene.sh
           bash ./tests/smoke/verify-version-policy.sh
           bash ./tests/smoke/verify-boot-modes.sh
+          bash ./tests/smoke/verify-systemd-hardening.sh
           bash ./tests/smoke/verify-brave-optional.sh
           bash ./tests/smoke/verify-greeter-state.sh
           bash ./tests/smoke/verify-greeter-i18n.sh
@@ -83,3 +84,15 @@ jobs:
         run: |
           set -euo pipefail
           bash ./build/smoke-qemu.sh
+
+  windows-smoke:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify PowerShell Wrappers And WSL Bridge
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          ./tests/smoke/verify-windows-wsl-bridge.ps1

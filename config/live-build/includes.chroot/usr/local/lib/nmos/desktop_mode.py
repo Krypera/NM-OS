@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from nmos_common.config_helpers import load_mode
+from nmos_common.config_helpers import load_feature_flag, load_mode
 
 BOOT_MODE_FILE = Path("/run/nmos/boot-mode.json")
 BRAVE_FEATURE_FILE = Path("/etc/nmos/features/brave")
@@ -39,11 +39,12 @@ def write_hidden_override() -> None:
 
 
 def main() -> None:
-    if not BRAVE_FEATURE_FILE.exists():
+    if not BRAVE_DESKTOP_SOURCE.exists():
         remove_override()
         return
+    brave_enabled = load_feature_flag(BRAVE_FEATURE_FILE)
     mode = load_mode(BOOT_MODE_FILE)
-    if mode == "flexible":
+    if brave_enabled and mode == "flexible":
         remove_override()
         return
     write_hidden_override()

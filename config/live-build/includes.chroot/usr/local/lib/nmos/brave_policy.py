@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from nmos_common.config_helpers import load_mode
+from nmos_common.config_helpers import load_feature_flag, load_mode
 
 BOOT_MODE_FILE = Path("/run/nmos/boot-mode.json")
 BRAVE_FEATURE_FILE = Path("/etc/nmos/features/brave")
@@ -26,19 +26,7 @@ def log_policy_message(message: str) -> None:
 
 
 def brave_feature_enabled() -> bool:
-    if not BRAVE_FEATURE_FILE.exists():
-        return False
-    try:
-        for line in BRAVE_FEATURE_FILE.read_text(encoding="utf-8").splitlines():
-            raw = line.strip()
-            if not raw or raw.startswith("#") or "=" not in raw:
-                continue
-            key, value = raw.split("=", 1)
-            if key.strip() == "enabled":
-                return value.strip().lower() in {"1", "true", "yes", "on"}
-    except OSError:
-        return False
-    return False
+    return load_feature_flag(BRAVE_FEATURE_FILE)
 
 
 def deny(message: str) -> int:

@@ -4,9 +4,49 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
+BRAVE_KEYRING=/etc/apt/keyrings/brave-browser-archive-keyring.gpg
+ALLOWED_BRAVE_FINGERPRINTS=(
+    "DBF1A116C220B8C7164F98230686B78420038257"
+    "47D32A74E9A9E013A4B4926C68D513D36A73CD96"
+    "B2A3DCA350E67256740DF904DE4EC67BE4B0DCA0"
+)
+
+ensure_gpg_available() {
+    if command -v gpg >/dev/null 2>&1; then
+        return
+    fi
+    apt-get update
+    apt-get install -y --no-install-recommends gnupg
+}
+
+verify_brave_keyring_fingerprint() {
+    ensure_gpg_available
+
+    mapfile -t observed_fingerprints < <(
+        gpg --show-keys --with-colons "${BRAVE_KEYRING}" | awk -F: '$1 == "fpr" { print toupper($10) }'
+    )
+    if [ "${#observed_fingerprints[@]}" -eq 0 ]; then
+        echo "Brave keyring fingerprint verification failed: no fingerprints found." >&2
+        exit 1
+    fi
+
+    for observed in "${observed_fingerprints[@]}"; do
+        for allowed in "${ALLOWED_BRAVE_FINGERPRINTS[@]}"; do
+            if [ "${observed}" = "${allowed}" ]; then
+                return 0
+            fi
+        done
+    done
+
+    echo "Brave keyring fingerprint verification failed." >&2
+    echo "Observed fingerprints: ${observed_fingerprints[*]}" >&2
+    exit 1
+}
+
 install -d /etc/apt/keyrings
 curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg \
-    -o /etc/apt/keyrings/brave-browser-archive-keyring.gpg
+    -o "${BRAVE_KEYRING}"
+verify_brave_keyring_fingerprint
 
 cat > /etc/apt/sources.list.d/brave-browser-release.list <<'EOF'
 deb [signed-by=/etc/apt/keyrings/brave-browser-archive-keyring.gpg arch=amd64] https://brave-browser-apt-release.s3.brave.com/ stable main

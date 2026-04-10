@@ -50,6 +50,11 @@ grep -q 'mode == "flexible"' "${DESKTOP_MODE_SCRIPT}" || {
     exit 1
 }
 
+grep -q 'load_feature_flag' "${DESKTOP_MODE_SCRIPT}" || {
+    echo "desktop mode helper does not use shared feature-flag parsing." >&2
+    exit 1
+}
+
 grep -q 'NoDisplay=true' "${DESKTOP_MODE_SCRIPT}" || {
     echo "desktop mode helper does not hide Brave entries outside flexible mode." >&2
     exit 1
@@ -65,6 +70,11 @@ grep -q 'ALLOWED_MODES = {"flexible"}' "${BRAVE_POLICY_SCRIPT}" || {
     exit 1
 }
 
+grep -q 'load_feature_flag' "${BRAVE_POLICY_SCRIPT}" || {
+    echo "Brave policy helper does not use shared feature-flag parsing." >&2
+    exit 1
+}
+
 grep -q 'install_binary_policy_wrapper' "${BRAVE_HOOK}" || {
     echo "optional Brave hook does not install binary policy wrappers." >&2
     exit 1
@@ -77,6 +87,16 @@ grep -q '/usr/local/lib/nmos/brave_policy.py' "${BRAVE_HOOK}" || {
 
 grep -q '\.real' "${BRAVE_HOOK}" || {
     echo "optional Brave hook does not preserve original Brave binaries behind a wrapper." >&2
+    exit 1
+}
+
+grep -q 'ALLOWED_BRAVE_FINGERPRINTS' "${BRAVE_HOOK}" || {
+    echo "optional Brave hook does not pin Brave signing key fingerprints." >&2
+    exit 1
+}
+
+grep -q 'verify_brave_keyring_fingerprint' "${BRAVE_HOOK}" || {
+    echo "optional Brave hook does not verify the keyring fingerprint." >&2
     exit 1
 }
 

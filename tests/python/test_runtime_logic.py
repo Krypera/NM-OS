@@ -143,3 +143,93 @@ def test_common_helper_read_assignment_and_load_mode(workspace_tmp_path: Path) -
     mode_file = workspace_tmp_path / "boot-mode.json"
     mode_file.write_text(json.dumps({"mode": "flexible"}), encoding="utf-8")
     assert load_mode(mode_file) == "flexible"
+
+
+def test_brave_visibility_and_runtime_share_feature_flag_helper(repo_root: Path) -> None:
+    desktop_mode_source = (
+        repo_root / "config" / "live-build" / "includes.chroot" / "usr" / "local" / "lib" / "nmos" / "desktop_mode.py"
+    ).read_text(encoding="utf-8")
+    brave_policy_source = (
+        repo_root / "config" / "live-build" / "includes.chroot" / "usr" / "local" / "lib" / "nmos" / "brave_policy.py"
+    ).read_text(encoding="utf-8")
+
+    assert "load_feature_flag" in desktop_mode_source
+    assert "load_feature_flag" in brave_policy_source
+    assert 'if brave_enabled and mode == "flexible":' in desktop_mode_source
+    assert "return load_feature_flag(BRAVE_FEATURE_FILE)" in brave_policy_source
+
+
+def test_optional_brave_hook_verifies_pinned_key_fingerprints(repo_root: Path) -> None:
+    brave_hook_source = (
+        repo_root / "hooks" / "optional" / "050-install-brave-browser.hook.chroot"
+    ).read_text(encoding="utf-8")
+
+    assert "ALLOWED_BRAVE_FINGERPRINTS" in brave_hook_source
+    assert "verify_brave_keyring_fingerprint" in brave_hook_source
+    assert "gpg --show-keys --with-colons" in brave_hook_source
+
+
+def test_runtime_launchers_use_installed_python_packages(repo_root: Path) -> None:
+    install_hook_source = (repo_root / "hooks" / "live" / "010-install-nmos-apps.hook.chroot").read_text(
+        encoding="utf-8"
+    )
+    greeter_launcher_source = (
+        repo_root / "config" / "live-build" / "includes.chroot" / "usr" / "local" / "bin" / "nmos-greeter"
+    ).read_text(encoding="utf-8")
+    persistence_launcher_source = (
+        repo_root
+        / "config"
+        / "live-build"
+        / "includes.chroot"
+        / "usr"
+        / "local"
+        / "bin"
+        / "nmos-persistent-storage"
+    ).read_text(encoding="utf-8")
+
+    assert "install_python_package_dir /opt/nmos/apps/nmos_common/nmos_common" in install_hook_source
+    assert "install_python_package_dir /opt/nmos/apps/nmos_greeter/nmos_greeter" in install_hook_source
+    assert "install_python_package_dir /opt/nmos/apps/nmos_persistent_storage/nmos_persistent_storage" in install_hook_source
+    assert "PYTHONPATH" not in greeter_launcher_source
+    assert "PYTHONPATH" not in persistence_launcher_source
+
+
+def test_service_units_include_requested_hardening(repo_root: Path) -> None:
+    persistent_service = (
+        repo_root
+        / "config"
+        / "live-build"
+        / "includes.chroot"
+        / "usr"
+        / "lib"
+        / "systemd"
+        / "system"
+        / "nmos-persistent-storage.service"
+    ).read_text(encoding="utf-8")
+    network_service = (
+        repo_root
+        / "config"
+        / "live-build"
+        / "includes.chroot"
+        / "usr"
+        / "lib"
+        / "systemd"
+        / "system"
+        / "nmos-network-bootstrap.service"
+    ).read_text(encoding="utf-8")
+
+    for value in ("NoNewPrivileges=yes", "ProtectSystem=strict", "ProtectHome=yes", "PrivateTmp=yes"):
+        assert value in persistent_service
+        assert value in network_service
+
+    assert "CapabilityBoundingSet=" in persistent_service
+    assert "CapabilityBoundingSet=" in network_service
+    assert "ReadWritePaths=/run/nmos /live/persistence" in persistent_service
+    assert "ReadWritePaths=/run/nmos" in network_service
+    assert "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK" in network_service
+
+
+def test_workflow_includes_windows_bridge_validation(repo_root: Path) -> None:
+    workflow_source = (repo_root / ".github" / "workflows" / "smoke.yml").read_text(encoding="utf-8")
+    assert "windows-smoke:" in workflow_source
+    assert "verify-windows-wsl-bridge.ps1" in workflow_source

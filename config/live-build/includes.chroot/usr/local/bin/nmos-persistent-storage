@@ -3,5 +3,4 @@
 set -euo pipefail
 
 export PYTHONUNBUFFERED=1
-export PYTHONPATH="/opt/nmos/apps/nmos_persistent_storage:${PYTHONPATH:-}"
 exec python3 -m nmos_persistent_storage.service
