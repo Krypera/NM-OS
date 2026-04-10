@@ -13,6 +13,8 @@ python3 - <<'PY'
 import json
 from pathlib import Path
 
+from nmos_common.runtime_state import read_runtime_text
+
 state_file = Path("/run/nmos/greeter-state.json")
 console_keymaps = {
     "us": "us",
@@ -21,7 +23,7 @@ console_keymaps = {
     "fr": "fr",
 }
 try:
-    state = json.loads(state_file.read_text(encoding="utf-8"))
+    state = json.loads(read_runtime_text(state_file))
 except Exception:
     state = {}
 
@@ -48,5 +50,11 @@ if [ -n "${CONSOLE_KEYMAP}" ]; then
     localectl set-keymap "${CONSOLE_KEYMAP}" >/dev/null 2>&1 || true
 fi
 
-printf '{}\n' > "${STATE_FILE}"
+python3 - <<'PY'
+from pathlib import Path
+
+from nmos_common.runtime_state import write_runtime_text
+
+write_runtime_text(Path("/run/nmos/greeter-state.json"), "{}\n", mode=0o660)
+PY
 exit 0

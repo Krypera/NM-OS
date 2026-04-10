@@ -12,6 +12,13 @@ grep -q 'es_ES.UTF-8' "${I18N_FILE}" || {
     exit 1
 }
 
+for unsupported_locale in tr_TR.UTF-8 de_DE.UTF-8 fr_FR.UTF-8; do
+    if grep -q "${unsupported_locale}" "${I18N_FILE}"; then
+        echo "Greeter language selector still exposes an incomplete locale: ${unsupported_locale}" >&2
+        exit 1
+    fi
+done
+
 grep -q '^Name\[es\]=' "${DESKTOP_ENTRY}" || {
     echo "Desktop entry does not expose a Spanish display name." >&2
     exit 1
@@ -34,6 +41,9 @@ from nmos_common.i18n import display_language_name, resolve_supported_locale, tr
 
 assert resolve_supported_locale("es_MX.UTF-8") == "es_ES.UTF-8"
 assert display_language_name("es_ES.UTF-8") == "Espa\u00f1ol"
+assert resolve_supported_locale("tr_TR.UTF-8") == "en_US.UTF-8"
+assert resolve_supported_locale("de_DE.UTF-8") == "en_US.UTF-8"
+assert resolve_supported_locale("fr_FR.UTF-8") == "en_US.UTF-8"
 assert translate("es_ES.UTF-8", "Language") == "Idioma"
 assert translate("es_ES.UTF-8", "Finish") == "Finalizar"
 assert translate_message("es_ES.UTF-8", "Tor is ready") == "Tor est\u00e1 listo"

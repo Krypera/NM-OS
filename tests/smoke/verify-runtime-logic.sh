@@ -60,6 +60,9 @@ boot_profile_source = (
 runtime_state_source = (
     root / "apps" / "nmos_common" / "nmos_common" / "runtime_state.py"
 ).read_text(encoding="utf-8")
+greeter_state_source = (
+    root / "apps" / "nmos_greeter" / "nmos_greeter" / "state.py"
+).read_text(encoding="utf-8")
 tmpfiles_source = (
     root / "config" / "live-build" / "includes.chroot" / "usr" / "lib" / "tmpfiles.d" / "nmos.conf"
 ).read_text(encoding="utf-8")
@@ -290,6 +293,11 @@ assert "path.write_text" not in boot_profile_source, "boot profile helper still 
 assert "write_runtime_json" in storage_source, "persistence storage state writer does not use secure runtime state helper"
 assert "STATE_FILE.write_text" not in storage_source, "persistence storage state writer still uses direct write_text"
 assert "O_NOFOLLOW" in runtime_state_source, "runtime state helper does not use nofollow protection when available"
+assert "mkstemp" in runtime_state_source, "runtime state helper does not stage writes through a temporary file"
+assert "os.fsync" in runtime_state_source, "runtime state helper does not fsync runtime state before replace"
+assert "os.replace" in runtime_state_source, "runtime state helper does not atomically replace runtime state files"
+assert "write_runtime_text" in greeter_state_source, "greeter state writer does not reuse the common runtime state helper"
+assert "read_runtime_text" in greeter_state_source, "greeter state loader does not read through the common runtime helper"
 assert "/run/nmos/network-status.json" in tmpfiles_source, "tmpfiles does not provision network status file permissions"
 assert "/run/nmos/network-ready" in tmpfiles_source, "tmpfiles does not provision network ready marker permissions"
 assert "/run/nmos/persistent-storage.json" in tmpfiles_source, "tmpfiles does not provision persistence state file permissions"

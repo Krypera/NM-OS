@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 
-
 DEFAULT_WAITING_SUMMARY = "Waiting for Tor bootstrap"
 
 

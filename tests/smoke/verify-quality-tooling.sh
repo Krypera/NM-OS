@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 QUALITY_CONFIG="${ROOT_DIR}/pyproject.toml"
 SHELLCHECK_CONFIG="${ROOT_DIR}/.shellcheckrc"
+DEV_TOOLS_DIR="${ROOT_DIR}/.dev-tools/quality/bin"
 
 [ -f "${QUALITY_CONFIG}" ] || {
     echo "missing quality config: ${QUALITY_CONFIG}" >&2
@@ -31,6 +32,23 @@ command -v shellcheck >/dev/null 2>&1 || {
     exit 1
 }
 
+resolve_tool() {
+    local name="$1"
+    if command -v "${name}" >/dev/null 2>&1; then
+        command -v "${name}"
+        return
+    fi
+    if [ -x "${DEV_TOOLS_DIR}/${name}" ]; then
+        echo "${DEV_TOOLS_DIR}/${name}"
+        return
+    fi
+    echo "missing required command: ${name}" >&2
+    exit 1
+}
+
+RUFF_BIN="$(resolve_tool ruff)"
+MYPY_BIN="$(resolve_tool mypy)"
+
 mapfile -t PYTHON_FILES < <(cd "${ROOT_DIR}" && git ls-files '*.py')
 [ "${#PYTHON_FILES[@]}" -gt 0 ] || {
     echo "no Python files found for Ruff checks." >&2
@@ -39,7 +57,7 @@ mapfile -t PYTHON_FILES < <(cd "${ROOT_DIR}" && git ls-files '*.py')
 
 (
     cd "${ROOT_DIR}"
-    ruff check "${PYTHON_FILES[@]}"
+    "${RUFF_BIN}" check "${PYTHON_FILES[@]}"
 )
 
 mapfile -t SHELL_FILES < <(
@@ -59,6 +77,11 @@ mapfile -t SHELL_FILES < <(
 (
     cd "${ROOT_DIR}"
     shellcheck --severity=error --external-sources --exclude=SC1091 "${SHELL_FILES[@]}"
+)
+
+(
+    cd "${ROOT_DIR}"
+    "${MYPY_BIN}" --config-file "${QUALITY_CONFIG}"
 )
 
 echo "Quality tooling checks passed"

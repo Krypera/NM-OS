@@ -26,9 +26,11 @@ apt-get install -y \
     mtools \
     parted \
     python3 \
+    python3-venv \
     qemu-system-x86 \
     squashfs-tools \
     systemd-container \
     wget
 
 echo "NM-OS build dependencies are installed."
+echo "For local smoke tooling, run: bash ./build/install-dev-deps.sh"

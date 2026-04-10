@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from nmos_common.boot_mode import MODE_OFFLINE, MODE_RECOVERY, load_boot_mode_profile
 from nmos_common.network_status import parse_bootstrap_status
 from nmos_common.runtime_state import write_runtime_json, write_runtime_text
-
 
 READY_DIR = Path("/run/nmos")
 READY_FILE = READY_DIR / "network-ready"
@@ -35,7 +34,7 @@ def run(*args: str) -> None:
 
 
 def now_utc_timestamp() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def write_status(
@@ -64,7 +63,10 @@ def write_status(
 def write_firewall_rules() -> None:
     import pwd
 
-    tor_uid = pwd.getpwnam("debian-tor").pw_uid
+    getpwnam = getattr(pwd, "getpwnam", None)
+    if getpwnam is None:
+        raise RuntimeError("pwd.getpwnam is unavailable on this platform")
+    tor_uid = getpwnam("debian-tor").pw_uid
     subprocess.run(["nft", "delete", "table", "inet", "nmosfilter"], check=False)
     rules = f"""
 table inet nmosfilter {{

@@ -39,13 +39,13 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.persistence_client_factory = PersistenceClient
         self.persistence_init_error = ""
         self.gdm_init_error = ""
+        self.gdm_client: GdmLoginClient | None = None
         try:
             self.gdm_client = GdmLoginClient(
                 session_opened_cb=self.on_session_opened,
                 problem_cb=self.on_session_problem,
             )
         except Exception as exc:
-            self.gdm_client = None
             self.gdm_init_error = str(exc)
         self.page_index = 0
         self.session_start_timeout_id = 0

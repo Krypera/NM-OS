@@ -10,7 +10,6 @@ from pathlib import Path
 
 from nmos_common.runtime_state import write_runtime_text
 
-
 LIVE_RUNTIME_USERNAME_CONFIG = Path("/etc/live/config.d/username.conf")
 LIVE_RUNTIME_PASSWORD_CONFIG = Path("/etc/live/config.d/password.conf")
 LIVE_DEFAULTS_CONFIG = Path("/etc/nmos/live-user.conf")
@@ -63,7 +62,10 @@ def store_runtime_password(password: str) -> None:
     gid: int | None = None
     mode = 0o600
     try:
-        gid = grp.getgrnam(RUNTIME_PASSWORD_GROUP).gr_gid
+        getgrnam = getattr(grp, "getgrnam", None)
+        if getgrnam is None:
+            raise KeyError(RUNTIME_PASSWORD_GROUP)
+        gid = getgrnam(RUNTIME_PASSWORD_GROUP).gr_gid
         mode = 0o640
     except KeyError:
         gid = None
@@ -84,7 +86,10 @@ def main() -> None:
     else:
         password = validate_credential_field("LIVE_PASSWORD", generate_live_password())
     try:
-        pwd.getpwnam(username)
+        getpwnam = getattr(pwd, "getpwnam", None)
+        if getpwnam is None:
+            raise RuntimeError("pwd.getpwnam is unavailable on this platform")
+        getpwnam(username)
     except KeyError as exc:
         raise RuntimeError(f"live user '{username}' does not exist") from exc
     subprocess.run(

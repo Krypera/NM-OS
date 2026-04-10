@@ -6,7 +6,6 @@ from pathlib import Path
 from nmos_common.boot_mode import MODE_OFFLINE, MODE_RECOVERY, load_boot_mode_profile
 from nmos_common.network_status import normalize_network_status, parse_bootstrap_status
 
-
 READY_FILE = Path("/run/nmos/network-ready")
 STATUS_FILE = Path("/run/nmos/network-status.json")
 

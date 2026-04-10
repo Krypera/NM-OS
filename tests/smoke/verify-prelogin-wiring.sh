@@ -69,6 +69,11 @@ grep -q 'mapfile -t STATE_VALUES' "${POSTLOGIN_FILE}" || {
     exit 1
 }
 
+grep -q 'write_runtime_text' "${POSTLOGIN_FILE}" || {
+    echo "GDM PostLogin hook does not clear greeter state through the secure runtime helper." >&2
+    exit 1
+}
+
 if grep -q '\beval\b' "${POSTLOGIN_FILE}"; then
     echo "GDM PostLogin hook still uses eval for the greeter runtime handoff." >&2
     exit 1

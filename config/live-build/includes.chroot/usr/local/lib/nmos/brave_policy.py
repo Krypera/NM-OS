@@ -8,7 +8,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 BOOT_MODE_FILE = Path("/run/nmos/boot-mode.json")
 BRAVE_FEATURE_FILE = Path("/etc/nmos/features/brave")
 ALLOWED_MODES = {"flexible"}

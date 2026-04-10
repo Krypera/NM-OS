@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
 BOOT_MODE_FILE = Path("/run/nmos/boot-mode.json")
 BRAVE_FEATURE_FILE = Path("/etc/nmos/features/brave")
 BRAVE_DESKTOP_SOURCE = Path("/usr/share/applications/brave-browser.desktop")

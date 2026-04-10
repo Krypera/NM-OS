@@ -8,7 +8,6 @@ from pathlib import Path
 
 from nmos_common.runtime_state import write_runtime_json
 
-
 RUNTIME_DIR = Path("/run/nmos")
 STATE_FILE = RUNTIME_DIR / "persistent-storage.json"
 MAPPER_NAME = "nmos-persist"
