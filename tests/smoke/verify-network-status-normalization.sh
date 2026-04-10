@@ -51,9 +51,10 @@ assert state3["progress"] == 0
 assert state3["phase"] == "bootstrap"
 assert state3["last_error"] == "invalid status payload"
 
-assert module.parse_bootstrap_status('NOTICE BOOTSTRAP PROGRESS=42 SUMMARY="Loading"') == (42, "Loading")
+assert shared_module.parse_bootstrap_status('NOTICE BOOTSTRAP PROGRESS=42 SUMMARY="Loading"') == (42, "Loading")
 assert tor_module.parse_bootstrap_status('NOTICE BOOTSTRAP PROGRESS=42 SUMMARY="Loading"') == (42, "Loading")
-assert module.parse_bootstrap_status is shared_module.parse_bootstrap_status
+assert tor_module.parse_bootstrap_status is shared_module.parse_bootstrap_status
+assert module.normalize_network_status is shared_module.normalize_network_status
 assert tor_module.normalize_network_status is shared_module.normalize_network_status
 
 with tempfile.TemporaryDirectory() as tmp:
