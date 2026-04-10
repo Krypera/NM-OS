@@ -19,11 +19,11 @@ for path in "${BOOT_HOOK}" "${GRUB_TEMPLATE}" "${SYSLINUX_TEMPLATE}" "${BOOT_MOD
     }
 done
 
-grep -q 'render_template "${GRUB_TEMPLATE}" "${GRUB_CFG}"' "${BOOT_HOOK}" || {
+grep -q "render_template \"\${GRUB_TEMPLATE}\" \"\${GRUB_CFG}\"" "${BOOT_HOOK}" || {
     echo "boot hook does not render grub menu from template." >&2
     exit 1
 }
-grep -q 'render_template "${SYSLINUX_TEMPLATE}" "${SYSLINUX_CFG}"' "${BOOT_HOOK}" || {
+grep -q "render_template \"\${SYSLINUX_TEMPLATE}\" \"\${SYSLINUX_CFG}\"" "${BOOT_HOOK}" || {
     echo "boot hook does not render syslinux menu from template." >&2
     exit 1
 }

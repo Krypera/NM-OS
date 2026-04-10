@@ -30,7 +30,7 @@ grep -q 'VERSION_PATTERN=' "${COMMON_SH}" || {
     exit 1
 }
 
-grep -q 'validate_version_format "${VERSION}"' "${BUILD_SH}" || {
+grep -q "validate_version_format \"\${VERSION}\"" "${BUILD_SH}" || {
     echo "build entry point does not enforce version format validation." >&2
     exit 1
 }

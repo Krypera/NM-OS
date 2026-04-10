@@ -31,17 +31,17 @@ grep -q "staged live-build tree contains Python cache artifacts" "${COMMON_SH}" 
     exit 1
 }
 
-grep -Fq 'if [ -d "${WORK_DIR}/config/includes.chroot/usr/local/bin" ]; then' "${COMMON_SH}" || {
+grep -Fq "if [ -d \"\${WORK_DIR}/config/includes.chroot/usr/local/bin\" ]; then" "${COMMON_SH}" || {
     echo "build staging does not guard chmod scans for usr/local/bin." >&2
     exit 1
 }
 
-grep -Fq 'find "${WORK_DIR}/config/hooks/live" -type f -name "*.hook.binary" -exec chmod +x {} +' "${COMMON_SH}" || {
+grep -Fq "find \"\${WORK_DIR}/config/hooks/live\" -type f -name \"*.hook.binary\" -exec chmod +x {} +" "${COMMON_SH}" || {
     echo "build staging does not mark binary hooks executable." >&2
     exit 1
 }
 
-grep -Fq 'if [ -d "${WORK_DIR}/config/includes.chroot/usr/local/lib/nmos" ]; then' "${COMMON_SH}" || {
+grep -Fq "if [ -d \"\${WORK_DIR}/config/includes.chroot/usr/local/lib/nmos\" ]; then" "${COMMON_SH}" || {
     echo "build staging does not guard chmod scans for usr/local/lib/nmos." >&2
     exit 1
 }

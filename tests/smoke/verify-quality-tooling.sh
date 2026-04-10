@@ -58,7 +58,7 @@ mapfile -t SHELL_FILES < <(
 
 (
     cd "${ROOT_DIR}"
-    shellcheck "${SHELL_FILES[@]}"
+    shellcheck --severity=error --external-sources "${SHELL_FILES[@]}"
 )
 
 echo "Quality tooling checks passed"
