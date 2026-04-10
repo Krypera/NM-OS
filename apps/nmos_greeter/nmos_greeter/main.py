@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 
 import gi
@@ -9,6 +10,14 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gio, GLib, Gtk
 
 from nmos_common.boot_mode import MODE_COMPAT, MODE_FLEXIBLE, MODE_OFFLINE, MODE_RECOVERY, MODE_STRICT
+from nmos_common.i18n import (
+    DEFAULT_UI_LOCALE,
+    LANGUAGE_OPTIONS,
+    display_language_name,
+    resolve_supported_locale,
+    translate,
+    translate_message,
+)
 from nmos_greeter.client import PersistenceClient, read_boot_mode_profile, read_network_status
 from nmos_greeter.gdmclient import GdmLoginClient
 from nmos_greeter.state import load_state, save_state
@@ -20,6 +29,8 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.set_default_size(860, 560)
 
         self.state = load_state()
+        self.language_values = [locale for locale, _label in LANGUAGE_OPTIONS]
+        self.ui_locale = resolve_supported_locale(self.state.get("locale", os.environ.get("LANG", DEFAULT_UI_LOCALE)))
         self.boot_mode_profile = read_boot_mode_profile()
         self.boot_mode = str(self.boot_mode_profile.get("mode", MODE_STRICT))
         self.page_order = self.resolve_page_order()
@@ -56,15 +67,14 @@ class GreeterWindow(Adw.ApplicationWindow):
         root.set_margin_end(24)
 
         header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        title = Gtk.Label(label="NM-OS")
-        title.add_css_class("title-1")
-        title.set_xalign(0)
-        subtitle = Gtk.Label(label="Prepare your session before entering the desktop.")
-        subtitle.set_xalign(0)
+        self.header_title_label = Gtk.Label(label="NM-OS")
+        self.header_title_label.add_css_class("title-1")
+        self.header_title_label.set_xalign(0)
+        self.header_subtitle_label = Gtk.Label(xalign=0)
         self.mode_banner = Gtk.Label(xalign=0)
         self.mode_banner.add_css_class("caption")
-        header.append(title)
-        header.append(subtitle)
+        header.append(self.header_title_label)
+        header.append(self.header_subtitle_label)
         header.append(self.mode_banner)
         root.append(header)
 
@@ -75,29 +85,29 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
         self.stack.set_vexpand(True)
 
-        self.language_combo = self._combo(["en_US.UTF-8", "tr_TR.UTF-8", "de_DE.UTF-8", "fr_FR.UTF-8"])
+        self.language_combo = self._combo([display_language_name(locale) for locale in self.language_values])
         self.keyboard_combo = self._combo(["us", "tr", "de", "fr"])
         self.network_progress = Gtk.ProgressBar()
         self.network_label = Gtk.Label(xalign=0)
-        self.network_refresh = Gtk.Button(label="Refresh network status")
+        self.network_refresh = Gtk.Button()
         self.network_refresh.connect("clicked", self.on_refresh_network)
-        self.allow_offline = Gtk.CheckButton(label="Continue to desktop while network stays blocked")
+        self.allow_offline = Gtk.CheckButton()
         self.allow_offline.connect("toggled", self.on_allow_offline_toggled)
 
         self.persistence_label = Gtk.Label(xalign=0)
         self.persistence_password = Gtk.PasswordEntry()
-        self.persistence_create = Gtk.Button(label="Create")
-        self.persistence_unlock = Gtk.Button(label="Unlock")
-        self.persistence_lock = Gtk.Button(label="Lock")
-        self.persistence_repair = Gtk.Button(label="Repair")
+        self.persistence_create = Gtk.Button()
+        self.persistence_unlock = Gtk.Button()
+        self.persistence_lock = Gtk.Button()
+        self.persistence_repair = Gtk.Button()
         self.persistence_create.connect("clicked", self.on_create_persistence)
         self.persistence_unlock.connect("clicked", self.on_unlock_persistence)
         self.persistence_lock.connect("clicked", self.on_lock_persistence)
         self.persistence_repair.connect("clicked", self.on_repair_persistence)
 
         self.page_widgets = {
-            "language": self._page("Language", "Choose the session language.", self.language_combo),
-            "keyboard": self._page("Keyboard", "Choose the keyboard layout.", self.keyboard_combo),
+            "language": self._page("language", "Language", "Choose the session language.", self.language_combo),
+            "keyboard": self._page("keyboard", "Keyboard", "Choose the keyboard layout.", self.keyboard_combo),
             "network": self._network_page(),
             "persistence": self._persistence_page(),
         }
@@ -108,9 +118,9 @@ class GreeterWindow(Adw.ApplicationWindow):
         root.append(self.stack)
 
         nav = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        self.back_button = Gtk.Button(label="Back")
-        self.next_button = Gtk.Button(label="Next")
-        self.finish_button = Gtk.Button(label="Finish")
+        self.back_button = Gtk.Button()
+        self.next_button = Gtk.Button()
+        self.finish_button = Gtk.Button()
         self.back_button.connect("clicked", self.on_back)
         self.next_button.connect("clicked", self.on_next)
         self.finish_button.connect("clicked", self.on_finish)
@@ -120,6 +130,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         root.append(nav)
 
         self.set_content(root)
+        self.apply_translations()
         self.apply_mode_ui_policy()
         self.restore_state()
         self.update_persistence_actions({})
@@ -133,11 +144,13 @@ class GreeterWindow(Adw.ApplicationWindow):
         model = Gtk.StringList.new(values)
         return Gtk.DropDown(model=model)
 
-    def _page(self, title_text: str, subtitle_text: str, control: Gtk.Widget) -> Gtk.Widget:
+    def _page(self, page_key: str, title_text: str, subtitle_text: str, control: Gtk.Widget) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         title = Gtk.Label(label=title_text, xalign=0)
         title.add_css_class("title-3")
         subtitle = Gtk.Label(label=subtitle_text, xalign=0)
+        setattr(self, f"{page_key}_title_label", title)
+        setattr(self, f"{page_key}_subtitle_label", subtitle)
         box.append(title)
         box.append(subtitle)
         box.append(control)
@@ -145,9 +158,9 @@ class GreeterWindow(Adw.ApplicationWindow):
 
     def _network_page(self) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        title = Gtk.Label(label="Network", xalign=0)
-        title.add_css_class("title-3")
-        box.append(title)
+        self.network_title_label = Gtk.Label(label="Network", xalign=0)
+        self.network_title_label.add_css_class("title-3")
+        box.append(self.network_title_label)
         box.append(self.network_label)
         box.append(self.network_progress)
         box.append(self.network_refresh)
@@ -156,9 +169,9 @@ class GreeterWindow(Adw.ApplicationWindow):
 
     def _persistence_page(self) -> Gtk.Widget:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        title = Gtk.Label(label="Persistence", xalign=0)
-        title.add_css_class("title-3")
-        box.append(title)
+        self.persistence_title_label = Gtk.Label(label="Persistence", xalign=0)
+        self.persistence_title_label.add_css_class("title-3")
+        box.append(self.persistence_title_label)
         box.append(self.persistence_label)
         box.append(self.persistence_password)
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -169,25 +182,73 @@ class GreeterWindow(Adw.ApplicationWindow):
         box.append(actions)
         return box
 
+    def tr(self, source_text: str, **kwargs) -> str:
+        return translate(self.ui_locale, source_text, **kwargs)
+
+    def translate_message(self, text: str) -> str:
+        return translate_message(self.ui_locale, text)
+
+    def current_language_code(self) -> str:
+        selected = self.language_combo.get_selected()
+        if selected == Gtk.INVALID_LIST_POSITION or selected >= len(self.language_values):
+            self.language_combo.set_selected(0)
+            return self.language_values[0]
+        return self.language_values[selected]
+
+    def current_language_name(self) -> str:
+        return display_language_name(self.current_language_code())
+
+    def action_label(self, action: str) -> str:
+        return self.tr(action.capitalize()).lower()
+
+    def apply_translations(self) -> None:
+        self.set_title(self.tr("NM-OS Greeter"))
+        self.header_subtitle_label.set_text(self.tr("Prepare your session before entering the desktop."))
+        self.language_title_label.set_text(self.tr("Language"))
+        self.language_subtitle_label.set_text(self.tr("Choose the session language."))
+        self.keyboard_title_label.set_text(self.tr("Keyboard"))
+        self.keyboard_subtitle_label.set_text(self.tr("Choose the keyboard layout."))
+        self.network_title_label.set_text(self.tr("Network"))
+        self.persistence_title_label.set_text(self.tr("Persistence"))
+        self.network_refresh.set_label(self.tr("Refresh network status"))
+        self.allow_offline.set_label(self.tr("Continue to desktop while network stays blocked"))
+        self.persistence_create.set_label(self.tr("Create"))
+        self.persistence_unlock.set_label(self.tr("Unlock"))
+        self.persistence_lock.set_label(self.tr("Lock"))
+        self.persistence_repair.set_label(self.tr("Repair"))
+        self.back_button.set_label(self.tr("Back"))
+        self.next_button.set_label(self.tr("Next"))
+        self.finish_button.set_label(self.tr("Finish"))
+        self.mode_banner.set_text(self.tr("Mode: {mode} - {description}", mode=self.mode_title(), description=self.mode_description()))
+        if self.persistence_init_error:
+            self.persistence_label.set_text(
+                self.tr(
+                    "Persistence backend unavailable: {error}",
+                    error=self.translate_message(self.persistence_init_error),
+                )
+            )
+        elif self.persistence_state:
+            self.persistence_label.set_text(self.render_persistence_state(self.persistence_state))
+
     def mode_title(self) -> str:
         return {
-            MODE_STRICT: "Strict",
-            MODE_FLEXIBLE: "Flexible",
-            MODE_OFFLINE: "Offline",
-            MODE_RECOVERY: "Recovery",
-            MODE_COMPAT: "Hardware Compatibility",
-        }.get(self.boot_mode, "Strict")
+            MODE_STRICT: self.tr("Strict"),
+            MODE_FLEXIBLE: self.tr("Flexible"),
+            MODE_OFFLINE: self.tr("Offline"),
+            MODE_RECOVERY: self.tr("Recovery"),
+            MODE_COMPAT: self.tr("Hardware Compatibility"),
+        }.get(self.boot_mode, self.tr("Strict"))
 
     def mode_description(self) -> str:
         if self.boot_mode == MODE_FLEXIBLE:
-            return "Tor-first with a more relaxed onboarding flow."
+            return self.tr("Tor-first with a more relaxed onboarding flow.")
         if self.boot_mode == MODE_OFFLINE:
-            return "Networking is intentionally disabled for this session."
+            return self.tr("Networking is intentionally disabled for this session.")
         if self.boot_mode == MODE_RECOVERY:
-            return "Recovery-first session with networking intentionally disabled."
+            return self.tr("Recovery-first session with networking intentionally disabled.")
         if self.boot_mode == MODE_COMPAT:
-            return "Compatibility boot options are enabled while keeping strict network policy."
-        return "Tor-first strict profile is active."
+            return self.tr("Compatibility boot options are enabled while keeping strict network policy.")
+        return self.tr("Tor-first strict profile is active.")
 
     def is_network_disabled_mode(self) -> bool:
         return self.boot_mode in {MODE_OFFLINE, MODE_RECOVERY}
@@ -220,7 +281,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         }
 
     def apply_mode_ui_policy(self) -> None:
-        self.mode_banner.set_text(f"Mode: {self.mode_title()} - {self.mode_description()}")
+        self.mode_banner.set_text(self.tr("Mode: {mode} - {description}", mode=self.mode_title(), description=self.mode_description()))
         if self.is_network_disabled_mode():
             self.allow_offline.set_active(True)
             self.allow_offline.set_sensitive(False)
@@ -231,7 +292,7 @@ class GreeterWindow(Adw.ApplicationWindow):
     def restore_state(self) -> None:
         locale = self.state.get("locale", "en_US.UTF-8")
         keyboard = self.state.get("keyboard", "us")
-        self._select_string(self.language_combo, locale)
+        self._select_language(locale)
         self._select_string(self.keyboard_combo, keyboard)
         if self.is_network_disabled_mode():
             self.allow_offline.set_active(True)
@@ -246,6 +307,14 @@ class GreeterWindow(Adw.ApplicationWindow):
             if model.get_string(index) == value:
                 dropdown.set_selected(index)
                 return
+
+    def _select_language(self, locale: str) -> None:
+        resolved = resolve_supported_locale(locale)
+        for index, value in enumerate(self.language_values):
+            if value == resolved:
+                self.language_combo.set_selected(index)
+                return
+        self.language_combo.set_selected(0)
 
     def current_string(self, dropdown: Gtk.DropDown) -> str:
         model = dropdown.get_model()
@@ -265,7 +334,7 @@ class GreeterWindow(Adw.ApplicationWindow):
 
     def collect_state(self) -> dict:
         return {
-            "locale": self.current_string(self.language_combo),
+            "locale": self.current_language_code(),
             "keyboard": self.current_string(self.keyboard_combo),
             "allow_offline": self.allow_offline.get_active(),
         }
@@ -303,16 +372,21 @@ class GreeterWindow(Adw.ApplicationWindow):
                     "updated_at": "",
                 }
         self.network_status = status
-        self.network_label.set_text(f"{status['summary']} ({status['progress']}%)")
+        summary = self.translate_message(str(status["summary"]))
+        self.network_label.set_text(f"{summary} ({status['progress']}%)")
         self.network_progress.set_fraction(status["progress"] / 100.0)
         if self.is_network_disabled_mode():
-            self.set_status("Network is intentionally disabled for this boot mode.", source="network", force=force_status)
+            self.set_status(self.tr("Network is intentionally disabled for this boot mode."), source="network", force=force_status)
         elif status.get("last_error"):
-            self.set_status(f"Network status: {status['last_error']}", source="network", force=force_status)
+            self.set_status(
+                self.tr("Network status: {error}", error=self.translate_message(str(status["last_error"]))),
+                source="network",
+                force=force_status,
+            )
         elif status["ready"]:
-            self.set_status("Tor connection is ready.", source="network", force=force_status)
+            self.set_status(self.tr("Tor connection is ready."), source="network", force=force_status)
         else:
-            self.set_status("Waiting for Tor to become ready.", source="network", force=force_status)
+            self.set_status(self.tr("Waiting for Tor to become ready."), source="network", force=force_status)
         self.update_navigation()
 
     def refresh_persistence(self) -> None:
@@ -340,7 +414,9 @@ class GreeterWindow(Adw.ApplicationWindow):
         if error:
             self.persistence_state = {}
             self.persistence_init_error = error
-            self.persistence_label.set_text(f"Persistence backend unavailable: {error}")
+            self.persistence_label.set_text(
+                self.tr("Persistence backend unavailable: {error}", error=self.translate_message(error))
+            )
             self.update_persistence_actions({})
             self.update_navigation()
         elif state is not None:
@@ -363,27 +439,33 @@ class GreeterWindow(Adw.ApplicationWindow):
         reason = state.get("reason", "")
         device = state.get("device", "")
         last_error = state.get("last_error", "")
+        device_label = device or self.tr("the boot USB")
         if last_error:
-            return f"Persistence error: {last_error}"
+            return self.tr("Persistence error: {error}", error=self.translate_message(str(last_error)))
         if busy:
-            return "Persistence operation is in progress."
+            return self.tr("Persistence operation is in progress.")
         if created and unlocked:
-            return "Persistence is unlocked and ready."
+            return self.tr("Persistence is unlocked and ready.")
         if created:
-            return f"Persistence exists on {device or 'the boot USB'} and can be unlocked."
+            return self.tr("Persistence exists on {device} and can be unlocked.", device=device_label)
         if reason == "no_free_space":
-            return f"Persistence cannot be created on {device or 'the boot USB'} because less than 1 GiB of free space remains."
+            return self.tr(
+                "Persistence cannot be created on {device} because less than 1 GiB of free space remains.",
+                device=device_label,
+            )
         if reason == "unsupported_boot_device":
-            return "Persistence creation is disabled because NM-OS was not started from a writable USB device."
+            return self.tr("Persistence creation is disabled because NM-OS was not started from a writable USB device.")
         if reason == "unsupported_layout":
-            return "Persistence creation is disabled because the boot USB layout cannot safely accept an appended partition."
+            return self.tr(
+                "Persistence creation is disabled because the boot USB layout cannot safely accept an appended partition."
+            )
         if reason == "read_only":
-            return "Persistence creation is disabled because the boot USB is read-only."
+            return self.tr("Persistence creation is disabled because the boot USB is read-only.")
         if can_create:
-            return f"Persistence can be created on {device or 'the boot USB'}."
+            return self.tr("Persistence can be created on {device}.", device=device_label)
         if reason == "already_exists":
-            return f"Persistence already exists on {device or 'the boot USB'}."
-        return "Persistence state is unavailable."
+            return self.tr("Persistence already exists on {device}.", device=device_label)
+        return self.tr("Persistence state is unavailable.")
 
     def update_persistence_actions(self, state: dict) -> None:
         created = bool(state.get("created"))
@@ -396,14 +478,17 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.persistence_repair.set_sensitive(created and unlocked and not busy)
 
     def apply_locale(self) -> bool:
-        locale = self.current_string(self.language_combo)
+        locale = self.current_language_code()
         self.state["locale"] = locale
         try:
             save_state(self.state)
         except OSError as exc:
-            self.set_status(f"Unable to save language selection: {exc}")
+            self.set_status(self.tr("Unable to save language selection: {error}", error=self.translate_message(str(exc))))
             return False
-        self.set_status(f"Language will be applied as {locale}.")
+        self.ui_locale = resolve_supported_locale(locale)
+        self.apply_translations()
+        self.refresh_network(force_status=True)
+        self.set_status(self.tr("Language will be applied as {language}.", language=self.current_language_name()))
         return True
 
     def apply_keyboard(self) -> bool:
@@ -412,9 +497,9 @@ class GreeterWindow(Adw.ApplicationWindow):
         try:
             save_state(self.state)
         except OSError as exc:
-            self.set_status(f"Unable to save keyboard selection: {exc}")
+            self.set_status(self.tr("Unable to save keyboard selection: {error}", error=self.translate_message(str(exc))))
             return False
-        self.set_status(f"Keyboard layout will be applied as {layout}.")
+        self.set_status(self.tr("Keyboard layout will be applied as {layout}.", layout=layout))
         return True
 
     def on_refresh_network(self, _button: Gtk.Button) -> None:
@@ -422,11 +507,11 @@ class GreeterWindow(Adw.ApplicationWindow):
 
     def on_allow_offline_toggled(self, _button: Gtk.CheckButton) -> None:
         if self.is_network_disabled_mode():
-            self.set_status("This boot mode is intentionally offline.")
+            self.set_status(self.tr("This boot mode is intentionally offline."))
         elif self.allow_offline.get_active():
-            self.set_status("You can continue to desktop now, but network traffic stays blocked until Tor is ready.")
+            self.set_status(self.tr("You can continue to desktop now, but network traffic stays blocked until Tor is ready."))
         else:
-            self.set_status("Continue without network is disabled. Wait for Tor readiness to proceed.")
+            self.set_status(self.tr("Continue without network is disabled. Wait for Tor readiness to proceed."))
         self.update_navigation()
 
     def on_create_persistence(self, _button: Gtk.Button) -> None:
@@ -447,10 +532,15 @@ class GreeterWindow(Adw.ApplicationWindow):
 
     def start_persistence_action(self, action: str, passphrase: str | None = None) -> None:
         if self.persistence_action_in_progress:
-            self.set_status(f"Persistence {self.persistence_action_name} is still running. Please wait.")
+            self.set_status(
+                self.tr(
+                    "Persistence {action} is still running. Please wait.",
+                    action=self.action_label(self.persistence_action_name),
+                )
+            )
             return
         if self.persistence_refresh_in_progress:
-            self.set_status("Persistence status is refreshing. Please wait.")
+            self.set_status(self.tr("Persistence status is refreshing. Please wait."))
             self.persistence_refresh_pending = True
             return
 
@@ -459,10 +549,10 @@ class GreeterWindow(Adw.ApplicationWindow):
         busy_state = dict(self.persistence_state)
         busy_state["busy"] = True
         self.persistence_state = busy_state
-        self.persistence_label.set_text(f"Persistence {action} is in progress...")
+        self.persistence_label.set_text(self.tr("Persistence {action} is in progress...", action=self.action_label(action)))
         self.update_persistence_actions(busy_state)
         self.update_navigation()
-        self.set_status(f"Starting persistence {action}...")
+        self.set_status(self.tr("Starting persistence {action}...", action=self.action_label(action)))
         thread = threading.Thread(
             target=self.run_persistence_action_worker,
             args=(action, passphrase),
@@ -491,7 +581,13 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.persistence_action_in_progress = False
         self.persistence_action_name = ""
         if error:
-            self.set_status(f"Persistence {action} failed: {error}")
+            self.set_status(
+                self.tr(
+                    "Persistence {action} failed: {error}",
+                    action=self.action_label(action),
+                    error=self.translate_message(error),
+                )
+            )
             self.refresh_persistence()
             return GLib.SOURCE_REMOVE
         if response is not None:
@@ -506,9 +602,15 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.update_persistence_actions(response)
         self.update_navigation()
         if response.get("last_error"):
-            self.set_status(f"Persistence {action} failed: {response['last_error']}")
+            self.set_status(
+                self.tr(
+                    "Persistence {action} failed: {error}",
+                    action=self.action_label(action),
+                    error=self.translate_message(str(response["last_error"])),
+                )
+            )
             return
-        self.set_status(f"Persistence {action} request completed.")
+        self.set_status(self.tr("Persistence {action} request completed.", action=self.action_label(action)))
 
     def on_back(self, _button: Gtk.Button) -> None:
         if self.page_index > 0:
@@ -529,22 +631,27 @@ class GreeterWindow(Adw.ApplicationWindow):
 
     def on_finish(self, _button: Gtk.Button) -> None:
         if not self.can_finish():
-            self.set_status("Session is not ready yet.")
+            self.set_status(self.tr("Session is not ready yet."))
             return
         try:
             save_state(self.collect_state())
         except Exception as exc:
-            self.set_status(f"Failed to save greeter state: {exc}")
+            self.set_status(self.tr("Failed to save greeter state: {error}", error=self.translate_message(str(exc))))
             return
         if self.gdm_client is None:
             if self.gdm_init_error:
-                self.set_status(f"GDM session control is unavailable: {self.gdm_init_error}")
+                self.set_status(
+                    self.tr(
+                        "GDM session control is unavailable: {error}",
+                        error=self.translate_message(self.gdm_init_error),
+                    )
+                )
             else:
-                self.set_status("Greeter state saved, but GDM session control is unavailable.")
+                self.set_status(self.tr("Greeter state saved, but GDM session control is unavailable."))
             return
         self.session_start_in_progress = True
         self.set_sensitive(False)
-        self.set_status("Starting the live session...")
+        self.set_status(self.tr("Starting the live session..."))
         self.arm_session_start_timeout()
         try:
             self.gdm_client.start_session()
@@ -552,7 +659,7 @@ class GreeterWindow(Adw.ApplicationWindow):
             self.session_start_in_progress = False
             self.clear_session_start_timeout()
             self.set_sensitive(True)
-            self.set_status(f"Failed to start the live session: {exc}")
+            self.set_status(self.tr("Failed to start the live session: {error}", error=self.translate_message(str(exc))))
 
     def update_navigation(self) -> None:
         self.back_button.set_sensitive(self.page_index > 0)
@@ -645,9 +752,14 @@ class GreeterWindow(Adw.ApplicationWindow):
                 cancel_error = str(exc)
         self.set_sensitive(True)
         if cancel_error:
-            self.set_status(f"Live session start timed out. Login flow reset failed: {cancel_error}")
+            self.set_status(
+                self.tr(
+                    "Live session start timed out. Login flow reset failed: {error}",
+                    error=self.translate_message(cancel_error),
+                )
+            )
         else:
-            self.set_status("Live session start timed out. Login flow was reset.")
+            self.set_status(self.tr("Live session start timed out. Login flow was reset."))
         return GLib.SOURCE_REMOVE
 
     def on_session_opened(self) -> None:
@@ -664,7 +776,7 @@ class GreeterWindow(Adw.ApplicationWindow):
             except Exception:
                 pass
         self.set_sensitive(True)
-        self.set_status(f"Live session start failed: {problem}")
+        self.set_status(self.tr("Live session start failed: {problem}", problem=self.translate_message(problem)))
 
 
 class GreeterApplication(Adw.Application):

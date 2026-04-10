@@ -40,6 +40,7 @@ jobs:
           bash ./tests/smoke/verify-boot-modes.sh
           bash ./tests/smoke/verify-brave-optional.sh
           bash ./tests/smoke/verify-greeter-state.sh
+          bash ./tests/smoke/verify-greeter-i18n.sh
           bash ./tests/smoke/verify-live-login-config.sh
           bash ./tests/smoke/verify-network-gate-transition.sh
           bash ./tests/smoke/verify-network-status-normalization.sh
