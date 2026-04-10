@@ -7,11 +7,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PYTHONDONTWRITEBYTECODE=1 NMOS_ROOT="${ROOT_DIR}" python3 - <<'PY'
 import importlib.util
 import os
+import sys
 import tempfile
 from types import SimpleNamespace
 from pathlib import Path
 
 root = Path(os.environ["NMOS_ROOT"])
+sys.path.insert(0, str(root / "apps" / "nmos_common"))
 path = root / "apps" / "nmos_persistent_storage" / "nmos_persistent_storage" / "storage.py"
 spec = importlib.util.spec_from_file_location("nmos_storage", path)
 module = importlib.util.module_from_spec(spec)
