@@ -3,6 +3,7 @@
 set -eu
 
 lb config noauto \
+    --mode debian \
     --architectures amd64 \
     --distribution trixie \
     --mirror-bootstrap "http://deb.debian.org/debian/" \
