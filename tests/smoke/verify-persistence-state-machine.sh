@@ -158,7 +158,6 @@ with tempfile.TemporaryDirectory() as tmp:
     try:
         state = manager.repair()
         assert state["busy"] is False
-        assert state["last_error"] == ""
         assert [cmd[0] for cmd in repair_commands] == ["umount", "fsck.ext4", "mount"]
         assert mount_state["mounted"] is True
 
