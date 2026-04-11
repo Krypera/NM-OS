@@ -1,0 +1,21 @@
+name: nmos-example
+version: 0.1.0-alpha.1
+summary: Example NM-OS package template
+component_type: app_or_service_or_assets
+source_paths:
+  - apps/example
+runtime_dependencies:
+  - python3
+  - dbus
+owned_files:
+  - /usr/local/bin/example
+  - /usr/lib/systemd/system/example.service
+post_install_actions:
+  - systemctl daemon-reload
+contracts:
+  dbus_interfaces: []
+  settings_schema_keys: []
+tests:
+  - tests/python
+  - tests/smoke
+

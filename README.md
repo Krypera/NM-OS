@@ -83,6 +83,7 @@ The current install details are in [docs/installation.md](docs/installation.md).
 - [Security settings](docs/security-profiles.md)
 - [Translation guide](docs/translations.md)
 - [Windows + WSL2 workflow](docs/windows-wsl.md)
+- [Independence program](docs/independence/README.md)
 
 ## Repository Layout
 

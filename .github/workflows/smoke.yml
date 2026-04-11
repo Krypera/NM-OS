@@ -37,6 +37,7 @@ jobs:
           bash ./tests/smoke/verify-quality-tooling.sh
           bash ./tests/smoke/verify-build-hygiene.sh
           bash ./tests/smoke/verify-version-policy.sh
+          bash ./tests/smoke/verify-independence-docs.sh
           bash ./tests/smoke/verify-settings-model.sh
           bash ./tests/smoke/verify-control-center.sh
           bash ./tests/smoke/verify-installer-media.sh

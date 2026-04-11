@@ -74,6 +74,7 @@ REQUIRED=(
     "${ROOT_DIR}/tests/smoke/verify-control-center.sh"
     "${ROOT_DIR}/tests/smoke/verify-greeter-i18n.sh"
     "${ROOT_DIR}/tests/smoke/verify-greeter-state.sh"
+    "${ROOT_DIR}/tests/smoke/verify-independence-docs.sh"
     "${ROOT_DIR}/tests/smoke/verify-installer-media.sh"
     "${ROOT_DIR}/tests/smoke/verify-network-policy.sh"
     "${ROOT_DIR}/tests/smoke/verify-prelogin-wiring.sh"

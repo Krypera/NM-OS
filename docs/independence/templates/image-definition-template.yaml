@@ -1,0 +1,20 @@
+schema_version: 1
+image_name: nmos-desktop
+variant: desktop
+channel: nightly
+architecture: amd64
+boot:
+  mode: uefi_and_bios
+  secure_boot: planned
+package_set: nmos-desktop-base
+installer:
+  enabled: false
+recovery:
+  enabled: false
+artifacts:
+  - iso
+  - checksum
+signing:
+  required: true
+  key_id: "<release-key-id>"
+

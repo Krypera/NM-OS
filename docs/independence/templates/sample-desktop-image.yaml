@@ -1,0 +1,21 @@
+schema_version: 1
+image_name: nmos-desktop
+variant: desktop
+channel: beta
+architecture: amd64
+boot:
+  mode: uefi_and_bios
+  secure_boot: false
+package_set: nmos-desktop-base
+installer:
+  enabled: false
+recovery:
+  enabled: true
+artifacts:
+  - iso
+  - checksum
+  - release-manifest
+signing:
+  required: true
+  key_id: nmos-release-beta
+

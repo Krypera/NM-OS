@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "product": "NM-OS",
+  "version": "0.1.0-alpha.1",
+  "channel": "beta",
+  "released_at": "2026-01-01T00:00:00Z",
+  "artifacts": [
+    {
+      "name": "nmos-installer-0.1.0-alpha.1-amd64.iso",
+      "sha256": "<sha256>",
+      "signature": "<sig-path>"
+    }
+  ],
+  "package_set_lock": {
+    "name": "nmos-desktop-base",
+    "digest": "<digest>"
+  },
+  "upgrade_policy": {
+    "minimum_source_version": "0.1.0-alpha.0",
+    "supports_rollback": true
+  },
+  "recovery": {
+    "image": "nmos-recovery-0.1.0-alpha.1-amd64.iso",
+    "sha256": "<sha256>"
+  },
+  "signing": {
+    "key_id": "<key-id>"
+  }
+}
+

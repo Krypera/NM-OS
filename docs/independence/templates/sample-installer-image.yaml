@@ -1,0 +1,23 @@
+schema_version: 1
+image_name: nmos-installer
+variant: installer
+channel: beta
+architecture: amd64
+boot:
+  mode: uefi_and_bios
+  secure_boot: false
+package_set: nmos-installer-base
+installer:
+  enabled: true
+  profile_selection: true
+  vault_setup: true
+recovery:
+  enabled: true
+artifacts:
+  - iso
+  - checksum
+  - release-manifest
+signing:
+  required: true
+  key_id: nmos-release-beta
+
