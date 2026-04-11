@@ -13,6 +13,7 @@
    exposes the encrypted vault backend
 5. the GDM greeter session launches `nmos-greeter`
 6. after login, the desktop can use `nmos-control-center`
+7. the desktop autostart helper applies the selected wallpaper, color scheme, motion, density, and Brave visibility policy
 
 ## Settings model
 
@@ -113,3 +114,11 @@ Control Center:
 - system and recovery
 - language and region
 - appearance
+
+Desktop session sync:
+
+- `config/system-overlay/etc/xdg/autostart/nmos-desktop-mode.desktop` launches the post-login policy helper
+- the helper reads effective settings and mirrors the active look into `~/.config/nmos/session-appearance.json`
+- theme profile selects a curated wallpaper and GNOME color scheme
+- motion and density preferences are applied through `gsettings`
+- Brave visibility stays aligned with the selected network and browser policy

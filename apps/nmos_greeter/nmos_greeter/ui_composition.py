@@ -266,11 +266,11 @@ def current_profile(window) -> str:
 
 
 def current_profile_name(window) -> str:
-    return PROFILE_METADATA[current_profile(window)]["label"]
+    return window.tr(PROFILE_METADATA[current_profile(window)]["label"])
 
 
 def current_profile_summary(window) -> str:
-    return PROFILE_METADATA[current_profile(window)]["summary"]
+    return window.tr(PROFILE_METADATA[current_profile(window)]["summary"])
 
 
 def current_network_policy(window) -> str:
@@ -293,12 +293,20 @@ def current_theme_profile(window) -> str:
     return window.theme_profile_values[selected]
 
 
+def current_theme_profile_name(window) -> str:
+    return window.tr(THEME_PROFILE_LABELS[current_theme_profile(window)])
+
+
 def current_accent(window) -> str:
     selected = window.accent_combo.get_selected()
     if selected == Gtk.INVALID_LIST_POSITION or selected >= len(window.accent_values):
         window.accent_combo.set_selected(0)
         return window.accent_values[0]
     return window.accent_values[selected]
+
+
+def current_accent_name(window) -> str:
+    return window.tr(ACCENT_LABELS[current_accent(window)])
 
 
 def current_density(window) -> str:
@@ -309,6 +317,10 @@ def current_density(window) -> str:
     return window.density_values[selected]
 
 
+def current_density_name(window) -> str:
+    return window.tr(DENSITY_LABELS[current_density(window)])
+
+
 def current_motion(window) -> str:
     selected = window.motion_combo.get_selected()
     if selected == Gtk.INVALID_LIST_POSITION or selected >= len(window.motion_values):
@@ -317,14 +329,48 @@ def current_motion(window) -> str:
     return window.motion_values[selected]
 
 
+def current_motion_name(window) -> str:
+    return window.tr(MOTION_LABELS[current_motion(window)])
+
+
 def apply_translations(window) -> None:
     language_index = window.language_values.index(current_language_code(window))
+    profile_index = window.profile_values.index(current_profile(window))
     network_policy_index = window.network_policy_values.index(current_network_policy(window))
+    theme_profile_index = window.theme_profile_values.index(current_theme_profile(window))
+    accent_index = window.accent_values.index(current_accent(window))
+    density_index = window.density_values.index(current_density(window))
+    motion_index = window.motion_values.index(current_motion(window))
     _set_dropdown_values(window.language_combo, [display_language_name(locale) for locale in window.language_values], language_index)
+    _set_dropdown_values(
+        window.profile_combo,
+        [window.tr(PROFILE_METADATA[profile]["label"]) for profile in window.profile_values],
+        profile_index,
+    )
     _set_dropdown_values(
         window.network_policy_combo,
         [display_network_policy_name(policy, locale=window.ui_locale) for policy in window.network_policy_values],
         network_policy_index,
+    )
+    _set_dropdown_values(
+        window.theme_profile_combo,
+        [window.tr(THEME_PROFILE_LABELS[value]) for value in window.theme_profile_values],
+        theme_profile_index,
+    )
+    _set_dropdown_values(
+        window.accent_combo,
+        [window.tr(ACCENT_LABELS[value]) for value in window.accent_values],
+        accent_index,
+    )
+    _set_dropdown_values(
+        window.density_combo,
+        [window.tr(DENSITY_LABELS[value]) for value in window.density_values],
+        density_index,
+    )
+    _set_dropdown_values(
+        window.motion_combo,
+        [window.tr(MOTION_LABELS[value]) for value in window.motion_values],
+        motion_index,
     )
 
     window.set_title(window.tr("NM-OS Setup"))
@@ -455,23 +501,23 @@ def refresh_summary(window) -> None:
         }
     )
     summary_lines = [
-        f"Profile: {current_profile_name(window)}",
-        f"Language: {current_language_name(window)}",
-        f"Keyboard: {current_string(window.keyboard_combo, KEYBOARD_OPTIONS)}",
-        f"Network: {current_network_policy_name(window)}",
-        f"Theme: {THEME_PROFILE_LABELS[current_theme_profile(window)]}",
-        f"Accent: {ACCENT_LABELS[current_accent(window)]}",
+        window.tr("Profile: {profile}", profile=current_profile_name(window)),
+        window.tr("Language: {language}", language=current_language_name(window)),
+        window.tr("Keyboard: {keyboard}", keyboard=current_string(window.keyboard_combo, KEYBOARD_OPTIONS)),
+        window.tr("Network: {network}", network=current_network_policy_name(window)),
+        window.tr("Theme: {theme}", theme=current_theme_profile_name(window)),
+        window.tr("Accent: {accent}", accent=current_accent_name(window)),
     ]
     if window.allow_brave_browser.get_active():
-        summary_lines.append("Brave visibility: allowed when installed")
+        summary_lines.append(window.tr("Brave visibility: allowed when installed"))
     else:
-        summary_lines.append("Brave visibility: hidden")
+        summary_lines.append(window.tr("Brave visibility: hidden"))
     window.summary_label.set_text("\n".join(summary_lines))
     if draft_settings.get("pending_reboot"):
         pending = ", ".join(str(item).replace("_", " ") for item in draft_settings["pending_reboot"])
-        window.summary_reboot_label.set_text(f"Restart required for: {pending}")
+        window.summary_reboot_label.set_text(window.tr("Restart required for: {pending}", pending=pending))
     else:
-        window.summary_reboot_label.set_text("The current draft does not require a reboot.")
+        window.summary_reboot_label.set_text(window.tr("The current draft does not require a reboot."))
 
 
 def set_status(window, text: str, *, source: str = "event", force: bool = True) -> None:

@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT / "apps" / "nmos_common"))
 sys.path.insert(0, str(ROOT / "apps" / "nmos_greeter"))
 sys.path.insert(0, str(ROOT / "apps" / "nmos_persistent_storage"))
 
+from nmos_common.i18n import display_language_name, translate
 from nmos_common.system_settings import (
     DEFAULT_SYSTEM_SETTINGS,
     apply_system_profile,
@@ -198,6 +199,13 @@ def test_brave_visibility_and_runtime_share_settings_helper(repo_root: Path) -> 
     assert "load_effective_system_settings" in brave_policy_source
     assert 'allow_brave_browser' in desktop_mode_source
     assert 'allow_brave_browser' in brave_policy_source
+    assert "session-appearance.json" in desktop_mode_source
+    assert "gsettings" in desktop_mode_source
+    assert "picture-uri" in desktop_mode_source
+    assert "enable-animations" in desktop_mode_source
+    assert "text-scaling-factor" in desktop_mode_source
+    assert "wallpaper-night.svg" in desktop_mode_source
+    assert "wallpaper-light.svg" in desktop_mode_source
 
 
 def test_overlay_build_uses_installed_python_packages(repo_root: Path) -> None:
@@ -298,6 +306,8 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     css_source = (
         repo_root / "config" / "system-overlay" / "usr" / "share" / "nmos" / "theme" / "nmos.css"
     ).read_text(encoding="utf-8")
+    wallpaper_night = repo_root / "config" / "system-overlay" / "usr" / "share" / "nmos" / "theme" / "wallpaper-night.svg"
+    wallpaper_light = repo_root / "config" / "system-overlay" / "usr" / "share" / "nmos" / "theme" / "wallpaper-light.svg"
 
     assert "DBUS_NAME" in settings_service_source
     assert "ApplyPreset" in settings_service_source
@@ -309,6 +319,8 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "Appearance" in control_center_source
     assert ".nmos-root" in css_source
     assert "theme-nmos-classic" in css_source
+    assert wallpaper_night.exists()
+    assert wallpaper_light.exists()
 
 
 def test_installer_assets_are_packaged(repo_root: Path) -> None:
@@ -334,5 +346,9 @@ def test_installer_assets_are_packaged(repo_root: Path) -> None:
 def test_i18n_supports_spanish_without_extra_locales(repo_root: Path) -> None:
     i18n_source = (repo_root / "apps" / "nmos_common" / "nmos_common" / "i18n.py").read_text(encoding="utf-8")
     assert "es_ES.UTF-8" in i18n_source
+    assert "Español" in i18n_source
     for unsupported_locale in ("tr_TR.UTF-8", "de_DE.UTF-8", "fr_FR.UTF-8"):
         assert unsupported_locale not in i18n_source
+    assert display_language_name("es_ES.UTF-8") == "Español"
+    assert translate("es_ES.UTF-8", "Security profile") == "Perfil de seguridad"
+    assert translate("es_ES.UTF-8", "Theme: {theme}", theme="Señal clásica") == "Tema: Señal clásica"

@@ -4,6 +4,7 @@ flatpak
 gdm3
 gnome-session
 gnome-shell
+libglib2.0-bin
 network-manager
 nftables
 plymouth

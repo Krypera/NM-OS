@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f2f6f8"/>
+      <stop offset="100%" stop-color="#dfe7ec"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffb74d" stop-opacity="0.70"/>
+      <stop offset="100%" stop-color="#ff8fab" stop-opacity="0.50"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <g fill="none" stroke="#10202d" stroke-opacity="0.08" stroke-width="1">
+    <path d="M0 180 H1920"/>
+    <path d="M0 360 H1920"/>
+    <path d="M0 680 H1920"/>
+    <path d="M0 860 H1920"/>
+    <path d="M340 0 V1080"/>
+    <path d="M700 0 V1080"/>
+    <path d="M1110 0 V1080"/>
+    <path d="M1490 0 V1080"/>
+  </g>
+  <circle cx="1470" cy="190" r="220" fill="url(#accent)" fill-opacity="0.13"/>
+  <path d="M160 760 L540 760 L720 610 L1260 610" stroke="#ffb74d" stroke-opacity="0.76" stroke-width="4" fill="none"/>
+  <path d="M160 820 L490 820 L710 650 L1120 650" stroke="#ff8fab" stroke-opacity="0.45" stroke-width="2" fill="none"/>
+  <text x="160" y="250" fill="#10202d" font-size="90" font-family="monospace" letter-spacing="8">NM-OS</text>
+  <text x="166" y="308" fill="#52606d" font-size="26" font-family="monospace" letter-spacing="4">light grid profile</text>
+</svg>

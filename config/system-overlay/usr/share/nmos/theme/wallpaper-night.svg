@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#050912"/>
+      <stop offset="100%" stop-color="#0b141d"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4cc9f0" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#67e8bf" stop-opacity="0.55"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1">
+    <path d="M0 160 H1920"/>
+    <path d="M0 320 H1920"/>
+    <path d="M0 640 H1920"/>
+    <path d="M0 880 H1920"/>
+    <path d="M360 0 V1080"/>
+    <path d="M760 0 V1080"/>
+    <path d="M1180 0 V1080"/>
+    <path d="M1520 0 V1080"/>
+  </g>
+  <circle cx="1450" cy="180" r="220" fill="url(#accent)" fill-opacity="0.12"/>
+  <path d="M170 760 L510 760 L750 540 L1330 540" stroke="#4cc9f0" stroke-opacity="0.72" stroke-width="4" fill="none"/>
+  <path d="M170 816 L470 816 L728 590 L1180 590" stroke="#67e8bf" stroke-opacity="0.42" stroke-width="2" fill="none"/>
+  <text x="170" y="260" fill="#f3f4f6" font-size="90" font-family="monospace" letter-spacing="8">NM-OS</text>
+  <text x="176" y="318" fill="#94a3b8" font-size="26" font-family="monospace" letter-spacing="4">night console profile</text>
+</svg>

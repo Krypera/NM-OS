@@ -2,15 +2,38 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
 from pathlib import Path
 
 from nmos_common.config_helpers import load_feature_flag
+from nmos_common.runtime_state import write_runtime_json
 from nmos_common.system_settings import load_effective_system_settings
 
 BRAVE_FEATURE_FILE = Path("/etc/nmos/features/brave")
 BRAVE_DESKTOP_SOURCE = Path("/usr/share/applications/brave-browser.desktop")
 BRAVE_DESKTOP_OVERRIDE = Path.home() / ".local/share/applications/brave-browser.desktop"
+SESSION_APPEARANCE_FILE = Path.home() / ".config/nmos/session-appearance.json"
+THEME_DIR = Path("/usr/share/nmos/theme")
 MANAGED_MARKER = "X-NMOS-Managed=true"
+WALLPAPER_BY_PROFILE = {
+    "nmos-classic": THEME_DIR / "wallpaper.svg",
+    "nmos-night": THEME_DIR / "wallpaper-night.svg",
+    "nmos-light": THEME_DIR / "wallpaper-light.svg",
+}
+
+
+def log_policy_message(message: str) -> None:
+    try:
+        subprocess.run(
+            ["logger", "-t", "nmos-desktop-mode", message],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except Exception:
+        pass
 
 
 def remove_override() -> None:
@@ -39,18 +62,94 @@ def write_hidden_override() -> None:
     BRAVE_DESKTOP_OVERRIDE.write_text("\n".join(filtered) + "\n", encoding="utf-8")
 
 
-def main() -> None:
+def apply_brave_visibility(settings: dict) -> None:
     if not BRAVE_DESKTOP_SOURCE.exists():
         remove_override()
         return
     brave_enabled = load_feature_flag(BRAVE_FEATURE_FILE)
-    settings = load_effective_system_settings()
     allow_brave = bool(settings.get("allow_brave_browser", False))
     offline = str(settings.get("network_policy", "tor")) == "offline"
     if brave_enabled and allow_brave and not offline:
         remove_override()
         return
     write_hidden_override()
+
+
+def run_gsettings(*args: str) -> None:
+    completed = subprocess.run(
+        ["gsettings", *args],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout or f"exit={completed.returncode}").strip()
+        raise RuntimeError(detail)
+
+
+def wallpaper_for_profile(theme_profile: str) -> Path:
+    candidate = WALLPAPER_BY_PROFILE.get(theme_profile, WALLPAPER_BY_PROFILE["nmos-classic"])
+    return candidate if candidate.exists() else WALLPAPER_BY_PROFILE["nmos-classic"]
+
+
+def write_session_appearance(settings: dict) -> None:
+    wallpaper_path = wallpaper_for_profile(str(settings.get("ui_theme_profile", "nmos-classic")))
+    SESSION_APPEARANCE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    write_runtime_json(
+        SESSION_APPEARANCE_FILE,
+        {
+            "theme_profile": str(settings.get("ui_theme_profile", "nmos-classic")),
+            "accent": str(settings.get("ui_accent", "amber")),
+            "density": str(settings.get("ui_density", "comfortable")),
+            "motion": str(settings.get("ui_motion", "full")),
+            "wallpaper": str(wallpaper_path),
+        },
+        mode=0o600,
+    )
+
+
+def apply_desktop_preferences(settings: dict) -> None:
+    theme_profile = str(settings.get("ui_theme_profile", "nmos-classic"))
+    motion = str(settings.get("ui_motion", "full"))
+    density = str(settings.get("ui_density", "comfortable"))
+    wallpaper_path = wallpaper_for_profile(theme_profile)
+    wallpaper_uri = wallpaper_path.resolve().as_uri()
+    color_scheme = "default" if theme_profile == "nmos-light" else "prefer-dark"
+    enable_animations = "false" if motion == "reduced" else "true"
+    text_scale = "0.95" if density == "compact" else "1.0"
+
+    for args in (
+        ("set", "org.gnome.desktop.background", "picture-uri", wallpaper_uri),
+        ("set", "org.gnome.desktop.background", "picture-uri-dark", wallpaper_uri),
+        ("set", "org.gnome.desktop.background", "picture-options", "zoom"),
+        ("set", "org.gnome.desktop.interface", "color-scheme", color_scheme),
+        ("set", "org.gnome.desktop.interface", "enable-animations", enable_animations),
+        ("set", "org.gnome.desktop.interface", "text-scaling-factor", text_scale),
+    ):
+        run_gsettings(*args)
+
+    write_session_appearance(settings)
+    log_policy_message(
+        json.dumps(
+            {
+                "theme_profile": theme_profile,
+                "motion": motion,
+                "density": density,
+                "wallpaper": str(wallpaper_path),
+            },
+            sort_keys=True,
+        )
+    )
+
+
+def main() -> None:
+    settings = load_effective_system_settings()
+    apply_brave_visibility(settings)
+    try:
+        apply_desktop_preferences(settings)
+    except Exception as exc:
+        log_policy_message(f"appearance sync skipped: {exc}")
 
 
 if __name__ == "__main__":
