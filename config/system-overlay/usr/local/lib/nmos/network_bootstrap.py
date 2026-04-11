@@ -8,11 +8,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from nmos_common.network_status import parse_bootstrap_status
-from nmos_common.platform_adapter import get_tor_user
+from nmos_common.platform_adapter import get_runtime_dir, get_tor_user
 from nmos_common.runtime_state import write_runtime_json, write_runtime_text
 from nmos_common.system_settings import load_effective_system_settings
 
-READY_DIR = Path("/run/nmos")
+READY_DIR = get_runtime_dir()
 READY_FILE = READY_DIR / "network-ready"
 STATUS_FILE = READY_DIR / "network-status.json"
 TOR_CONTROL_PORT = 9051

@@ -15,20 +15,21 @@
 6. after login, the desktop can use `nmos-control-center`
 7. the desktop autostart helper applies the selected wallpaper, color scheme, motion, density, and Brave visibility policy
 8. optional platform adapter overrides can be declared in `/etc/nmos/platform-adapter.env`
+9. runtime and state base directories can be overridden with `NMOS_RUNTIME_DIR` and `NMOS_STATE_DIR`
 
 ## Settings model
 
 Persistent source of truth:
 
-- `/var/lib/nmos/system-settings.json`
+- `<state_dir>/system-settings.json` (default `/var/lib/nmos/system-settings.json`)
 
 Runtime mirror:
 
-- `/run/nmos/system-settings.json`
+- `<runtime_dir>/system-settings.json` (default `/run/nmos/system-settings.json`)
 
 Boot-applied snapshot:
 
-- `/run/nmos/applied-system-settings.json`
+- `<runtime_dir>/applied-system-settings.json` (default `/run/nmos/applied-system-settings.json`)
 
 Important top-level fields:
 

@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 import json
-from pathlib import Path
 
 from nmos_common.network_status import normalize_network_status, parse_bootstrap_status
+from nmos_common.platform_adapter import get_runtime_dir
 from nmos_common.system_settings import load_effective_system_settings
 
-READY_FILE = Path("/run/nmos/network-ready")
-STATUS_FILE = Path("/run/nmos/network-status.json")
+RUNTIME_DIR = get_runtime_dir()
+READY_FILE = RUNTIME_DIR / "network-ready"
+STATUS_FILE = RUNTIME_DIR / "network-status.json"
 
 
 def read_status() -> dict:

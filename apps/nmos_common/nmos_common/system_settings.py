@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from nmos_common.config_helpers import parse_bool
+from nmos_common.platform_adapter import get_runtime_dir, get_state_dir
 from nmos_common.runtime_state import read_runtime_text, write_runtime_json
 
 SCHEMA_VERSION = 1
@@ -24,9 +25,9 @@ SUPPORTED_UI_ACCENTS = ("amber", "cyan", "mint", "rose")
 SUPPORTED_UI_DENSITIES = ("comfortable", "compact")
 SUPPORTED_UI_MOTION = ("full", "reduced")
 
-PERSISTENT_SETTINGS_FILE = Path("/var/lib/nmos/system-settings.json")
-RUNTIME_SETTINGS_FILE = Path("/run/nmos/system-settings.json")
-APPLIED_SETTINGS_FILE = Path("/run/nmos/applied-system-settings.json")
+PERSISTENT_SETTINGS_FILE = get_state_dir() / "system-settings.json"
+RUNTIME_SETTINGS_FILE = get_runtime_dir() / "system-settings.json"
+APPLIED_SETTINGS_FILE = get_runtime_dir() / "applied-system-settings.json"
 
 PROFILE_METADATA = {
     "relaxed": {

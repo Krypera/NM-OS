@@ -4,6 +4,8 @@ from nmos_common.platform_adapter import (
     DEFAULT_PLATFORM_ADAPTER_FILE,
     DEFAULT_PLATFORM_VALUES,
     get_gdm_user,
+    get_runtime_dir,
+    get_state_dir,
     get_tor_user,
     load_platform_adapter,
     platform_value,
@@ -125,4 +127,6 @@ __all__ = [
     "write_runtime_text",
     "get_tor_user",
     "get_gdm_user",
+    "get_runtime_dir",
+    "get_state_dir",
 ]

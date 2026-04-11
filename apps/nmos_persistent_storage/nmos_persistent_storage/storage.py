@@ -4,12 +4,14 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from nmos_common.platform_adapter import get_runtime_dir, get_state_dir
+
 from nmos_persistent_storage.mount_crypto_ops import CryptoMountOps
 from nmos_persistent_storage.state_serialization import build_state_payload, dump_runtime_state
 
-RUNTIME_DIR = Path("/run/nmos")
+RUNTIME_DIR = get_runtime_dir()
 STATE_FILE = RUNTIME_DIR / "persistent-storage.json"
-STORAGE_ROOT = Path("/var/lib/nmos/storage")
+STORAGE_ROOT = get_state_dir() / "storage"
 VAULT_IMAGE_PATH = STORAGE_ROOT / "vault.img"
 MAPPER_NAME = "nmos-vault"
 MAPPER_PATH = Path("/dev/mapper") / MAPPER_NAME

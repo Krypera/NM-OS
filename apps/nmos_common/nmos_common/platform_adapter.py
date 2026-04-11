@@ -46,3 +46,11 @@ def get_tor_user() -> str:
 
 def get_gdm_user() -> str:
     return platform_value("gdm_user", DEFAULT_PLATFORM_VALUES["gdm_user"])
+
+
+def get_runtime_dir() -> Path:
+    return Path(platform_value("runtime_dir", DEFAULT_PLATFORM_VALUES["runtime_dir"]))
+
+
+def get_state_dir() -> Path:
+    return Path(platform_value("state_dir", DEFAULT_PLATFORM_VALUES["state_dir"]))

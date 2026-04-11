@@ -137,6 +137,11 @@ def test_runtime_state_and_overlay_bootstrap_use_hardened_writes(repo_root: Path
     assert "save_system_settings" in settings_bootstrap_source
     assert "APPLIED_SETTINGS_FILE" in settings_bootstrap_source
     assert "load_system_settings" in settings_bootstrap_source
+    system_settings_source = (
+        repo_root / "apps" / "nmos_common" / "nmos_common" / "system_settings.py"
+    ).read_text(encoding="utf-8")
+    assert "get_runtime_dir" in system_settings_source
+    assert "get_state_dir" in system_settings_source
     assert "write_runtime_json" in network_bootstrap_source
     assert "write_runtime_text" in network_bootstrap_source
     assert "get_tor_user" in network_bootstrap_source
@@ -234,6 +239,8 @@ def test_overlay_build_uses_installed_python_packages(repo_root: Path) -> None:
     )
     assert "NMOS_TOR_USER" in platform_adapter_source
     assert "NMOS_GDM_USER" in platform_adapter_source
+    assert "NMOS_RUNTIME_DIR" in platform_adapter_source
+    assert "NMOS_STATE_DIR" in platform_adapter_source
     assert "PYTHONPATH" not in greeter_launcher_source
     assert "PYTHONPATH" not in settings_launcher_source
     assert "PYTHONPATH" not in control_center_launcher_source
