@@ -14,6 +14,7 @@
 5. the GDM greeter session launches `nmos-greeter`
 6. after login, the desktop can use `nmos-control-center`
 7. the desktop autostart helper applies the selected wallpaper, color scheme, motion, density, and Brave visibility policy
+8. optional platform adapter overrides can be declared in `/etc/nmos/platform-adapter.env`
 
 ## Settings model
 
@@ -88,6 +89,7 @@ Methods:
 
 - keeps the nftables gate until Tor is ready
 - writes runtime status to `/run/nmos/network-status.json`
+- resolves the Tor service user through platform adapter values (`NMOS_TOR_USER`) before applying uid-bound rules
 
 ### `direct`
 

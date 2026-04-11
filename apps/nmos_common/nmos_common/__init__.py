@@ -1,5 +1,13 @@
 from nmos_common.config_helpers import load_mode, read_assignment_file
 from nmos_common.network_status import DEFAULT_WAITING_SUMMARY, normalize_network_status, parse_bootstrap_status
+from nmos_common.platform_adapter import (
+    DEFAULT_PLATFORM_ADAPTER_FILE,
+    DEFAULT_PLATFORM_VALUES,
+    get_gdm_user,
+    get_tor_user,
+    load_platform_adapter,
+    platform_value,
+)
 from nmos_common.runtime_state import (
     ensure_runtime_state_path_safe,
     read_runtime_text,
@@ -96,6 +104,8 @@ __all__ = [
     "network_policy_uses_tor",
     "normalize_network_policy",
     "normalize_network_status",
+    "DEFAULT_PLATFORM_ADAPTER_FILE",
+    "DEFAULT_PLATFORM_VALUES",
     "normalize_security_profile",
     "normalize_system_settings",
     "normalize_theme_profile",
@@ -103,12 +113,16 @@ __all__ = [
     "normalize_ui_density",
     "normalize_ui_motion",
     "parse_bootstrap_status",
+    "platform_value",
     "profile_defaults",
     "read_assignment_file",
+    "load_platform_adapter",
     "read_runtime_text",
     "reset_to_preset",
     "save_system_settings",
     "update_system_overrides",
     "write_runtime_json",
     "write_runtime_text",
+    "get_tor_user",
+    "get_gdm_user",
 ]

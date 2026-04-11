@@ -139,6 +139,8 @@ def test_runtime_state_and_overlay_bootstrap_use_hardened_writes(repo_root: Path
     assert "load_system_settings" in settings_bootstrap_source
     assert "write_runtime_json" in network_bootstrap_source
     assert "write_runtime_text" in network_bootstrap_source
+    assert "get_tor_user" in network_bootstrap_source
+    assert '"debian-tor"' not in network_bootstrap_source
 
 
 def test_greeter_layout_is_setup_only(repo_root: Path) -> None:
@@ -227,6 +229,11 @@ def test_overlay_build_uses_installed_python_packages(repo_root: Path) -> None:
     assert "/usr/lib/python3/dist-packages" in common_source
     assert "nmos_settings/nmos_settings" in common_source
     assert "nmos_control_center/nmos_control_center" in common_source
+    platform_adapter_source = (repo_root / "apps" / "nmos_common" / "nmos_common" / "platform_adapter.py").read_text(
+        encoding="utf-8"
+    )
+    assert "NMOS_TOR_USER" in platform_adapter_source
+    assert "NMOS_GDM_USER" in platform_adapter_source
     assert "PYTHONPATH" not in greeter_launcher_source
     assert "PYTHONPATH" not in settings_launcher_source
     assert "PYTHONPATH" not in control_center_launcher_source

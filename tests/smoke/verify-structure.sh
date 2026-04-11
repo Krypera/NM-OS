@@ -20,6 +20,7 @@ REQUIRED=(
     "${ROOT_DIR}/build/verify-artifacts.sh"
     "${ROOT_DIR}/config/system-overlay/etc/dbus-1/system.d/org.nmos.PersistentStorage.conf"
     "${ROOT_DIR}/config/system-overlay/etc/dbus-1/system.d/org.nmos.Settings1.conf"
+    "${ROOT_DIR}/config/system-overlay/etc/nmos/platform-adapter.env"
     "${ROOT_DIR}/config/system-overlay/etc/gdm3/PostLogin/Default"
     "${ROOT_DIR}/config/system-overlay/etc/xdg/autostart/nmos-desktop-mode.desktop"
     "${ROOT_DIR}/config/system-overlay/usr/lib/systemd/system/nmos-settings.service"

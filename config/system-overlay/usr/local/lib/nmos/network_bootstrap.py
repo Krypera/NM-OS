@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from nmos_common.network_status import parse_bootstrap_status
+from nmos_common.platform_adapter import get_tor_user
 from nmos_common.runtime_state import write_runtime_json, write_runtime_text
 from nmos_common.system_settings import load_effective_system_settings
 
@@ -66,7 +67,8 @@ def write_tor_firewall_rules() -> None:
     getpwnam = getattr(pwd, "getpwnam", None)
     if getpwnam is None:
         raise RuntimeError("pwd.getpwnam is unavailable on this platform")
-    tor_uid = getpwnam("debian-tor").pw_uid
+    tor_user = get_tor_user()
+    tor_uid = getpwnam(tor_user).pw_uid
     subprocess.run(["nft", "delete", "table", "inet", "nmosfilter"], check=False)
     rules = f"""
 table inet nmosfilter {{
