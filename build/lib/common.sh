@@ -153,7 +153,17 @@ resolve_base_installer_iso() {
     curl -fsSL "${DEBIAN_NETINST_BASE_URL}/SHA256SUMS" -o "${checksums_path}"
 
     local iso_file
-    iso_file="$(awk '$2 ~ /amd64-netinst\.iso$/ {gsub(/^\.\//, "", $2); print $2; exit}' "${checksums_path}")"
+    iso_file="$(
+        awk '
+            $2 ~ /amd64-netinst\.iso$/ {
+                path = $2
+                sub(/^\.\//, "", path)
+                sub(/^\*/, "", path)
+                print path
+                exit
+            }
+        ' "${checksums_path}"
+    )"
     if [ -z "${iso_file}" ]; then
         echo "could not resolve the Debian netinst ISO name from ${DEBIAN_NETINST_BASE_URL}/SHA256SUMS" >&2
         exit 1
@@ -162,7 +172,19 @@ resolve_base_installer_iso() {
     local iso_path="${INSTALLER_CACHE_DIR}/${iso_file}"
     local checksum_file="${INSTALLER_CACHE_DIR}/${iso_file}.sha256"
     local checksum_value
-    checksum_value="$(awk -v target="./${iso_file}" '$2 == target {print $1; exit}' "${checksums_path}")"
+    checksum_value="$(
+        awk -v target="${iso_file}" '
+            {
+                path = $2
+                sub(/^\.\//, "", path)
+                sub(/^\*/, "", path)
+                if (path == target) {
+                    print $1
+                    exit
+                }
+            }
+        ' "${checksums_path}"
+    )"
     if [ -z "${checksum_value}" ]; then
         echo "could not resolve the Debian netinst checksum for ${iso_file}" >&2
         exit 1

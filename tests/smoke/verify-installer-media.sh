@@ -38,6 +38,16 @@ grep -q 'preseed/file=/cdrom/preseed/nmos.cfg' "${COMMON_SH}" || {
     exit 1
 }
 
+grep -q 'sub(/^\.\//, "", path)' "${COMMON_SH}" || {
+    echo "build helpers do not normalize Debian checksum paths with ./ prefixes." >&2
+    exit 1
+}
+
+grep -q 'sub(/^\*/, "", path)' "${COMMON_SH}" || {
+    echo "build helpers do not normalize Debian checksum paths with * prefixes." >&2
+    exit 1
+}
+
 grep -q 'build_installer_iso_image' "${BUILD_SH}" || {
     echo "build.sh does not produce the installer ISO artifact." >&2
     exit 1

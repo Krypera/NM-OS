@@ -350,6 +350,8 @@ def test_installer_media_and_assets_are_packaged(repo_root: Path) -> None:
     assert "resolve_base_installer_iso" in common_source
     assert "installer_iso_name" in common_source
     assert "preseed/file=/cdrom/preseed/nmos.cfg" in common_source
+    assert 'sub(/^\\.\\//, "", path)' in common_source
+    assert 'sub(/^\\*/, "", path)' in common_source
     assert "xorriso -osirrox on -indev" in verify_artifacts_source
     assert "branding: nmos" in installer_settings
     assert "productName: \"NM-OS\"" in branding_source
