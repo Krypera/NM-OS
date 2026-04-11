@@ -64,11 +64,8 @@ mapfile -t PYTHON_FILES < <(cd "${ROOT_DIR}" && git ls-files '*.py')
 mapfile -t SHELL_FILES < <(
     cd "${ROOT_DIR}" && git ls-files \
         '*.sh' \
-        '*.hook.chroot' \
-        '*.hook.binary' \
-        'config/live-build/auto/*' \
-        'config/live-build/includes.chroot/usr/local/bin/*' \
-        'config/live-build/includes.chroot/etc/gdm3/PostLogin/*'
+        'config/system-overlay/usr/local/bin/*' \
+        'config/system-overlay/etc/gdm3/PostLogin/*'
 )
 [ "${#SHELL_FILES[@]}" -gt 0 ] || {
     echo "no shell files found for ShellCheck." >&2

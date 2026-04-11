@@ -1,15 +1,14 @@
 # Windows + WSL2 Workflow
 
-NM-OS is developed on Windows, but built inside WSL2.
+NM-OS is developed on Windows, but the overlay build runs inside WSL2.
 
 ## What runs where
 
 - Edit code on Windows
 - Run build commands from PowerShell
-- Let WSL2 execute the Linux build
-- Write the generated `.img` to a USB stick from Windows
-- Boot the computer from that USB stick to run NM-OS
-- Complete the GDM welcome flow before entering the live desktop
+- Let WSL2 execute the Linux overlay build
+- Review the generated `.tar.gz` overlay and package manifest from Windows
+- Apply that overlay to a Debian-based test VM, image, or staging system
 
 ## First setup
 
@@ -37,16 +36,20 @@ From PowerShell:
 
 The primary output for Windows testing is:
 
-- `dist\nmos-amd64-<version>.img`
+- `dist\nmos-system-overlay-<version>.tar.gz`
 
-## USB testing
+If you want the optional Brave-aware overlay:
 
-1. Open Rufus on Windows.
-2. Select the generated `.img` file.
-3. Write it to a USB stick.
-4. Reboot the computer and choose the USB device from the boot menu.
-5. Choose a boot profile (`Strict`, `Flexible`, `Offline`, `Recovery`, or `Hardware Compatibility`).
-6. NM-OS should start from the USB stick instead of Windows.
+```powershell
+.\build\build.ps1 -EnableBrave
+```
 
-When you shut down NM-OS and boot normally from your internal drive, Windows
-should continue as usual.
+## Apply Or Inspect
+
+Typical next steps are:
+
+1. open the generated `*.packages` file
+2. prepare a Debian-based VM or disk image
+3. install the listed packages
+4. extract the overlay onto the target root filesystem
+5. reload systemd and reboot

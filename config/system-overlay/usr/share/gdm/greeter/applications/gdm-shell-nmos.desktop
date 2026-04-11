@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=Display Manager Shell
+Exec=/usr/bin/gnome-shell --mode=gdm-nmos
+NoDisplay=true

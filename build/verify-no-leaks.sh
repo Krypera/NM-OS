@@ -20,7 +20,6 @@ TARGETS=(
     "${ROOT_DIR}/README.md"
     "${ROOT_DIR}/build"
     "${ROOT_DIR}/config"
-    "${ROOT_DIR}/hooks"
     "${ROOT_DIR}/apps"
     "${ROOT_DIR}/tests"
     "${ROOT_DIR}/docs"

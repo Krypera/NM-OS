@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from nmos_common.boot_mode import BOOT_MODE_FILE, load_boot_mode_profile
 from nmos_common.network_status import normalize_network_status
 
 DBUS_NAME = "org.nmos.PersistentStorage"
@@ -23,8 +22,6 @@ class PersistenceClient:
     def _interface(self):
         dbus = load_dbus()
         bus = dbus.SystemBus()
-        # Use explicit interface calls without runtime introspection so the
-        # greeter can operate with a narrow D-Bus policy.
         proxy = bus.get_object(DBUS_NAME, DBUS_PATH, introspect=False)
         return dbus.Interface(proxy, DBUS_INTERFACE)
 
@@ -67,7 +64,3 @@ def read_network_status() -> dict:
             return normalize_network_status({"last_error": str(exc)})
 
     return normalize_network_status({})
-
-
-def read_boot_mode_profile() -> dict:
-    return load_boot_mode_profile(BOOT_MODE_FILE)

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=NM-OS Setup Assistant
+Name[es]=Asistente de configuración de NM-OS
+Exec=/usr/local/bin/nmos-greeter
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

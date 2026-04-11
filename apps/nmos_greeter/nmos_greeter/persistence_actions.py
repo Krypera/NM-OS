@@ -35,7 +35,9 @@ def complete_persistence_refresh(window, state: dict | None, error: str) -> bool
     if error:
         window.persistence_state = {}
         window.persistence_init_error = error
-        window.persistence_label.set_text(window.tr("Persistence backend unavailable: {error}", error=window.translate_message(error)))
+        window.persistence_label.set_text(
+            window.tr("Encrypted vault backend unavailable: {error}", error=window.translate_message(error))
+        )
         window.update_persistence_actions({})
         window.update_navigation()
     elif state is not None:
@@ -57,33 +59,24 @@ def render_persistence_state(window, state: dict) -> str:
     busy = state.get("busy", False)
     can_create = state.get("can_create", False)
     reason = state.get("reason", "")
-    device = state.get("device", "")
+    vault_path = state.get("path", "")
     last_error = state.get("last_error", "")
-    device_label = device or window.tr("the boot USB")
+    vault_label = vault_path or window.tr("the encrypted vault")
     if last_error:
-        return window.tr("Persistence error: {error}", error=window.translate_message(str(last_error)))
+        return window.tr("Encrypted vault error: {error}", error=window.translate_message(str(last_error)))
     if busy:
-        return window.tr("Persistence operation is in progress.")
+        return window.tr("Encrypted vault activity is in progress.")
     if created and unlocked:
-        return window.tr("Persistence is unlocked and ready.")
+        return window.tr("Encrypted vault is unlocked and ready.")
     if created:
-        return window.tr("Persistence exists on {device} and can be unlocked.", device=device_label)
-    if reason == "no_free_space":
-        return window.tr(
-            "Persistence cannot be created on {device} because less than 1 GiB of free space remains.",
-            device=device_label,
-        )
-    if reason == "unsupported_boot_device":
-        return window.tr("Persistence creation is disabled because NM-OS was not started from a writable USB device.")
-    if reason == "unsupported_layout":
-        return window.tr("Persistence creation is disabled because the boot USB layout cannot safely accept an appended partition.")
-    if reason == "read_only":
-        return window.tr("Persistence creation is disabled because the boot USB is read-only.")
+        return window.tr("Encrypted vault exists at {path} and can be unlocked.", path=vault_label)
+    if reason == "no_space":
+        return window.tr("Encrypted vault cannot be created because the system disk does not have enough free space.")
     if can_create:
-        return window.tr("Persistence can be created on {device}.", device=device_label)
+        return window.tr("Encrypted vault can be created at {path}.", path=vault_label)
     if reason == "already_exists":
-        return window.tr("Persistence already exists on {device}.", device=device_label)
-    return window.tr("Persistence state is unavailable.")
+        return window.tr("Encrypted vault already exists at {path}.", path=vault_label)
+    return window.tr("Encrypted vault state is unavailable.")
 
 
 def update_persistence_actions(window, state: dict) -> None:
@@ -121,13 +114,13 @@ def start_persistence_action(window, action: str, passphrase: str | None = None)
     if window.persistence_action_in_progress:
         window.set_status(
             window.tr(
-                "Persistence {action} is still running. Please wait.",
+                "Encrypted vault action {action} is still running. Please wait.",
                 action=window.action_label(window.persistence_action_name),
             )
         )
         return
     if window.persistence_refresh_in_progress:
-        window.set_status(window.tr("Persistence status is refreshing. Please wait."))
+        window.set_status(window.tr("Encrypted vault status is refreshing. Please wait."))
         window.persistence_refresh_pending = True
         return
 
@@ -136,10 +129,12 @@ def start_persistence_action(window, action: str, passphrase: str | None = None)
     busy_state = dict(window.persistence_state)
     busy_state["busy"] = True
     window.persistence_state = busy_state
-    window.persistence_label.set_text(window.tr("Persistence {action} is in progress...", action=window.action_label(action)))
+    window.persistence_label.set_text(
+        window.tr("Encrypted vault action {action} is in progress...", action=window.action_label(action))
+    )
     window.update_persistence_actions(busy_state)
     window.update_navigation()
-    window.set_status(window.tr("Starting persistence {action}...", action=window.action_label(action)))
+    window.set_status(window.tr("Starting encrypted vault action {action}...", action=window.action_label(action)))
     thread = threading.Thread(
         target=window.run_persistence_action_worker,
         args=(action, passphrase),
@@ -171,7 +166,7 @@ def complete_persistence_action(window, action: str, response: dict | None, erro
     if error:
         window.set_status(
             window.tr(
-                "Persistence {action} failed: {error}",
+                "Encrypted vault action {action} failed: {error}",
                 action=window.action_label(action),
                 error=window.translate_message(error),
             )
@@ -193,10 +188,12 @@ def handle_persistence_response(window, action: str, response: dict) -> None:
     if response.get("last_error"):
         window.set_status(
             window.tr(
-                "Persistence {action} failed: {error}",
+                "Encrypted vault action {action} failed: {error}",
                 action=window.action_label(action),
                 error=window.translate_message(str(response["last_error"])),
             )
         )
         return
-    window.set_status(window.tr("Persistence {action} request completed.", action=window.action_label(action)))
+    window.set_status(
+        window.tr("Encrypted vault action {action} completed.", action=window.action_label(action))
+    )

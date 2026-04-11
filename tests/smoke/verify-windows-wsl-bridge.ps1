@@ -7,10 +7,10 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../..")).ProviderPath
 $buildPs1 = Join-Path $repoRoot "build/build.ps1"
 $installDepsPs1 = Join-Path $repoRoot "build/install-deps.ps1"
-$smokeQemuPs1 = Join-Path $repoRoot "build/smoke-qemu.ps1"
+$smokeOverlayPs1 = Join-Path $repoRoot "build/smoke-overlay.ps1"
 $wslCommonPs1 = Join-Path $repoRoot "build/wsl-common.ps1"
 
-foreach ($path in @($buildPs1, $installDepsPs1, $smokeQemuPs1, $wslCommonPs1)) {
+foreach ($path in @($buildPs1, $installDepsPs1, $smokeOverlayPs1, $wslCommonPs1)) {
     if (-not (Test-Path $path -PathType Leaf)) {
         throw "missing required script: $path"
     }
@@ -42,12 +42,9 @@ if ($installDepsSource -notmatch "Invoke-WslRepoBash") {
     throw "install-deps.ps1 does not call Invoke-WslRepoBash."
 }
 
-$smokeQemuSource = Get-Content -Raw $smokeQemuPs1
-if ($smokeQemuSource -notmatch "Convert-ToWslPath") {
-    throw "smoke-qemu.ps1 does not convert Windows paths for WSL."
-}
-if ($smokeQemuSource -notmatch "Invoke-WslRepoBash") {
-    throw "smoke-qemu.ps1 does not call Invoke-WslRepoBash."
+$smokeOverlaySource = Get-Content -Raw $smokeOverlayPs1
+if ($smokeOverlaySource -notmatch "Invoke-WslRepoBash") {
+    throw "smoke-overlay.ps1 does not call Invoke-WslRepoBash."
 }
 
 $script:WslCalls = @()

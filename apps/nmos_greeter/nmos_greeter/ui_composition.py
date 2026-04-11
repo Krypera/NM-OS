@@ -4,8 +4,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
-from nmos_common.boot_mode import MODE_COMPAT, MODE_FLEXIBLE, MODE_OFFLINE, MODE_RECOVERY, MODE_STRICT
-from nmos_common.i18n import display_language_name, resolve_supported_locale
+from nmos_common.i18n import display_language_name, display_network_policy_name, resolve_supported_locale
 
 
 def _combo(values: list[str]) -> Gtk.DropDown:
@@ -18,6 +17,7 @@ def _page(window, page_key: str, title_text: str, subtitle_text: str, control: G
     title = Gtk.Label(label=title_text, xalign=0)
     title.add_css_class("title-3")
     subtitle = Gtk.Label(label=subtitle_text, xalign=0)
+    subtitle.set_wrap(True)
     setattr(window, f"{page_key}_title_label", title)
     setattr(window, f"{page_key}_subtitle_label", subtitle)
     box.append(title)
@@ -30,19 +30,31 @@ def _network_page(window) -> Gtk.Widget:
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
     window.network_title_label = Gtk.Label(label="Network", xalign=0)
     window.network_title_label.add_css_class("title-3")
+    window.network_subtitle_label = Gtk.Label(label="Choose how NM-OS should treat the network.", xalign=0)
+    window.network_subtitle_label.set_wrap(True)
+    window.network_policy_label = Gtk.Label(label="Network policy", xalign=0)
     box.append(window.network_title_label)
+    box.append(window.network_subtitle_label)
+    box.append(window.network_policy_label)
+    box.append(window.network_policy_combo)
+    box.append(window.allow_brave_browser)
     box.append(window.network_label)
     box.append(window.network_progress)
     box.append(window.network_refresh)
-    box.append(window.allow_offline)
     return box
 
 
-def _persistence_page(window) -> Gtk.Widget:
+def _storage_page(window) -> Gtk.Widget:
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-    window.persistence_title_label = Gtk.Label(label="Persistence", xalign=0)
-    window.persistence_title_label.add_css_class("title-3")
-    box.append(window.persistence_title_label)
+    window.storage_title_label = Gtk.Label(label="Encrypted Vault", xalign=0)
+    window.storage_title_label.add_css_class("title-3")
+    window.storage_subtitle_label = Gtk.Label(
+        label="Create or unlock an encrypted vault for sensitive files.",
+        xalign=0,
+    )
+    window.storage_subtitle_label.set_wrap(True)
+    box.append(window.storage_title_label)
+    box.append(window.storage_subtitle_label)
     box.append(window.persistence_label)
     box.append(window.persistence_password)
     actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -62,15 +74,13 @@ def build_ui(window) -> None:
     root.set_margin_end(24)
 
     header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-    window.header_title_label = Gtk.Label(label="NM-OS")
+    window.header_title_label = Gtk.Label(label="NM-OS Setup")
     window.header_title_label.add_css_class("title-1")
     window.header_title_label.set_xalign(0)
     window.header_subtitle_label = Gtk.Label(xalign=0)
-    window.mode_banner = Gtk.Label(xalign=0)
-    window.mode_banner.add_css_class("caption")
+    window.header_subtitle_label.set_wrap(True)
     header.append(window.header_title_label)
     header.append(window.header_subtitle_label)
-    header.append(window.mode_banner)
     root.append(header)
 
     window.session_status = Gtk.Label(xalign=0)
@@ -82,12 +92,14 @@ def build_ui(window) -> None:
 
     window.language_combo = _combo([display_language_name(locale) for locale in window.language_values])
     window.keyboard_combo = _combo(["us", "tr", "de", "fr"])
+    window.network_policy_combo = _combo([display_network_policy_name(policy) for policy in window.network_policy_values])
+    window.network_policy_combo.connect("notify::selected", window.on_network_policy_changed)
+    window.allow_brave_browser = Gtk.CheckButton()
+    window.allow_brave_browser.connect("toggled", window.on_allow_brave_browser_toggled)
     window.network_progress = Gtk.ProgressBar()
     window.network_label = Gtk.Label(xalign=0)
     window.network_refresh = Gtk.Button()
     window.network_refresh.connect("clicked", window.on_refresh_network)
-    window.allow_offline = Gtk.CheckButton()
-    window.allow_offline.connect("toggled", window.on_allow_offline_toggled)
 
     window.persistence_label = Gtk.Label(xalign=0)
     window.persistence_password = Gtk.PasswordEntry()
@@ -101,10 +113,10 @@ def build_ui(window) -> None:
     window.persistence_repair.connect("clicked", window.on_repair_persistence)
 
     window.page_widgets = {
-        "language": _page(window, "language", "Language", "Choose the session language.", window.language_combo),
+        "language": _page(window, "language", "Language", "Choose the interface language.", window.language_combo),
         "keyboard": _page(window, "keyboard", "Keyboard", "Choose the keyboard layout.", window.keyboard_combo),
         "network": _network_page(window),
-        "persistence": _persistence_page(window),
+        "storage": _storage_page(window),
     }
 
     for index, key in enumerate(window.page_order):
@@ -127,40 +139,17 @@ def build_ui(window) -> None:
     window.set_content(root)
 
 
-def mode_title(window) -> str:
-    return {
-        MODE_STRICT: window.tr("Strict"),
-        MODE_FLEXIBLE: window.tr("Flexible"),
-        MODE_OFFLINE: window.tr("Offline"),
-        MODE_RECOVERY: window.tr("Recovery"),
-        MODE_COMPAT: window.tr("Hardware Compatibility"),
-    }.get(window.boot_mode, window.tr("Strict"))
-
-
-def mode_description(window) -> str:
-    if window.boot_mode == MODE_FLEXIBLE:
-        return window.tr("Tor-first with a more relaxed onboarding flow.")
-    if window.boot_mode == MODE_OFFLINE:
-        return window.tr("Networking is intentionally disabled for this session.")
-    if window.boot_mode == MODE_RECOVERY:
-        return window.tr("Recovery-first session with networking intentionally disabled.")
-    if window.boot_mode == MODE_COMPAT:
-        return window.tr("Compatibility boot options are enabled while keeping strict network policy.")
-    return window.tr("Tor-first strict profile is active.")
-
-
-def is_network_disabled_mode(window) -> bool:
-    return window.boot_mode in {MODE_OFFLINE, MODE_RECOVERY}
-
-
-def resolve_page_order(window) -> list[str]:
-    if window.boot_mode == MODE_RECOVERY:
-        return ["persistence", "language", "keyboard", "network"]
-    return ["language", "keyboard", "network", "persistence"]
+def resolve_page_order(_window) -> list[str]:
+    return ["language", "keyboard", "network", "storage"]
 
 
 def current_page_key(window) -> str:
     return window.page_order[window.page_index]
+
+
+def _set_dropdown_values(dropdown: Gtk.DropDown, values: list[str], selected_index: int) -> None:
+    dropdown.set_model(Gtk.StringList.new(values))
+    dropdown.set_selected(selected_index)
 
 
 def current_language_code(window) -> str:
@@ -175,35 +164,52 @@ def current_language_name(window) -> str:
     return display_language_name(current_language_code(window))
 
 
-def action_label(window, action: str) -> str:
-    return window.tr(action.capitalize()).lower()
+def current_network_policy(window) -> str:
+    selected = window.network_policy_combo.get_selected()
+    if selected == Gtk.INVALID_LIST_POSITION or selected >= len(window.network_policy_values):
+        window.network_policy_combo.set_selected(0)
+        return window.network_policy_values[0]
+    return window.network_policy_values[selected]
+
+
+def current_network_policy_name(window) -> str:
+    return display_network_policy_name(current_network_policy(window), locale=window.ui_locale)
 
 
 def apply_translations(window) -> None:
-    window.set_title(window.tr("NM-OS Greeter"))
-    window.header_subtitle_label.set_text(window.tr("Prepare your session before entering the desktop."))
+    language_index = window.language_values.index(current_language_code(window))
+    network_policy_index = window.network_policy_values.index(current_network_policy(window))
+    _set_dropdown_values(window.language_combo, [display_language_name(locale) for locale in window.language_values], language_index)
+    _set_dropdown_values(
+        window.network_policy_combo,
+        [display_network_policy_name(policy, locale=window.ui_locale) for policy in window.network_policy_values],
+        network_policy_index,
+    )
+
+    window.set_title(window.tr("NM-OS Setup"))
+    window.header_subtitle_label.set_text(window.tr("Review your privacy and desktop settings before login."))
     window.language_title_label.set_text(window.tr("Language"))
-    window.language_subtitle_label.set_text(window.tr("Choose the session language."))
+    window.language_subtitle_label.set_text(window.tr("Choose the interface language."))
     window.keyboard_title_label.set_text(window.tr("Keyboard"))
     window.keyboard_subtitle_label.set_text(window.tr("Choose the keyboard layout."))
     window.network_title_label.set_text(window.tr("Network"))
-    window.persistence_title_label.set_text(window.tr("Persistence"))
+    window.network_subtitle_label.set_text(window.tr("Choose how NM-OS should treat the network."))
+    window.network_policy_label.set_text(window.tr("Network policy"))
+    window.allow_brave_browser.set_label(window.tr("Allow Brave Browser when installed"))
     window.network_refresh.set_label(window.tr("Refresh network status"))
-    window.allow_offline.set_label(window.tr("Continue to desktop while network stays blocked"))
+    window.storage_title_label.set_text(window.tr("Encrypted Vault"))
+    window.storage_subtitle_label.set_text(window.tr("Create or unlock an encrypted vault for sensitive files."))
     window.persistence_create.set_label(window.tr("Create"))
     window.persistence_unlock.set_label(window.tr("Unlock"))
     window.persistence_lock.set_label(window.tr("Lock"))
     window.persistence_repair.set_label(window.tr("Repair"))
     window.back_button.set_label(window.tr("Back"))
     window.next_button.set_label(window.tr("Next"))
-    window.finish_button.set_label(window.tr("Finish"))
-    window.mode_banner.set_text(
-        window.tr("Mode: {mode} - {description}", mode=mode_title(window), description=mode_description(window))
-    )
+    window.finish_button.set_label(window.tr("Apply settings"))
     if window.persistence_init_error:
         window.persistence_label.set_text(
             window.tr(
-                "Persistence backend unavailable: {error}",
+                "Encrypted vault backend unavailable: {error}",
                 error=window.translate_message(window.persistence_init_error),
             )
         )
@@ -211,16 +217,11 @@ def apply_translations(window) -> None:
         window.persistence_label.set_text(window.render_persistence_state(window.persistence_state))
 
 
-def apply_mode_ui_policy(window) -> None:
-    window.mode_banner.set_text(
-        window.tr("Mode: {mode} - {description}", mode=mode_title(window), description=mode_description(window))
-    )
-    if is_network_disabled_mode(window):
-        window.allow_offline.set_active(True)
-        window.allow_offline.set_sensitive(False)
-        window.network_refresh.set_sensitive(False)
-    elif window.boot_mode == MODE_FLEXIBLE:
-        window.allow_offline.set_active(True)
+def apply_settings_ui_policy(window) -> None:
+    offline = current_network_policy(window) == "offline"
+    if offline:
+        window.allow_brave_browser.set_active(False)
+    window.allow_brave_browser.set_sensitive(not offline)
 
 
 def _select_string(dropdown: Gtk.DropDown, value: str) -> None:
@@ -240,6 +241,15 @@ def _select_language(window, locale: str) -> None:
     window.language_combo.set_selected(0)
 
 
+def _select_network_policy(window, policy: str) -> None:
+    normalized = str(policy or "tor").strip().lower()
+    for index, value in enumerate(window.network_policy_values):
+        if value == normalized:
+            window.network_policy_combo.set_selected(index)
+            return
+    window.network_policy_combo.set_selected(0)
+
+
 def current_string(dropdown: Gtk.DropDown) -> str:
     model = dropdown.get_model()
     selected = dropdown.get_selected()
@@ -254,14 +264,13 @@ def current_string(dropdown: Gtk.DropDown) -> str:
 def restore_state(window) -> None:
     locale = window.state.get("locale", "en_US.UTF-8")
     keyboard = window.state.get("keyboard", "us")
+    network_policy = window.state.get("network_policy", "tor")
+    allow_brave = bool(window.state.get("allow_brave_browser", False))
     _select_language(window, locale)
     _select_string(window.keyboard_combo, keyboard)
-    if is_network_disabled_mode(window):
-        window.allow_offline.set_active(True)
-    elif window.boot_mode == MODE_FLEXIBLE and "allow_offline" not in window.state:
-        window.allow_offline.set_active(True)
-    else:
-        window.allow_offline.set_active(bool(window.state.get("allow_offline", False)))
+    _select_network_policy(window, network_policy)
+    window.allow_brave_browser.set_active(allow_brave)
+    apply_settings_ui_policy(window)
 
 
 def set_status(window, text: str, *, source: str = "event", force: bool = True) -> None:
@@ -275,36 +284,20 @@ def collect_state(window) -> dict:
     return {
         "locale": current_language_code(window),
         "keyboard": current_string(window.keyboard_combo),
-        "allow_offline": window.allow_offline.get_active(),
+        "network_policy": current_network_policy(window),
+        "allow_brave_browser": window.allow_brave_browser.get_active(),
     }
-
-
-def can_bypass_network(window) -> bool:
-    if is_network_disabled_mode(window):
-        return True
-    if window.boot_mode == MODE_FLEXIBLE:
-        return True
-    return window.allow_offline.get_active()
-
-
-def can_advance_from_network(window) -> bool:
-    if is_network_disabled_mode(window):
-        return True
-    return bool(window.network_status.get("ready")) or can_bypass_network(window)
 
 
 def can_finish(window) -> bool:
     if window.persistence_state.get("busy") or window.persistence_action_in_progress or window.persistence_refresh_in_progress:
         return False
-    return can_advance_from_network(window)
+    return True
 
 
 def update_navigation(window) -> None:
     window.back_button.set_sensitive(window.page_index > 0)
     window.next_button.set_visible(window.page_index < len(window.page_order) - 1)
-    if current_page_key(window) == "network":
-        window.next_button.set_sensitive(can_advance_from_network(window))
-    else:
-        window.next_button.set_sensitive(True)
+    window.next_button.set_sensitive(True)
     window.finish_button.set_visible(window.page_index == len(window.page_order) - 1)
     window.finish_button.set_sensitive(can_finish(window))

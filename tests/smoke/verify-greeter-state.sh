@@ -30,11 +30,19 @@ with tempfile.TemporaryDirectory() as tmp:
     state_file = Path(tmp) / "greeter-state.json"
     module.STATE_FILE = state_file
     assert module.load_state() == {}
-    module.save_state({"locale": "tr_TR.UTF-8", "keyboard": "tr", "allow_offline": True})
+    module.save_state(
+        {
+            "locale": "es_ES.UTF-8",
+            "keyboard": "tr",
+            "network_policy": "direct",
+            "allow_brave_browser": True,
+        }
+    )
     saved = module.load_state()
-    assert saved["locale"] == "tr_TR.UTF-8"
+    assert saved["locale"] == "es_ES.UTF-8"
     assert saved["keyboard"] == "tr"
-    assert saved["allow_offline"] is True
+    assert saved["network_policy"] == "direct"
+    assert saved["allow_brave_browser"] is True
     state_file.write_text('["unexpected", "array"]', encoding="utf-8")
     assert module.load_state() == {}
     module.clear_state()

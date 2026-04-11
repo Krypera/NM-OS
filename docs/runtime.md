@@ -1,72 +1,53 @@
 # Runtime Notes
 
-## Boot flow
+## Service flow
 
-1. USB boot menu sets `nmos.mode=<profile>` in kernel parameters
-2. `nmos-boot-profile.service` normalizes the mode and writes `/run/nmos/boot-mode.json`
-3. `nmos-live-user-password.service` assigns the live-session password before GDM starts the user login
-4. `nmos-network-bootstrap.service` enforces mode-aware network policy
-5. `nmos-persistent-storage.service` exposes the persistence D-Bus backend
-6. the GDM welcome session starts `nmos-greeter` before the live desktop login
-7. GDM `PostLogin` applies the chosen locale and keyboard settings from `/run/nmos/greeter-state.json`
+1. `nmos-settings-bootstrap.service` mirrors `/var/lib/nmos/system-settings.json` into `/run/nmos/system-settings.json`
+2. `nmos-network-bootstrap.service` enforces the selected network policy
+3. `nmos-persistent-storage.service` exposes the encrypted vault D-Bus backend
+4. the GDM greeter session starts `nmos-greeter` as the setup assistant
+5. GDM `PostLogin` applies the chosen locale and keyboard settings from `/run/nmos/greeter-state.json`
 
-The live-user password is generated per boot unless `LIVE_PASSWORD` is
-explicitly configured. The generated password is written to
-`/run/nmos/live-user-password` so the `Debian-gdm` greeter session can start
-the live desktop login flow without a hardcoded repository secret.
+## Settings model
 
-## Disk safety defaults
+The canonical settings file is:
 
-The alpha image is configured to avoid mounting internal disks automatically.
+- `/var/lib/nmos/system-settings.json`
 
-- GNOME media automount is disabled
-- internal non-USB block devices are hidden from UDisks by default
-- persistence is created on the boot USB device only
-- automatic persistence creation is only allowed on writable GPT USB layouts
+The runtime mirror is:
 
-This is meant to reduce accidental writes to the internal Windows disk during a
-live session.
+- `/run/nmos/system-settings.json`
 
-## Network gate
+The current alpha supports:
 
-The alpha network policy is intentionally strict:
+- `network_policy=tor`
+- `network_policy=direct`
+- `network_policy=offline`
+- `allow_brave_browser=true|false`
 
-- loopback traffic is allowed
-- established traffic is allowed
-- DHCP, DNS, and NTP are allowed for bootstrap
-- traffic from the `debian-tor` user is allowed
-- all other outbound traffic is blocked until Tor bootstrap completes
+## Network policy
 
-When Tor reaches bootstrap readiness, NM-OS removes the temporary nftables
-bootstrap table and marks the runtime as ready.
+### `tor`
 
-When Tor reaches 100% bootstrap, the runtime marks the session as ready by
-creating `/run/nmos/network-ready` and starting `nmos-network-ready.target`.
+- starts Tor bootstrap
+- keeps the temporary nftables gate until Tor is ready
+- writes status to `/run/nmos/network-status.json`
 
-The runtime also records status in:
+### `direct`
 
-- `/run/nmos/network-status.json`
-- `/run/nmos/boot-mode.json`
+- removes the temporary gate
+- marks networking ready immediately
+- still publishes runtime status for the setup assistant
 
-The greeter "continue without network" option only bypasses UI readiness. It
-still keeps user network traffic blocked until Tor reaches readiness and the
-temporary firewall gate is removed.
+### `offline`
 
-This gives the greeter and smoke tests a stable place to read progress, timeout,
-and failure information.
+- applies an offline-only nftables policy
+- does not start Tor bootstrap
+- reports a disabled network phase in `/run/nmos/network-status.json`
 
-### Mode-aware behavior
+## Encrypted vault
 
-- `strict`, `flexible`, `compat` run Tor bootstrap and keep the outbound gate until readiness.
-- `offline` and `recovery` skip Tor bootstrap, keep networking disabled, and publish a
-  disabled status phase in `/run/nmos/network-status.json`.
-- invalid or missing `nmos.mode` values fail closed to `strict`.
-
-Profile intent and limits are documented in [security-profiles.md](security-profiles.md).
-
-## Persistence
-
-The persistence backend is exposed on the system bus as:
+The storage backend is exposed on the system bus as:
 
 - service: `org.nmos.PersistentStorage`
 - path: `/org/nmos/PersistentStorage`
@@ -80,23 +61,17 @@ Methods:
 - `Repair()`
 - `GetState()`
 
-`GetState()` also reports:
+The backend manages:
 
-- `boot_device_supported`
-- `can_create`
-- `reason`
-- `device`
-
-The storage backend is designed for a single LUKS2 volume mounted at:
-
-- `/live/persistence/nmos-data`
+- image file: `/var/lib/nmos/storage/vault.img`
+- mapper: `/dev/mapper/nmos-vault`
+- mount point: `/var/lib/nmos/storage/mnt`
 
 ## Optional Brave support
 
-NM-OS can optionally include Brave Browser at build time.
+NM-OS can optionally enable Brave-aware runtime policy at build time.
 
 - this is disabled by default
-- this is intended as a privacy-focused browser option
-- this is not equivalent to Tor Browser anonymity guarantees
-- when Brave is included, the launcher is only shown in `flexible` mode
-- when Brave is included, a runtime binary policy also blocks execution outside `flexible` mode
+- launcher visibility still depends on the user setting
+- Brave is blocked when networking is set to `offline`
+- Brave is privacy-focused but not equivalent to Tor Browser anonymity

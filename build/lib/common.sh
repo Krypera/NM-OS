@@ -4,11 +4,13 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VERSION="$(tr -d '\r\n' < "${ROOT_DIR}/config/version")"
-WORK_DIR="${ROOT_DIR}/.build/live-build"
+WORK_DIR="${ROOT_DIR}/.build/system-overlay"
+ROOTFS_DIR="${WORK_DIR}/rootfs"
 DIST_DIR="${ROOT_DIR}/dist"
-LIVE_BUILD_SOURCE="${ROOT_DIR}/config/live-build"
-HOOKS_SOURCE="${ROOT_DIR}/hooks/live"
+SYSTEM_OVERLAY_SOURCE="${ROOT_DIR}/config/system-overlay"
+SYSTEM_PACKAGES_SOURCE="${ROOT_DIR}/config/system-packages"
 APPS_SOURCE="${ROOT_DIR}/apps"
+TARGET_PYTHON_DIR="${ROOTFS_DIR}/usr/lib/python3/dist-packages"
 VERSION_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$'
 
 require_cmd() {
@@ -32,53 +34,63 @@ validate_version_format() {
 }
 
 prepare_directories() {
-    mkdir -p "${WORK_DIR}" "${DIST_DIR}"
+    mkdir -p "${ROOTFS_DIR}" "${DIST_DIR}"
 }
 
-stage_live_build_tree() {
+install_python_package_dir() {
+    local package_dir="$1"
+    if [ ! -d "${package_dir}" ]; then
+        echo "missing package directory: ${package_dir}" >&2
+        exit 1
+    fi
+    cp -a "${package_dir}" "${TARGET_PYTHON_DIR}/"
+}
+
+enable_system_service() {
+    local unit_name="$1"
+    local wants_dir="${ROOTFS_DIR}/etc/systemd/system/multi-user.target.wants"
+    mkdir -p "${wants_dir}"
+    ln -sf "/usr/lib/systemd/system/${unit_name}" "${wants_dir}/${unit_name}"
+}
+
+stage_system_overlay_tree() {
     prepare_directories
     rm -rf "${WORK_DIR}"
-    mkdir -p "${WORK_DIR}"
-    rsync -a --exclude '__pycache__/' --exclude '*.pyc' --exclude '*.pyo' "${LIVE_BUILD_SOURCE}/" "${WORK_DIR}/"
-    mkdir -p "${WORK_DIR}/config/hooks/live"
-    rsync -a --exclude '__pycache__/' --exclude '*.pyc' --exclude '*.pyo' "${HOOKS_SOURCE}/" "${WORK_DIR}/config/hooks/live/"
-    mkdir -p "${WORK_DIR}/config/includes.chroot/usr/src/nmos/apps"
-    rsync -a --exclude '__pycache__/' --exclude '*.pyc' --exclude '*.pyo' "${APPS_SOURCE}/" "${WORK_DIR}/config/includes.chroot/usr/src/nmos/apps/"
-    mkdir -p "${WORK_DIR}/config/includes.chroot/usr/share/nmos"
-    cat > "${WORK_DIR}/config/includes.chroot/usr/share/nmos/build-info" <<EOF
+    mkdir -p "${ROOTFS_DIR}"
+    rsync -a --exclude '__pycache__/' --exclude '*.pyc' --exclude '*.pyo' "${SYSTEM_OVERLAY_SOURCE}/" "${ROOTFS_DIR}/"
+    mkdir -p "${TARGET_PYTHON_DIR}"
+    install_python_package_dir "${APPS_SOURCE}/nmos_common/nmos_common"
+    install_python_package_dir "${APPS_SOURCE}/nmos_greeter/nmos_greeter"
+    install_python_package_dir "${APPS_SOURCE}/nmos_persistent_storage/nmos_persistent_storage"
+    mkdir -p "${ROOTFS_DIR}/usr/share/nmos"
+    cat > "${ROOTFS_DIR}/usr/share/nmos/build-info" <<EOF
 NMOS_VERSION=${VERSION}
 BUILD_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 EOF
+    enable_system_service "nmos-settings-bootstrap.service"
+    enable_system_service "nmos-boot-marker.service"
+    enable_system_service "nmos-network-bootstrap.service"
+    enable_system_service "nmos-persistent-storage.service"
     if find "${WORK_DIR}" \( -type d -name "__pycache__" -o -type f \( -name "*.pyc" -o -name "*.pyo" \) \) | grep -q .; then
-        echo "staged live-build tree contains Python cache artifacts." >&2
+        echo "staged system overlay tree contains Python cache artifacts." >&2
         exit 1
     fi
-    chmod +x "${WORK_DIR}/auto/config" "${WORK_DIR}/auto/build"
-    find "${WORK_DIR}/config/hooks/live" -type f -name "*.hook.chroot" -exec chmod +x {} +
-    find "${WORK_DIR}/config/hooks/live" -type f -name "*.hook.binary" -exec chmod +x {} +
-    if [ -d "${WORK_DIR}/config/includes.chroot/usr/local/bin" ]; then
-        find "${WORK_DIR}/config/includes.chroot/usr/local/bin" -type f -exec chmod +x {} +
+    if [ -d "${ROOTFS_DIR}/usr/local/bin" ]; then
+        find "${ROOTFS_DIR}/usr/local/bin" -type f -exec chmod +x {} +
     fi
-    if [ -d "${WORK_DIR}/config/includes.chroot/usr/local/lib/nmos" ]; then
-        find "${WORK_DIR}/config/includes.chroot/usr/local/lib/nmos" -type f -name "*.py" -exec chmod +x {} +
+    if [ -d "${ROOTFS_DIR}/usr/local/lib/nmos" ]; then
+        find "${ROOTFS_DIR}/usr/local/lib/nmos" -type f -name "*.py" -exec chmod +x {} +
+        find "${ROOTFS_DIR}/usr/local/lib/nmos" -type f -name "*.sh" -exec chmod +x {} +
     fi
-    if [ -d "${WORK_DIR}/config/includes.chroot/etc/gdm3/PostLogin" ]; then
-        find "${WORK_DIR}/config/includes.chroot/etc/gdm3/PostLogin" -type f -exec chmod +x {} +
+    if [ -d "${ROOTFS_DIR}/etc/gdm3/PostLogin" ]; then
+        find "${ROOTFS_DIR}/etc/gdm3/PostLogin" -type f -exec chmod +x {} +
     fi
-}
-
-find_built_iso() {
-    find "${WORK_DIR}" -maxdepth 1 -type f -name "*.iso" | head -n 1
 }
 
 build_output_stem() {
-    echo "nmos-amd64-${VERSION}"
+    echo "nmos-system-overlay-${VERSION}"
 }
 
-build_iso_name() {
-    echo "$(build_output_stem).iso"
-}
-
-build_img_name() {
-    echo "$(build_output_stem).img"
+build_archive_name() {
+    echo "$(build_output_stem).tar.gz"
 }

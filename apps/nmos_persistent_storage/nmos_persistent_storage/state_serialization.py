@@ -38,9 +38,9 @@ def build_state_payload(
         "busy": busy,
         "operation": operation if busy else "idle",
         "last_error": last_error,
-        "boot_device_supported": bool(details.get("boot_device_supported")),
         "can_create": can_create,
         "reason": reason,
-        "device": details.get("device", ""),
+        "path": details.get("path", ""),
         "free_bytes": int(details.get("free_bytes", 0) or 0),
+        "file_bytes": int(details.get("file_bytes", 0) or 0),
     }

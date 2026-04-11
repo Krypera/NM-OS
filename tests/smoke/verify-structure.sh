@@ -16,68 +16,56 @@ REQUIRED=(
     "${ROOT_DIR}/build/install-dev-deps.sh"
     "${ROOT_DIR}/build/build.ps1"
     "${ROOT_DIR}/build/install-deps.ps1"
-    "${ROOT_DIR}/build/smoke-qemu.sh"
+    "${ROOT_DIR}/build/smoke-overlay.sh"
     "${ROOT_DIR}/build/verify-artifacts.sh"
-    "${ROOT_DIR}/config/live-build/auto/config"
-    "${ROOT_DIR}/config/live-build/includes.chroot/etc/dbus-1/system.d/org.nmos.PersistentStorage.conf"
-    "${ROOT_DIR}/config/live-build/includes.chroot/etc/dconf/profile/user"
-    "${ROOT_DIR}/config/live-build/includes.chroot/etc/gdm3/PostLogin/Default"
-    "${ROOT_DIR}/config/live-build/includes.chroot/etc/nmos/live-user.conf"
-    "${ROOT_DIR}/config/live-build/includes.chroot/etc/systemd/system/display-manager.service.d/nmos-live-user-password.conf"
-    "${ROOT_DIR}/config/live-build/includes.chroot/etc/udev/rules.d/61-nmos-ignore-internal-disks.rules"
-    "${ROOT_DIR}/config/live-build/includes.chroot/usr/lib/systemd/system/nmos-boot-marker.service"
-    "${ROOT_DIR}/config/live-build/includes.chroot/usr/lib/systemd/system/nmos-boot-profile.service"
-    "${ROOT_DIR}/config/live-build/includes.chroot/usr/lib/systemd/system/nmos-live-user-password.service"
-    "${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib/nmos/ensure_live_user_password.py"
-    "${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib/nmos/boot_profile.py"
-    "${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib/nmos/desktop_mode.py"
-    "${ROOT_DIR}/config/live-build/includes.chroot/usr/local/lib/nmos/brave_policy.py"
-    "${ROOT_DIR}/config/live-build/includes.chroot/usr/share/gdm/greeter/applications/nmos-greeter.desktop"
-    "${ROOT_DIR}/config/live-build/includes.chroot/usr/share/gnome-shell/modes/gdm-nmos.json"
-    "${ROOT_DIR}/config/live-build/includes.chroot/etc/xdg/autostart/nmos-desktop-mode.desktop"
-    "${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/main.py"
-    "${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/network_model.py"
-    "${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/persistence_actions.py"
-    "${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/ui_composition.py"
-    "${ROOT_DIR}/apps/nmos_common/nmos_common/boot_mode.py"
+    "${ROOT_DIR}/config/system-overlay/etc/dbus-1/system.d/org.nmos.PersistentStorage.conf"
+    "${ROOT_DIR}/config/system-overlay/etc/gdm3/PostLogin/Default"
+    "${ROOT_DIR}/config/system-overlay/etc/xdg/autostart/nmos-desktop-mode.desktop"
+    "${ROOT_DIR}/config/system-overlay/usr/lib/systemd/system/nmos-settings-bootstrap.service"
+    "${ROOT_DIR}/config/system-overlay/usr/lib/systemd/system/nmos-boot-marker.service"
+    "${ROOT_DIR}/config/system-overlay/usr/lib/systemd/system/nmos-network-bootstrap.service"
+    "${ROOT_DIR}/config/system-overlay/usr/lib/systemd/system/nmos-persistent-storage.service"
+    "${ROOT_DIR}/config/system-overlay/usr/lib/tmpfiles.d/nmos.conf"
+    "${ROOT_DIR}/config/system-overlay/usr/local/lib/nmos/settings_bootstrap.py"
+    "${ROOT_DIR}/config/system-overlay/usr/local/lib/nmos/network_bootstrap.py"
+    "${ROOT_DIR}/config/system-overlay/usr/local/lib/nmos/desktop_mode.py"
+    "${ROOT_DIR}/config/system-overlay/usr/local/lib/nmos/brave_policy.py"
+    "${ROOT_DIR}/config/system-overlay/usr/share/gdm/greeter/applications/nmos-greeter.desktop"
+    "${ROOT_DIR}/config/system-overlay/usr/share/gdm/greeter/applications/gdm-shell-nmos.desktop"
+    "${ROOT_DIR}/config/system-overlay/usr/share/gnome-session/sessions/gdm-nmos.session"
+    "${ROOT_DIR}/config/system-packages/base.txt"
+    "${ROOT_DIR}/apps/nmos_common/nmos_common/system_settings.py"
     "${ROOT_DIR}/apps/nmos_common/nmos_common/config_helpers.py"
     "${ROOT_DIR}/apps/nmos_common/nmos_common/i18n.py"
     "${ROOT_DIR}/apps/nmos_common/nmos_common/network_status.py"
     "${ROOT_DIR}/apps/nmos_common/nmos_common/runtime_state.py"
-    "${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/gdm_handoff.py"
-    "${ROOT_DIR}/apps/nmos_persistent_storage/nmos_persistent_storage/service.py"
-    "${ROOT_DIR}/apps/nmos_persistent_storage/nmos_persistent_storage/disk_discovery.py"
+    "${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/main.py"
+    "${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/network_model.py"
+    "${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/persistence_actions.py"
+    "${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/ui_composition.py"
     "${ROOT_DIR}/apps/nmos_persistent_storage/nmos_persistent_storage/mount_crypto_ops.py"
-    "${ROOT_DIR}/apps/nmos_persistent_storage/nmos_persistent_storage/partition_planning.py"
     "${ROOT_DIR}/apps/nmos_persistent_storage/nmos_persistent_storage/state_serialization.py"
-    "${ROOT_DIR}/docs/windows-wsl.md"
-    "${ROOT_DIR}/docs/translations.md"
+    "${ROOT_DIR}/apps/nmos_persistent_storage/nmos_persistent_storage/storage.py"
+    "${ROOT_DIR}/docs/build.md"
+    "${ROOT_DIR}/docs/runtime.md"
     "${ROOT_DIR}/docs/security-profiles.md"
-    "${ROOT_DIR}/docs/usb-boot-checklist.md"
+    "${ROOT_DIR}/docs/translations.md"
+    "${ROOT_DIR}/docs/windows-wsl.md"
     "${ROOT_DIR}/tests/python/conftest.py"
     "${ROOT_DIR}/tests/python/test_compile_sources.py"
     "${ROOT_DIR}/tests/python/test_runtime_logic.py"
     "${ROOT_DIR}/tests/smoke/verify-build-hygiene.sh"
-    "${ROOT_DIR}/tests/smoke/verify-version-policy.sh"
-    "${ROOT_DIR}/tests/smoke/verify-boot-modes.sh"
     "${ROOT_DIR}/tests/smoke/verify-brave-optional.sh"
-    "${ROOT_DIR}/tests/smoke/verify-disk-safety.sh"
-    "${ROOT_DIR}/tests/smoke/verify-greeter-state.sh"
     "${ROOT_DIR}/tests/smoke/verify-greeter-i18n.sh"
-    "${ROOT_DIR}/tests/smoke/verify-live-login-config.sh"
-    "${ROOT_DIR}/tests/smoke/verify-network-gate-transition.sh"
-    "${ROOT_DIR}/tests/smoke/verify-network-status-normalization.sh"
-    "${ROOT_DIR}/tests/smoke/verify-persistence-state-machine.sh"
+    "${ROOT_DIR}/tests/smoke/verify-greeter-state.sh"
+    "${ROOT_DIR}/tests/smoke/verify-network-policy.sh"
     "${ROOT_DIR}/tests/smoke/verify-prelogin-wiring.sh"
     "${ROOT_DIR}/tests/smoke/verify-quality-tooling.sh"
     "${ROOT_DIR}/tests/smoke/verify-runtime-logic.sh"
+    "${ROOT_DIR}/tests/smoke/verify-settings-model.sh"
     "${ROOT_DIR}/tests/smoke/verify-systemd-hardening.sh"
+    "${ROOT_DIR}/tests/smoke/verify-vault-storage.sh"
     "${ROOT_DIR}/tests/smoke/verify-windows-wsl-bridge.ps1"
-    "${ROOT_DIR}/hooks/live/040-configure-gdm-session.hook.chroot"
-    "${ROOT_DIR}/hooks/live/050-configure-boot-modes.hook.binary"
-    "${ROOT_DIR}/hooks/live/templates/grub-boot-modes.cfg.template"
-    "${ROOT_DIR}/hooks/live/templates/syslinux-boot-modes.cfg.template"
-    "${ROOT_DIR}/hooks/optional/050-install-brave-browser.hook.chroot"
 )
 
 for path in "${REQUIRED[@]}"; do
@@ -87,16 +75,26 @@ for path in "${REQUIRED[@]}"; do
     }
 done
 
+for removed_path in \
+    "${ROOT_DIR}/config/live-build" \
+    "${ROOT_DIR}/hooks/live" \
+    "${ROOT_DIR}/hooks/optional/050-install-brave-browser.hook.chroot" \
+    "${ROOT_DIR}/apps/nmos_common/nmos_common/boot_mode.py" \
+    "${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/gdmclient.py" \
+    "${ROOT_DIR}/apps/nmos_greeter/nmos_greeter/gdm_handoff.py" \
+    "${ROOT_DIR}/apps/nmos_persistent_storage/nmos_persistent_storage/disk_discovery.py" \
+    "${ROOT_DIR}/apps/nmos_persistent_storage/nmos_persistent_storage/partition_planning.py" \
+    "${ROOT_DIR}/tests/smoke/verify-boot-modes.sh" \
+    "${ROOT_DIR}/tests/smoke/verify-live-login-config.sh"; do
+    if [ -e "${removed_path}" ]; then
+        echo "live-only path still exists: ${removed_path}" >&2
+        exit 1
+    fi
+done
+
 command -v git >/dev/null 2>&1 || {
     echo "missing required command: git" >&2
     exit 1
 }
-
-CLEAN_ROOM_PATTERN='^(ta'"'"'ils-stable|upstream|private)/'
-
-if git -C "${ROOT_DIR}" ls-files | grep -Eq "${CLEAN_ROOM_PATTERN}"; then
-    echo "tracked files found under clean-room excluded directories." >&2
-    exit 1
-fi
 
 echo "Repository structure looks complete."

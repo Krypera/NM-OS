@@ -8,16 +8,7 @@ from gi.repository import Gio, GLib
 from nmos_greeter.client import read_network_status
 
 
-def default_network_status(window) -> dict:
-    if window.is_network_disabled_mode():
-        return {
-            "ready": False,
-            "progress": 0,
-            "phase": "disabled",
-            "summary": f"Network is disabled by boot mode ({window.boot_mode}).",
-            "last_error": "",
-            "updated_at": "",
-        }
+def default_network_status(_window) -> dict:
     return {
         "ready": False,
         "progress": 0,
@@ -29,32 +20,34 @@ def default_network_status(window) -> dict:
 
 
 def refresh_network(window, *, force_status: bool = False) -> None:
-    if window.is_network_disabled_mode():
-        status = default_network_status(window)
-    else:
-        try:
-            status = read_network_status()
-        except (OSError, ValueError, RuntimeError) as exc:
-            status = {
-                "ready": False,
-                "progress": 0,
-                "phase": "failed",
-                "summary": "Unable to read network status",
-                "last_error": str(exc),
-                "updated_at": "",
-            }
+    try:
+        status = read_network_status()
+    except (OSError, ValueError, RuntimeError) as exc:
+        status = {
+            "ready": False,
+            "progress": 0,
+            "phase": "failed",
+            "summary": "Unable to read network status",
+            "last_error": str(exc),
+            "updated_at": "",
+        }
+
     window.network_status = status
     summary = window.translate_message(str(status["summary"]))
     window.network_label.set_text(f"{summary} ({status['progress']}%)")
     window.network_progress.set_fraction(status["progress"] / 100.0)
-    if window.is_network_disabled_mode():
-        window.set_status(window.tr("Network is intentionally disabled for this boot mode."), source="network", force=force_status)
-    elif status.get("last_error"):
+
+    phase = str(status.get("phase", "bootstrap"))
+    if status.get("last_error"):
         window.set_status(
             window.tr("Network status: {error}", error=window.translate_message(str(status["last_error"]))),
             source="network",
             force=force_status,
         )
+    elif phase == "disabled":
+        window.set_status(window.tr("Networking is currently disabled."), source="network", force=force_status)
+    elif phase == "open":
+        window.set_status(window.tr("Direct network access is enabled."), source="network", force=force_status)
     elif status["ready"]:
         window.set_status(window.tr("Tor connection is ready."), source="network", force=force_status)
     else:
@@ -63,8 +56,6 @@ def refresh_network(window, *, force_status: bool = False) -> None:
 
 
 def setup_network_watchers(window) -> None:
-    if window.is_network_disabled_mode():
-        return
     for path in ("/run/nmos/network-status.json", "/run/nmos/network-ready"):
         file_obj = Gio.File.new_for_path(path)
         monitor = None

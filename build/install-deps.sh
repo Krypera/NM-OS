@@ -16,21 +16,12 @@ export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
 apt-get install -y \
-    live-build \
-    debootstrap \
-    rsync \
-    util-linux \
-    xorriso \
-    dosfstools \
-    gdisk \
-    mtools \
-    parted \
     python3 \
     python3-venv \
-    qemu-system-x86 \
-    squashfs-tools \
-    systemd-container \
-    wget
+    rsync \
+    tar \
+    gzip \
+    shellcheck
 
-echo "NM-OS build dependencies are installed."
+echo "NM-OS overlay build dependencies are installed."
 echo "For local smoke tooling, run: bash ./build/install-dev-deps.sh"

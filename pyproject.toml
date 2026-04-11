@@ -24,7 +24,7 @@ files = [
   "apps/nmos_common",
   "apps/nmos_greeter",
   "apps/nmos_persistent_storage",
-  "config/live-build/includes.chroot/usr/local/lib/nmos",
+  "config/system-overlay/usr/local/lib/nmos",
 ]
 
 [[tool.mypy.overrides]]

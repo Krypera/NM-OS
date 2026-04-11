@@ -3,8 +3,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-PERSISTENT_SERVICE="${ROOT_DIR}/config/live-build/includes.chroot/usr/lib/systemd/system/nmos-persistent-storage.service"
-NETWORK_SERVICE="${ROOT_DIR}/config/live-build/includes.chroot/usr/lib/systemd/system/nmos-network-bootstrap.service"
+PERSISTENT_SERVICE="${ROOT_DIR}/config/system-overlay/usr/lib/systemd/system/nmos-persistent-storage.service"
+NETWORK_SERVICE="${ROOT_DIR}/config/system-overlay/usr/lib/systemd/system/nmos-network-bootstrap.service"
 
 for unit in "${PERSISTENT_SERVICE}" "${NETWORK_SERVICE}"; do
     [ -f "${unit}" ] || {
@@ -33,7 +33,7 @@ for unit in "${PERSISTENT_SERVICE}" "${NETWORK_SERVICE}"; do
     }
 done
 
-grep -q '^ReadWritePaths=/run/nmos /live/persistence$' "${PERSISTENT_SERVICE}" || {
+grep -q '^ReadWritePaths=/run/nmos /var/lib/nmos$' "${PERSISTENT_SERVICE}" || {
     echo "persistent storage service hardening is missing explicit write paths." >&2
     exit 1
 }
@@ -48,4 +48,4 @@ grep -q '^RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK$' "${NETWO
     exit 1
 }
 
-echo "systemd service hardening checks passed."
+echo "Systemd service hardening checks passed."

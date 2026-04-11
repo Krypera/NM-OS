@@ -1,25 +1,27 @@
 # NM-OS
 
-NM-OS is a privacy-focused live operating system project designed to boot from a USB drive.
+NM-OS is a privacy-focused installed operating system profile for Debian-based systems.
 
-The goal is simple: start clean, stay cautious by default, and keep the user in control.
+The goal is simple: ship cautious defaults, keep privacy features understandable, and let the user tune them from a setup assistant instead of juggling boot-time modes.
 
-NM-OS is still in alpha, but the core direction is already here:
+NM-OS is still in alpha, but the current direction is already clear:
 
-- USB boot with multiple boot modes
-- a real welcome screen before the desktop session
-- Tor-first network gating
-- encrypted persistence on the same USB drive
+- a pre-login setup assistant inside GDM
+- Tor-first, direct, or offline network policy as normal system settings
+- an encrypted vault for sensitive files
+- optional Brave support gated by both build-time and runtime settings
+- a reproducible system overlay build for Linux and WSL2
 
-## What It Includes Today
+## What It Builds Today
 
-- GNOME + GDM based live session flow
-- `nmos-greeter` for pre-login setup and status
-- a persistence backend for encrypted USB storage
-- smoke checks for build and runtime wiring
-- Windows-friendly build wrappers with WSL2 support
+The repository now produces an installed-system overlay bundle, not a live USB image.
 
-Brave support is optional. If enabled, it is only intended for `Flexible` mode.
+The overlay contains:
+
+- systemd units and runtime helpers
+- GDM greeter session wiring
+- NM-OS Python applications installed into the target Python path
+- package manifests for the expected Debian base system
 
 ## Quick Start
 
@@ -30,7 +32,7 @@ Brave support is optional. If enabled, it is only intended for `Flexible` mode.
 .\build\build.ps1
 ```
 
-Optional Brave build:
+Optional Brave-aware overlay:
 
 ```powershell
 .\build\build.ps1 -EnableBrave
@@ -42,7 +44,7 @@ Optional Brave build:
 ./build/build.sh
 ```
 
-Optional Brave build:
+Optional Brave-aware overlay:
 
 ```bash
 NMOS_ENABLE_BRAVE=1 ./build/build.sh
@@ -51,18 +53,18 @@ NMOS_ENABLE_BRAVE=1 ./build/build.sh
 ## Useful Docs
 
 - [Build notes](docs/build.md)
+- [Installation notes](docs/installation.md)
 - [Runtime notes](docs/runtime.md)
+- [Security settings](docs/security-profiles.md)
 - [Translation guide](docs/translations.md)
 - [Windows + WSL2 workflow](docs/windows-wsl.md)
-- [Security profiles](docs/security-profiles.md)
-- [USB boot checklist](docs/usb-boot-checklist.md)
 
 ## Repository Layout
 
-- `apps/` application code for the greeter and backend services
-- `build/` build entry points and verification helpers
-- `config/` live-build project files and runtime image content
-- `hooks/` build hooks used while assembling the image
+- `apps/` application code for the setup assistant and backend services
+- `build/` build entry points and artifact verification helpers
+- `config/system-overlay/` filesystem overlay content for the installed system
+- `config/system-packages/` expected Debian package manifests
 - `tests/` smoke checks for repo and runtime safety
 - `docs/` project notes and setup guides
 
@@ -70,16 +72,16 @@ NMOS_ENABLE_BRAVE=1 ./build/build.sh
 
 Already in progress:
 
-- image assembly
-- pre-login greeter flow
-- network readiness gating
-- encrypted persistence
+- overlay assembly for an installed base system
+- pre-login setup assistant flow
+- settings-driven network policy
+- encrypted vault management
 
 Not part of the current alpha yet:
 
-- internal disk installer
-- updater
-- large application bundle
+- a full graphical installer
+- an updater
+- large application bundles
 - release-grade hardware validation
 
 ## Translations

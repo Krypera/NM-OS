@@ -2,108 +2,83 @@ from __future__ import annotations
 
 import re
 
-from nmos_common.boot_mode import MODE_COMPAT, MODE_FLEXIBLE, MODE_OFFLINE, MODE_RECOVERY, MODE_STRICT
-
 DEFAULT_UI_LOCALE = "en_US.UTF-8"
 LANGUAGE_OPTIONS = (
     (DEFAULT_UI_LOCALE, "English"),
-    ("es_ES.UTF-8", "Espa\u00f1ol"),
+    ("es_ES.UTF-8", "Español"),
 )
 
 LANGUAGE_LABELS = {locale: label for locale, label in LANGUAGE_OPTIONS}
 
-BOOT_MODE_TITLES = {
-    MODE_STRICT: "Strict",
-    MODE_FLEXIBLE: "Flexible",
-    MODE_OFFLINE: "Offline",
-    MODE_RECOVERY: "Recovery",
-    MODE_COMPAT: "Hardware Compatibility",
+NETWORK_POLICY_TITLES = {
+    "tor": "Tor-first",
+    "direct": "Direct network",
+    "offline": "Offline",
 }
 
 TRANSLATIONS = {
     "es": {
-        "NM-OS Greeter": "Bienvenida de NM-OS",
-        "Prepare your session before entering the desktop.": "Prepara tu sesi\u00f3n antes de entrar al escritorio.",
+        "NM-OS Setup": "Configuración de NM-OS",
+        "Review your privacy and desktop settings before login.": "Revisa tus ajustes de privacidad y escritorio antes de iniciar sesión.",
         "Language": "Idioma",
-        "Choose the session language.": "Elige el idioma de la sesi\u00f3n.",
+        "Choose the interface language.": "Elige el idioma de la interfaz.",
         "Keyboard": "Teclado",
-        "Choose the keyboard layout.": "Elige la distribuci\u00f3n del teclado.",
+        "Choose the keyboard layout.": "Elige la distribución del teclado.",
         "Network": "Red",
-        "Persistence": "Persistencia",
+        "Choose how NM-OS should treat the network.": "Elige cómo debe tratar NM-OS la red.",
+        "Network policy": "Política de red",
+        "Allow Brave Browser when installed": "Permitir Brave Browser cuando esté instalado",
         "Refresh network status": "Actualizar estado de la red",
-        "Continue to desktop while network stays blocked": "Continuar al escritorio mientras la red sigue bloqueada",
+        "Encrypted Vault": "Bóveda cifrada",
+        "Create or unlock an encrypted vault for sensitive files.": "Crea o desbloquea una bóveda cifrada para archivos sensibles.",
         "Create": "Crear",
         "Unlock": "Desbloquear",
         "Lock": "Bloquear",
         "Repair": "Reparar",
-        "Back": "Atr\u00e1s",
+        "Back": "Atrás",
         "Next": "Siguiente",
-        "Finish": "Finalizar",
-        "Strict": "Estricto",
-        "Flexible": "Flexible",
-        "Offline": "Sin conexi\u00f3n",
-        "Recovery": "Recuperaci\u00f3n",
-        "Hardware Compatibility": "Compatibilidad de hardware",
-        "Tor-first with a more relaxed onboarding flow.": "Tor primero con un flujo de inicio m\u00e1s flexible.",
-        "Networking is intentionally disabled for this session.": "La red est\u00e1 desactivada intencionalmente para esta sesi\u00f3n.",
-        "Recovery-first session with networking intentionally disabled.": "Sesi\u00f3n centrada en recuperaci\u00f3n con la red desactivada intencionalmente.",
-        "Compatibility boot options are enabled while keeping strict network policy.": "Las opciones de compatibilidad est\u00e1n activadas mientras se mantiene una pol\u00edtica de red estricta.",
-        "Tor-first strict profile is active.": "El perfil estricto con Tor primero est\u00e1 activo.",
-        "Mode: {mode} - {description}": "Modo: {mode} - {description}",
+        "Apply settings": "Aplicar ajustes",
+        "Tor-first": "Tor primero",
+        "Direct network": "Red directa",
+        "Offline": "Sin conexión",
         "Waiting for Tor": "Esperando a Tor",
-        "Tor is ready": "Tor est\u00e1 listo",
+        "Tor is ready": "Tor está listo",
         "Waiting for Tor bootstrap": "Esperando el arranque de Tor",
         "Waiting for Tor control": "Esperando el control de Tor",
-        "Preparing network policy": "Preparando la pol\u00edtica de red",
-        "Network bootstrap failed": "Fall\u00f3 el arranque de la red",
+        "Preparing network policy": "Preparando la política de red",
+        "Network bootstrap failed": "Falló el arranque de la red",
+        "Direct network access is enabled by system settings.": "El acceso directo a la red está habilitado por la configuración del sistema.",
+        "Network is disabled by current settings.": "La red está desactivada por la configuración actual.",
         "Unable to read network status": "No se pudo leer el estado de la red",
-        "invalid status payload": "la carga del estado no es v\u00e1lida",
-        "Network is disabled by boot mode ({mode}).": "La red est\u00e1 desactivada por el modo de arranque ({mode}).",
-        "Network is intentionally disabled for this boot mode.": "La red est\u00e1 desactivada intencionalmente para este modo de arranque.",
+        "invalid status payload": "la carga del estado no es válida",
         "Network status: {error}": "Estado de la red: {error}",
-        "Tor connection is ready.": "La conexi\u00f3n de Tor est\u00e1 lista.",
-        "Waiting for Tor to become ready.": "Esperando a que Tor est\u00e9 listo.",
-        "Persistence backend unavailable: {error}": "El servicio de persistencia no est\u00e1 disponible: {error}",
-        "Persistence error: {error}": "Error de persistencia: {error}",
-        "Persistence operation is in progress.": "Hay una operaci\u00f3n de persistencia en curso.",
-        "Persistence is unlocked and ready.": "La persistencia est\u00e1 desbloqueada y lista.",
-        "Persistence exists on {device} and can be unlocked.": "La persistencia existe en {device} y se puede desbloquear.",
-        "Persistence cannot be created on {device} because less than 1 GiB of free space remains.": "No se puede crear persistencia en {device} porque queda menos de 1 GiB de espacio libre.",
-        "Persistence creation is disabled because NM-OS was not started from a writable USB device.": "La creaci\u00f3n de persistencia est\u00e1 desactivada porque NM-OS no se inici\u00f3 desde un USB escribible.",
-        "Persistence creation is disabled because the boot USB layout cannot safely accept an appended partition.": "La creaci\u00f3n de persistencia est\u00e1 desactivada porque la estructura del USB de arranque no puede aceptar otra partici\u00f3n de forma segura.",
-        "Persistence creation is disabled because the boot USB is read-only.": "La creaci\u00f3n de persistencia est\u00e1 desactivada porque el USB de arranque es de solo lectura.",
-        "Persistence can be created on {device}.": "Se puede crear persistencia en {device}.",
-        "Persistence already exists on {device}.": "La persistencia ya existe en {device}.",
-        "Persistence state is unavailable.": "El estado de la persistencia no est\u00e1 disponible.",
-        "the boot USB": "el USB de arranque",
-        "Unable to save language selection: {error}": "No se pudo guardar la selecci\u00f3n de idioma: {error}",
-        "Language will be applied as {language}.": "El idioma se aplicar\u00e1 como {language}.",
-        "Unable to save keyboard selection: {error}": "No se pudo guardar la selecci\u00f3n del teclado: {error}",
-        "Keyboard layout will be applied as {layout}.": "La distribuci\u00f3n del teclado se aplicar\u00e1 como {layout}.",
-        "This boot mode is intentionally offline.": "Este modo de arranque funciona intencionalmente sin conexi\u00f3n.",
-        "You can continue to desktop now, but network traffic stays blocked until Tor is ready.": "Ya puedes continuar al escritorio, pero el tr\u00e1fico de red seguir\u00e1 bloqueado hasta que Tor est\u00e9 listo.",
-        "Continue without network is disabled. Wait for Tor readiness to proceed.": "Continuar sin red est\u00e1 desactivado. Espera a que Tor est\u00e9 listo para continuar.",
-        "Persistence {action} is still running. Please wait.": "La acci\u00f3n de persistencia {action} sigue en curso. Espera por favor.",
-        "Persistence status is refreshing. Please wait.": "Se est\u00e1 actualizando el estado de la persistencia. Espera por favor.",
-        "Persistence {action} is in progress...": "La acci\u00f3n de persistencia {action} est\u00e1 en curso...",
-        "Starting persistence {action}...": "Iniciando la acci\u00f3n de persistencia {action}...",
-        "Persistence {action} failed: {error}": "La acci\u00f3n de persistencia {action} fall\u00f3: {error}",
-        "Persistence {action} request completed.": "La acci\u00f3n de persistencia {action} se complet\u00f3.",
-        "Session is not ready yet.": "La sesi\u00f3n todav\u00eda no est\u00e1 lista.",
-        "Failed to save greeter state: {error}": "No se pudo guardar el estado de la bienvenida: {error}",
-        "GDM session control is unavailable: {error}": "El control de sesi\u00f3n de GDM no est\u00e1 disponible: {error}",
-        "Greeter state saved, but GDM session control is unavailable.": "Se guard\u00f3 el estado de la bienvenida, pero el control de sesi\u00f3n de GDM no est\u00e1 disponible.",
-        "Starting the live session...": "Iniciando la sesi\u00f3n en vivo...",
-        "Failed to start the live session: {error}": "No se pudo iniciar la sesi\u00f3n en vivo: {error}",
-        "Live session start timed out. Login flow reset failed: {error}": "Se agot\u00f3 el tiempo para iniciar la sesi\u00f3n en vivo. No se pudo reiniciar el flujo de acceso: {error}",
-        "Live session start timed out. Login flow was reset.": "Se agot\u00f3 el tiempo para iniciar la sesi\u00f3n en vivo. El flujo de acceso se reinici\u00f3.",
-        "Live session start failed: {problem}": "No se pudo iniciar la sesi\u00f3n en vivo: {problem}",
-        "GDM stopped the live-session login conversation.": "GDM detuvo la conversaci\u00f3n de acceso de la sesi\u00f3n en vivo.",
-        "GDM reset the live-session login flow.": "GDM reinici\u00f3 el flujo de acceso de la sesi\u00f3n en vivo.",
-        "GDM could not start the live session: {error}": "GDM no pudo iniciar la sesi\u00f3n en vivo: {error}",
-        "Unexpected timed login request for {user_name} in {seconds} seconds while NM-OS welcome flow is active.": "Solicitud inesperada de acceso temporizado para {user_name} en {seconds} segundos mientras el flujo de bienvenida de NM-OS est\u00e1 activo.",
-        "live username is missing": "falta el nombre de usuario de la sesi\u00f3n en vivo",
-        "live password is missing": "falta la contrase\u00f1a de la sesi\u00f3n en vivo",
+        "Networking is currently disabled.": "La red está actualmente desactivada.",
+        "Direct network access is enabled.": "El acceso directo a la red está habilitado.",
+        "Tor connection is ready.": "La conexión Tor está lista.",
+        "Waiting for Tor to become ready.": "Esperando a que Tor esté listo.",
+        "Unable to save pending settings: {error}": "No se pudieron guardar los ajustes pendientes: {error}",
+        "Language will be applied as {language}.": "El idioma se aplicará como {language}.",
+        "Keyboard layout will be applied as {layout}.": "La distribución del teclado se aplicará como {layout}.",
+        "Network policy will be applied as {policy}.": "La política de red se aplicará como {policy}.",
+        "Encrypted vault backend unavailable: {error}": "El servicio de la bóveda cifrada no está disponible: {error}",
+        "Encrypted vault error: {error}": "Error de la bóveda cifrada: {error}",
+        "Encrypted vault activity is in progress.": "Hay una actividad en curso en la bóveda cifrada.",
+        "Encrypted vault is unlocked and ready.": "La bóveda cifrada está desbloqueada y lista.",
+        "Encrypted vault exists at {path} and can be unlocked.": "La bóveda cifrada existe en {path} y se puede desbloquear.",
+        "Encrypted vault cannot be created because the system disk does not have enough free space.": "No se puede crear la bóveda cifrada porque el disco del sistema no tiene suficiente espacio libre.",
+        "Encrypted vault can be created at {path}.": "La bóveda cifrada se puede crear en {path}.",
+        "Encrypted vault already exists at {path}.": "La bóveda cifrada ya existe en {path}.",
+        "Encrypted vault state is unavailable.": "El estado de la bóveda cifrada no está disponible.",
+        "the encrypted vault": "la bóveda cifrada",
+        "Encrypted vault action {action} is still running. Please wait.": "La acción {action} de la bóveda cifrada sigue en curso. Espera por favor.",
+        "Encrypted vault status is refreshing. Please wait.": "Se está actualizando el estado de la bóveda cifrada. Espera por favor.",
+        "Encrypted vault action {action} is in progress...": "La acción {action} de la bóveda cifrada está en curso...",
+        "Starting encrypted vault action {action}...": "Iniciando la acción {action} de la bóveda cifrada...",
+        "Encrypted vault action {action} failed: {error}": "La acción {action} de la bóveda cifrada falló: {error}",
+        "Encrypted vault action {action} completed.": "La acción {action} de la bóveda cifrada se completó.",
+        "Encrypted vault activity is still running.": "La actividad de la bóveda cifrada aún continúa.",
+        "Failed to save system settings: {error}": "No se pudieron guardar los ajustes del sistema: {error}",
+        "Settings saved. Some privacy changes apply on the next boot.": "Los ajustes se guardaron. Algunos cambios de privacidad se aplicarán en el próximo arranque.",
         "internal error": "error interno",
     }
 }
@@ -141,8 +116,10 @@ def translate(locale: str | None, source_text: str, **kwargs) -> str:
     return template.format(**kwargs)
 
 
-def boot_mode_title(mode: str) -> str:
-    return BOOT_MODE_TITLES.get(str(mode or "").strip().lower(), BOOT_MODE_TITLES[MODE_STRICT])
+def display_network_policy_name(policy: str | None, locale: str | None = None) -> str:
+    normalized = str(policy or "").strip().lower()
+    title = NETWORK_POLICY_TITLES.get(normalized, NETWORK_POLICY_TITLES["tor"])
+    return translate(locale, title)
 
 
 def translate_message(locale: str | None, text: str) -> str:
@@ -150,25 +127,12 @@ def translate_message(locale: str | None, text: str) -> str:
     if translated != text:
         return translated
 
-    disabled_match = re.fullmatch(r"Network is disabled by boot mode \(([^)]+)\)\.", text)
+    network_policy_match = re.fullmatch(r"Direct network access is enabled by system settings\.", text)
+    if network_policy_match is not None:
+        return translate(locale, "Direct network access is enabled by system settings.")
+
+    disabled_match = re.fullmatch(r"Network is disabled by current settings\.", text)
     if disabled_match is not None:
-        mode = boot_mode_title(disabled_match.group(1))
-        return translate(locale, "Network is disabled by boot mode ({mode}).", mode=translate(locale, mode))
-
-    gdm_start_match = re.fullmatch(r"GDM could not start the live session: (.+)", text)
-    if gdm_start_match is not None:
-        return translate(locale, "GDM could not start the live session: {error}", error=gdm_start_match.group(1))
-
-    timed_login_match = re.fullmatch(
-        r"Unexpected timed login request for (.+) in (\d+) seconds while NM-OS welcome flow is active\.",
-        text,
-    )
-    if timed_login_match is not None:
-        return translate(
-            locale,
-            "Unexpected timed login request for {user_name} in {seconds} seconds while NM-OS welcome flow is active.",
-            user_name=timed_login_match.group(1),
-            seconds=timed_login_match.group(2),
-        )
+        return translate(locale, "Network is disabled by current settings.")
 
     return text

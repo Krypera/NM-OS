@@ -1,0 +1,13 @@
+cryptsetup
+dbus
+gdm3
+gnome-session
+gnome-shell
+network-manager
+nftables
+python3
+python3-dbus
+python3-gi
+python3-stem
+systemd
+tor

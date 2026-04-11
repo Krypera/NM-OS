@@ -6,29 +6,29 @@ Spanish is the first additional UI translation, and more languages are welcome.
 
 At the moment, translation support is focused on:
 
-- the greeter UI
-- greeter-facing status messages
+- the setup assistant UI
+- setup-assistant status messages
 - desktop entry labels
 
-Boot menu entries, build scripts, and most documentation are still handled separately.
+Build scripts and most documentation are still handled separately.
 
 ## How To Add A New Language
 
 1. Add the locale to `LANGUAGE_OPTIONS` in `apps/nmos_common/nmos_common/i18n.py`.
 2. Add a new translation table under `TRANSLATIONS` in `apps/nmos_common/nmos_common/i18n.py`.
 3. Add the translated desktop entry name to both of these files:
-   `config/live-build/includes.chroot/usr/share/applications/nmos-greeter.desktop`
-   `config/live-build/includes.chroot/usr/share/gdm/greeter/applications/nmos-greeter.desktop`
+   `config/system-overlay/usr/share/applications/nmos-greeter.desktop`
+   `config/system-overlay/usr/share/gdm/greeter/applications/nmos-greeter.desktop`
 4. Update `tests/smoke/verify-greeter-i18n.sh` so the new language is covered by smoke checks.
 5. Run the greeter smoke checks and open a PR.
 
 ## Rules To Follow
 
 - Keep English as the source language.
-- Do not translate internal mode ids such as `strict`, `flexible`, `offline`, `recovery`, or `compat`.
-- Do not translate machine-facing reason codes such as `no_free_space` or `unsupported_layout`.
+- Do not translate machine-facing values such as `tor`, `direct`, or `offline`.
+- Do not translate machine-facing reason codes such as `already_exists` or `no_space`.
 - Translate only user-facing strings.
-- If you add a new user-facing string in the greeter, add it to the translation table at the same time.
+- If you add a new user-facing string in the setup assistant, add it to the translation table at the same time.
 
 ## Example
 
@@ -47,7 +47,7 @@ TRANSLATIONS = {
     },
     "it": {
         "Language": "Lingua",
-        "Finish": "Fine",
+        "Apply settings": "Applica impostazioni",
     },
 }
 ```
@@ -55,7 +55,7 @@ TRANSLATIONS = {
 Then add:
 
 ```ini
-Name[it]=Benvenuto di NM-OS
+Name[it]=Assistente di configurazione NM-OS
 ```
 
 to both greeter desktop entry files.

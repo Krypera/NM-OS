@@ -1,0 +1,2 @@
+# Optional build feature only.
+brave-browser

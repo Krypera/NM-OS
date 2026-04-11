@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "NMOS_BOOT_OK"
+if [ -w /dev/ttyS0 ]; then
+    echo "NMOS_BOOT_OK" > /dev/ttyS0
+fi
+
+if [ -s /run/nmos/system-settings.json ]; then
+    policy="$(
+        python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/run/nmos/system-settings.json")
+try:
+    data = json.loads(path.read_text(encoding="utf-8"))
+except Exception:
+    data = {}
+print(str(data.get("network_policy", "tor")))
+PY
+    )"
+    echo "NMOS_NETWORK_POLICY ${policy}"
+    if [ -w /dev/ttyS0 ]; then
+        echo "NMOS_NETWORK_POLICY ${policy}" > /dev/ttyS0
+    fi
+fi

@@ -9,44 +9,32 @@ gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, GLib, Gio, Gtk
 
-from nmos_common.boot_mode import MODE_STRICT
-from nmos_common.i18n import DEFAULT_UI_LOCALE, LANGUAGE_OPTIONS, resolve_supported_locale, translate, translate_message
-from nmos_greeter import gdm_handoff, network_model, persistence_actions, ui_composition
-from nmos_greeter.client import PersistenceClient, read_boot_mode_profile
-from nmos_greeter.gdmclient import GdmLoginClient
+from nmos_common.i18n import LANGUAGE_OPTIONS, resolve_supported_locale, translate, translate_message
+from nmos_common.system_settings import DEFAULT_UI_LOCALE, load_system_settings, save_system_settings
+from nmos_greeter import network_model, persistence_actions, ui_composition
+from nmos_greeter.client import PersistenceClient
 from nmos_greeter.state import load_state, save_state
 
 
 class GreeterWindow(Adw.ApplicationWindow):
     def __init__(self, app: Adw.Application) -> None:
-        super().__init__(application=app, title="NM-OS Greeter")
+        super().__init__(application=app, title="NM-OS Setup")
         self.set_default_size(860, 560)
         self.logger = logging.getLogger("nmos.greeter")
 
-        self.state = load_state()
+        persisted_settings = load_system_settings()
+        self.state = {**persisted_settings, **load_state()}
+        self.system_settings = dict(persisted_settings)
         self.save_state = save_state
         self.language_values = [locale for locale, _label in LANGUAGE_OPTIONS]
+        self.network_policy_values = ["tor", "direct", "offline"]
         self.ui_locale = resolve_supported_locale(self.state.get("locale", os.environ.get("LANG", DEFAULT_UI_LOCALE)))
-        self.boot_mode_profile = read_boot_mode_profile()
-        self.boot_mode = str(self.boot_mode_profile.get("mode", MODE_STRICT))
         self.page_order = self.resolve_page_order()
         self.network_status = self.default_network_status()
         self.persistence_state: dict = {}
         self.persistence_client_factory = PersistenceClient
         self.persistence_init_error = ""
-        self.gdm_init_error = ""
-        self.gdm_client: GdmLoginClient | None = None
-        try:
-            self.gdm_client = GdmLoginClient(
-                session_opened_cb=self.on_session_opened,
-                problem_cb=self.on_session_problem,
-            )
-        except (OSError, RuntimeError, ValueError) as exc:
-            self.gdm_init_error = str(exc)
-            self.logger.error("unable to initialize gdm client: %s", exc)
         self.page_index = 0
-        self.session_start_timeout_id = 0
-        self.session_start_in_progress = False
         self.persistence_action_in_progress = False
         self.persistence_action_name = ""
         self.persistence_refresh_in_progress = False
@@ -59,8 +47,8 @@ class GreeterWindow(Adw.ApplicationWindow):
 
         ui_composition.build_ui(self)
         self.apply_translations()
-        self.apply_mode_ui_policy()
         self.restore_state()
+        self.apply_settings_ui_policy()
         self.update_persistence_actions({})
         self.refresh_persistence()
         self.refresh_network(force_status=True)
@@ -89,23 +77,20 @@ class GreeterWindow(Adw.ApplicationWindow):
     def current_language_name(self) -> str:
         return ui_composition.current_language_name(self)
 
+    def current_network_policy(self) -> str:
+        return ui_composition.current_network_policy(self)
+
+    def current_network_policy_name(self) -> str:
+        return ui_composition.current_network_policy_name(self)
+
     def action_label(self, action: str) -> str:
-        return ui_composition.action_label(self, action)
+        return ui_composition.current_network_policy_name(self) if action == "policy" else self.tr(action.capitalize()).lower()
 
     def apply_translations(self) -> None:
         ui_composition.apply_translations(self)
 
-    def mode_title(self) -> str:
-        return ui_composition.mode_title(self)
-
-    def mode_description(self) -> str:
-        return ui_composition.mode_description(self)
-
-    def is_network_disabled_mode(self) -> bool:
-        return ui_composition.is_network_disabled_mode(self)
-
-    def apply_mode_ui_policy(self) -> None:
-        ui_composition.apply_mode_ui_policy(self)
+    def apply_settings_ui_policy(self) -> None:
+        ui_composition.apply_settings_ui_policy(self)
 
     def restore_state(self) -> None:
         ui_composition.restore_state(self)
@@ -118,15 +103,6 @@ class GreeterWindow(Adw.ApplicationWindow):
 
     def collect_state(self) -> dict:
         return ui_composition.collect_state(self)
-
-    def can_bypass_network(self) -> bool:
-        return ui_composition.can_bypass_network(self)
-
-    def can_advance_from_network(self) -> bool:
-        return ui_composition.can_advance_from_network(self)
-
-    def can_finish(self) -> bool:
-        return ui_composition.can_finish(self)
 
     def refresh_network(self, *, force_status: bool = False) -> None:
         network_model.refresh_network(self, force_status=force_status)
@@ -146,43 +122,47 @@ class GreeterWindow(Adw.ApplicationWindow):
     def update_persistence_actions(self, state: dict) -> None:
         persistence_actions.update_persistence_actions(self, state)
 
-    def apply_locale(self) -> bool:
-        locale = self.current_language_code()
-        self.state["locale"] = locale
+    def persist_pending_state(self) -> bool:
+        self.state = self.collect_state()
         try:
             self.save_state(self.state)
         except (OSError, ValueError, RuntimeError) as exc:
-            self.logger.error("unable to save language selection: %s", exc)
-            self.set_status(self.tr("Unable to save language selection: {error}", error=self.tr("internal error")))
+            self.logger.error("unable to save pending settings: %s", exc)
+            self.set_status(self.tr("Unable to save pending settings: {error}", error=self.tr("internal error")))
             return False
-        self.ui_locale = resolve_supported_locale(locale)
+        return True
+
+    def apply_locale(self) -> bool:
+        if not self.persist_pending_state():
+            return False
+        self.ui_locale = resolve_supported_locale(self.state.get("locale", DEFAULT_UI_LOCALE))
         self.apply_translations()
-        self.refresh_network(force_status=True)
         self.set_status(self.tr("Language will be applied as {language}.", language=self.current_language_name()))
         return True
 
     def apply_keyboard(self) -> bool:
-        layout = self.current_string(self.keyboard_combo)
-        self.state["keyboard"] = layout
-        try:
-            self.save_state(self.state)
-        except (OSError, ValueError, RuntimeError) as exc:
-            self.logger.error("unable to save keyboard selection: %s", exc)
-            self.set_status(self.tr("Unable to save keyboard selection: {error}", error=self.tr("internal error")))
+        if not self.persist_pending_state():
             return False
-        self.set_status(self.tr("Keyboard layout will be applied as {layout}.", layout=layout))
+        self.set_status(self.tr("Keyboard layout will be applied as {layout}.", layout=self.current_string(self.keyboard_combo)))
+        return True
+
+    def apply_network_preferences(self) -> bool:
+        if not self.persist_pending_state():
+            return False
+        self.apply_settings_ui_policy()
+        self.set_status(
+            self.tr("Network policy will be applied as {policy}.", policy=self.current_network_policy_name())
+        )
         return True
 
     def on_refresh_network(self, _button: Gtk.Button) -> None:
         self.refresh_network(force_status=True)
 
-    def on_allow_offline_toggled(self, _button: Gtk.CheckButton) -> None:
-        if self.is_network_disabled_mode():
-            self.set_status(self.tr("This boot mode is intentionally offline."))
-        elif self.allow_offline.get_active():
-            self.set_status(self.tr("You can continue to desktop now, but network traffic stays blocked until Tor is ready."))
-        else:
-            self.set_status(self.tr("Continue without network is disabled. Wait for Tor readiness to proceed."))
+    def on_network_policy_changed(self, *_args) -> None:
+        self.apply_settings_ui_policy()
+        self.update_navigation()
+
+    def on_allow_brave_browser_toggled(self, *_args) -> None:
         self.update_navigation()
 
     def on_create_persistence(self, _button: Gtk.Button) -> None:
@@ -221,24 +201,43 @@ class GreeterWindow(Adw.ApplicationWindow):
             return
         if current_key == "keyboard" and not self.apply_keyboard():
             return
+        if current_key == "network" and not self.apply_network_preferences():
+            return
         if self.page_index < len(self.page_order) - 1:
             self.page_index += 1
         self.stack.set_visible_child_name(f"page-{self.page_index}")
         self.update_navigation()
 
+    def close_after_apply(self) -> bool:
+        self.close()
+        return GLib.SOURCE_REMOVE
+
     def on_finish(self, _button: Gtk.Button) -> None:
-        gdm_handoff.on_finish(self, _button)
+        if not self.can_finish():
+            self.set_status(self.tr("Encrypted vault activity is still running."))
+            return
+        state = self.collect_state()
+        try:
+            self.save_state(state)
+            self.system_settings = save_system_settings(state)
+            self.state = dict(self.system_settings)
+        except (OSError, ValueError, RuntimeError) as exc:
+            self.logger.error("failed to save system settings: %s", exc)
+            self.set_status(self.tr("Failed to save system settings: {error}", error=self.tr("internal error")))
+            return
+        self.set_status(self.tr("Settings saved. Some privacy changes apply on the next boot."))
+        GLib.timeout_add_seconds(2, self.close_after_apply)
 
     def update_navigation(self) -> None:
         ui_composition.update_navigation(self)
 
+    def can_finish(self) -> bool:
+        return ui_composition.can_finish(self)
+
     def poll_runtime(self) -> bool:
-        if self.session_start_in_progress:
-            return True
-        if not self.is_network_disabled_mode():
-            self.refresh_network()
         if not self.persistence_action_in_progress:
             self.refresh_persistence()
+        self.refresh_network()
         return True
 
     def setup_network_watchers(self) -> None:
@@ -252,21 +251,6 @@ class GreeterWindow(Adw.ApplicationWindow):
 
     def run_queued_network_refresh(self) -> bool:
         return network_model.run_queued_network_refresh(self)
-
-    def arm_session_start_timeout(self) -> None:
-        gdm_handoff.arm_session_start_timeout(self)
-
-    def clear_session_start_timeout(self) -> None:
-        gdm_handoff.clear_session_start_timeout(self)
-
-    def on_session_start_timeout(self) -> bool:
-        return gdm_handoff.on_session_start_timeout(self)
-
-    def on_session_opened(self) -> None:
-        gdm_handoff.on_session_opened(self)
-
-    def on_session_problem(self, problem: str) -> None:
-        gdm_handoff.on_session_problem(self, problem)
 
 
 class GreeterApplication(Adw.Application):

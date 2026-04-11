@@ -37,18 +37,15 @@ jobs:
           bash ./tests/smoke/verify-quality-tooling.sh
           bash ./tests/smoke/verify-build-hygiene.sh
           bash ./tests/smoke/verify-version-policy.sh
-          bash ./tests/smoke/verify-boot-modes.sh
+          bash ./tests/smoke/verify-settings-model.sh
           bash ./tests/smoke/verify-systemd-hardening.sh
           bash ./tests/smoke/verify-brave-optional.sh
           bash ./tests/smoke/verify-greeter-state.sh
           bash ./tests/smoke/verify-greeter-i18n.sh
-          bash ./tests/smoke/verify-live-login-config.sh
-          bash ./tests/smoke/verify-network-gate-transition.sh
-          bash ./tests/smoke/verify-network-status-normalization.sh
+          bash ./tests/smoke/verify-network-policy.sh
           bash ./tests/smoke/verify-prelogin-wiring.sh
-          bash ./tests/smoke/verify-persistence-state-machine.sh
+          bash ./tests/smoke/verify-vault-storage.sh
           bash ./tests/smoke/verify-runtime-logic.sh
-          bash ./tests/smoke/verify-disk-safety.sh
           bash ./tests/smoke/verify-leaks.sh
 
   build-smoke:
@@ -77,13 +74,11 @@ jobs:
           set -euo pipefail
           bash ./tests/smoke/verify-artifacts.sh
 
-      - name: Run QEMU Smoke
+      - name: Run Overlay Smoke
         shell: bash
-        env:
-          NMOS_QEMU_EXPECT_NETWORK_MARKER: "0"
         run: |
           set -euo pipefail
-          bash ./build/smoke-qemu.sh
+          bash ./build/smoke-overlay.sh
 
   windows-smoke:
     runs-on: windows-latest

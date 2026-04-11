@@ -1,0 +1,81 @@
+#!/bin/bash
+
+set -eu
+
+STATE_FILE=/run/nmos/greeter-state.json
+
+if [ ! -s "${STATE_FILE}" ]; then
+    exit 0
+fi
+
+mapfile -t STATE_VALUES < <(
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+from nmos_common.runtime_state import read_runtime_text
+
+state_file = Path("/run/nmos/greeter-state.json")
+console_keymaps = {
+    "us": "us",
+    "tr": "trq",
+    "de": "de",
+    "fr": "fr",
+}
+try:
+    state = json.loads(read_runtime_text(state_file))
+except Exception:
+    state = {}
+
+for key in ("locale", "keyboard"):
+    value = str(state.get(key, "") or "")
+    print(value)
+print(console_keymaps.get(str(state.get("keyboard", "") or ""), ""))
+PY
+)
+
+LOCALE="${STATE_VALUES[0]:-}"
+KEYBOARD="${STATE_VALUES[1]:-}"
+CONSOLE_KEYMAP="${STATE_VALUES[2]:-}"
+
+log_localectl_failure() {
+    local action="$1"
+    local detail="$2"
+    if command -v logger >/dev/null 2>&1; then
+        logger -t nmos-postlogin "localectl ${action} failed: ${detail}"
+    else
+        echo "localectl ${action} failed: ${detail}" >&2
+    fi
+}
+
+run_localectl() {
+    local action="$1"
+    shift
+    local output=""
+    if ! output="$(localectl "$@" 2>&1)"; then
+        log_localectl_failure "${action}" "${output}"
+        return 1
+    fi
+    return 0
+}
+
+if [ -n "${LOCALE}" ]; then
+    run_localectl "set-locale" set-locale "LANG=${LOCALE}" || true
+fi
+
+if [ -n "${KEYBOARD}" ]; then
+    run_localectl "set-x11-keymap" set-x11-keymap "${KEYBOARD}" || true
+fi
+
+if [ -n "${CONSOLE_KEYMAP}" ]; then
+    run_localectl "set-keymap" set-keymap "${CONSOLE_KEYMAP}" || true
+fi
+
+python3 - <<'PY'
+from pathlib import Path
+
+from nmos_common.runtime_state import write_runtime_text
+
+write_runtime_text(Path("/run/nmos/greeter-state.json"), "{}\n", mode=0o660)
+PY
+exit 0

@@ -1,58 +1,47 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
-from nmos_persistent_storage.disk_discovery import DiskDiscovery
 from nmos_persistent_storage.mount_crypto_ops import CryptoMountOps
-from nmos_persistent_storage.partition_planning import (
-    ALIGNMENT_BYTES,
-    MIN_CREATE_BYTES,
-    SUPPORTED_PARTITION_LABELS,
-    boot_disk_is_supported,
-    partition_table_label_is_supported,
-    plan_trailing_partition,
-)
 from nmos_persistent_storage.state_serialization import build_state_payload, dump_runtime_state
 
 RUNTIME_DIR = Path("/run/nmos")
 STATE_FILE = RUNTIME_DIR / "persistent-storage.json"
-MAPPER_NAME = "nmos-persist"
+STORAGE_ROOT = Path("/var/lib/nmos/storage")
+VAULT_IMAGE_PATH = STORAGE_ROOT / "vault.img"
+MAPPER_NAME = "nmos-vault"
 MAPPER_PATH = Path("/dev/mapper") / MAPPER_NAME
-MOUNT_POINT = Path("/live/persistence/nmos-data")
-PARTLABEL = "NMOS_PERSIST"
+MOUNT_POINT = STORAGE_ROOT / "mnt"
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 30
-PARTITION_COMMAND_TIMEOUT_SECONDS = 60
 CRYPTO_COMMAND_TIMEOUT_SECONDS = 180
 FS_COMMAND_TIMEOUT_SECONDS = 180
 FSCK_CHECK_TIMEOUT_SECONDS = 180
 FSCK_REPAIR_TIMEOUT_SECONDS = 600
 MOUNT_COMMAND_TIMEOUT_SECONDS = 30
+DEFAULT_VAULT_SIZE_BYTES = 8 * 1024 * 1024 * 1024
 
 REASON_BACKEND_ERROR = "backend_error"
 REASON_INVALID_REQUEST = "invalid_request"
 REASON_ALREADY_EXISTS = "already_exists"
-REASON_MISSING_PARTITION = "missing_partition"
+REASON_MISSING_VAULT = "missing_vault"
 REASON_LOCKED = "locked"
+REASON_NO_SPACE = "no_space"
 REASON_TIMEOUT = "command_timeout"
 
 __all__ = [
-    "ALIGNMENT_BYTES",
-    "MIN_CREATE_BYTES",
-    "PARTLABEL",
+    "DEFAULT_VAULT_SIZE_BYTES",
     "PersistentStorageManager",
     "REASON_ALREADY_EXISTS",
     "REASON_BACKEND_ERROR",
     "REASON_INVALID_REQUEST",
     "REASON_LOCKED",
-    "REASON_MISSING_PARTITION",
+    "REASON_MISSING_VAULT",
+    "REASON_NO_SPACE",
     "REASON_TIMEOUT",
     "STATE_FILE",
-    "SUPPORTED_PARTITION_LABELS",
     "StorageError",
-    "boot_disk_is_supported",
-    "partition_table_label_is_supported",
-    "plan_trailing_partition",
 ]
 
 
@@ -69,22 +58,13 @@ class PersistentStorageManager:
         self.last_error_reason = REASON_BACKEND_ERROR
         self.current_operation = "idle"
         RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
-        self.discovery = DiskDiscovery(
-            run_command=lambda *args, **kwargs: self.run(*args, **kwargs),
-            storage_error=StorageError,
-            partlabel=PARTLABEL,
-            default_timeout_seconds=DEFAULT_COMMAND_TIMEOUT_SECONDS,
-            partition_timeout_seconds=PARTITION_COMMAND_TIMEOUT_SECONDS,
-        )
         self.crypto_ops = CryptoMountOps(
             run_command=lambda *args, **kwargs: self.run(*args, **kwargs),
             storage_error=StorageError,
             mapper_name=MAPPER_NAME,
             mapper_path=MAPPER_PATH,
+            image_path=VAULT_IMAGE_PATH,
             mount_point=MOUNT_POINT,
-            partlabel=PARTLABEL,
-            default_timeout_seconds=DEFAULT_COMMAND_TIMEOUT_SECONDS,
-            partition_timeout_seconds=PARTITION_COMMAND_TIMEOUT_SECONDS,
             crypto_timeout_seconds=CRYPTO_COMMAND_TIMEOUT_SECONDS,
             filesystem_timeout_seconds=FS_COMMAND_TIMEOUT_SECONDS,
             fsck_check_timeout_seconds=FSCK_CHECK_TIMEOUT_SECONDS,
@@ -127,43 +107,50 @@ class PersistentStorageManager:
             raise StorageError(f"command failed ({command}): {detail}", reason=reason) from exc
         return proc.stdout.strip()
 
-    def locate_partition(self) -> str | None:
-        return self.discovery.locate_partition()
+    def _disk_usage(self):
+        STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
+        return shutil.disk_usage(STORAGE_ROOT)
 
-    def describe_persistence(self) -> dict:
-        return self.discovery.describe_persistence()
+    def describe_vault(self) -> dict:
+        STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
+        if VAULT_IMAGE_PATH.exists():
+            return {
+                "created": True,
+                "can_create": False,
+                "reason": REASON_ALREADY_EXISTS,
+                "path": str(VAULT_IMAGE_PATH),
+                "detail_error": "",
+                "free_bytes": self._disk_usage().free,
+                "file_bytes": VAULT_IMAGE_PATH.stat().st_size,
+            }
 
-    def plan_new_partition(self) -> dict:
-        return self.discovery.plan_new_partition()
-
-    def create_partition(self) -> dict:
-        return self.crypto_ops.create_partition(self.plan_new_partition(), wait_for_partition=self.discovery.wait_for_partition)
+        usage = self._disk_usage()
+        can_create = usage.free >= DEFAULT_VAULT_SIZE_BYTES
+        return {
+            "created": False,
+            "can_create": can_create,
+            "reason": "ready" if can_create else REASON_NO_SPACE,
+            "path": str(VAULT_IMAGE_PATH),
+            "detail_error": "",
+            "free_bytes": usage.free,
+            "file_bytes": 0,
+        }
 
     def dump_state(self, state: dict) -> dict:
         return dump_runtime_state(STATE_FILE, state)
 
     def get_state(self, include_cached_error: bool = False) -> dict:
         try:
-            details = self.describe_persistence()
-        except StorageError as exc:
+            details = self.describe_vault()
+        except (OSError, RuntimeError, ValueError, TypeError, shutil.Error) as exc:
             details = {
                 "created": False,
-                "boot_device_supported": False,
-                "can_create": False,
-                "reason": exc.reason,
-                "device": "",
-                "detail_error": str(exc),
-                "free_bytes": 0,
-            }
-        except (OSError, RuntimeError, ValueError, TypeError, subprocess.SubprocessError) as exc:
-            details = {
-                "created": False,
-                "boot_device_supported": False,
                 "can_create": False,
                 "reason": REASON_BACKEND_ERROR,
-                "device": "",
+                "path": str(VAULT_IMAGE_PATH),
                 "detail_error": str(exc),
                 "free_bytes": 0,
+                "file_bytes": 0,
             }
         mapper_open = MAPPER_PATH.exists()
         mounted = False
@@ -193,28 +180,31 @@ class PersistentStorageManager:
     def create(self, passphrase: str) -> dict:
         self.busy = True
         self.current_operation = "create"
-        created_partition: dict | None = None
+        image_created = False
         mapper_opened = False
         mount_active = False
         include_cached_error = False
         try:
             if not passphrase:
                 raise StorageError("passphrase is required", reason=REASON_INVALID_REQUEST)
-            if self.locate_partition():
-                raise StorageError("persistence partition already exists", reason=REASON_ALREADY_EXISTS)
-            created_partition = self.create_partition()
-            device = str(created_partition["path"])
-            self.crypto_ops.format_luks(device, passphrase)
-            self.crypto_ops.open_mapper(device, passphrase)
+            if VAULT_IMAGE_PATH.exists():
+                raise StorageError("encrypted vault already exists", reason=REASON_ALREADY_EXISTS)
+            details = self.describe_vault()
+            if not details["can_create"]:
+                raise StorageError("not enough free space for encrypted vault", reason=REASON_NO_SPACE)
+            self.crypto_ops.create_image_file(DEFAULT_VAULT_SIZE_BYTES)
+            image_created = True
+            self.crypto_ops.format_luks(passphrase)
+            self.crypto_ops.open_mapper(passphrase)
             mapper_opened = True
             self.crypto_ops.make_filesystem()
             self.crypto_ops.mount_mapper()
             mount_active = self.crypto_ops.is_mount_active(MOUNT_POINT)
-            (MOUNT_POINT / ".nmos-persist").write_text("NM-OS persistence\n", encoding="utf-8")
+            (MOUNT_POINT / ".nmos-vault").write_text("NM-OS encrypted vault\n", encoding="utf-8")
             self.clear_last_error()
         except StorageError as exc:
             cleanup_errors = self.crypto_ops.cleanup_failed_create(
-                created_partition=created_partition,
+                image_created=image_created,
                 mapper_opened=mapper_opened,
                 mount_active=mount_active,
             )
@@ -224,7 +214,7 @@ class PersistentStorageManager:
             include_cached_error = True
         except (OSError, RuntimeError, ValueError, TypeError, subprocess.SubprocessError) as exc:
             cleanup_errors = self.crypto_ops.cleanup_failed_create(
-                created_partition=created_partition,
+                image_created=image_created,
                 mapper_opened=mapper_opened,
                 mount_active=mount_active,
             )
@@ -244,11 +234,10 @@ class PersistentStorageManager:
         try:
             if not passphrase:
                 raise StorageError("passphrase is required", reason=REASON_INVALID_REQUEST)
-            device = self.locate_partition()
-            if not device:
-                raise StorageError("persistence partition not found", reason=REASON_MISSING_PARTITION)
+            if not VAULT_IMAGE_PATH.exists():
+                raise StorageError("encrypted vault not found", reason=REASON_MISSING_VAULT)
             if not MAPPER_PATH.exists():
-                self.crypto_ops.open_mapper(device, passphrase)
+                self.crypto_ops.open_mapper(passphrase)
             self.crypto_ops.mount_mapper()
             self.clear_last_error()
         except StorageError as exc:
@@ -289,7 +278,7 @@ class PersistentStorageManager:
         remount_required = False
         try:
             if not MAPPER_PATH.exists():
-                raise StorageError("persistence volume must be unlocked before repair", reason=REASON_LOCKED)
+                raise StorageError("encrypted vault must be unlocked before repair", reason=REASON_LOCKED)
             if self.crypto_ops.is_mount_active(MOUNT_POINT):
                 self.crypto_ops.unmount_mapper()
                 remount_required = True
@@ -306,7 +295,7 @@ class PersistentStorageManager:
                 try:
                     self.crypto_ops.mount_mapper()
                 except (OSError, RuntimeError, ValueError, TypeError, subprocess.SubprocessError) as exc:
-                    remount_error = f"failed to remount persistence after repair: {exc}"
+                    remount_error = f"failed to remount encrypted vault after repair: {exc}"
                     if self.last_error:
                         self.last_error = f"{self.last_error}; {remount_error}"
                     else:
