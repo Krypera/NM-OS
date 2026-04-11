@@ -46,8 +46,8 @@ grep -q 'Appearance' "${CONTROL_CENTER_MAIN}" || {
     exit 1
 }
 
-grep -q 'org.nmos.Settings1' "${SETTINGS_SERVICE}" || {
-    echo "settings service does not expose org.nmos.Settings1." >&2
+grep -q 'DBUS_NAME' "${SETTINGS_SERVICE}" || {
+    echo "settings service does not reference the shared D-Bus name constant." >&2
     exit 1
 }
 
