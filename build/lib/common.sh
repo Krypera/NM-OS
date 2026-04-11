@@ -15,12 +15,17 @@ SYSTEM_OVERLAY_SOURCE="${ROOT_DIR}/config/system-overlay"
 SYSTEM_PACKAGES_SOURCE="${ROOT_DIR}/config/system-packages"
 INSTALLER_ASSETS_SOURCE="${ROOT_DIR}/config/installer"
 INSTALLER_PACKAGES_SOURCE="${ROOT_DIR}/config/installer-packages"
+PLATFORM_ADAPTER_SOURCE="${SYSTEM_OVERLAY_SOURCE}/etc/nmos/platform-adapter.env"
 INSTALLER_PRESEED_TEMPLATE="${ROOT_DIR}/config/installer/debian-installer/preseed/nmos.cfg.in"
 INSTALLER_LATE_COMMAND_TEMPLATE="${ROOT_DIR}/config/installer/debian-installer/preseed/install-overlay.sh.in"
 APPS_SOURCE="${ROOT_DIR}/apps"
 TARGET_PYTHON_DIR="${ROOTFS_DIR}/usr/lib/python3/dist-packages"
 DEBIAN_NETINST_BASE_URL="${NMOS_DEBIAN_NETINST_BASE_URL:-https://cdimage.debian.org/debian-cd/current/amd64/iso-cd}"
 VERSION_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$'
+
+PLATFORM_GDM_USER="Debian-gdm"
+PLATFORM_RUNTIME_DIR="/run/nmos"
+PLATFORM_STATE_DIR="/var/lib/nmos"
 
 require_cmd() {
     command -v "$1" >/dev/null 2>&1 || {
@@ -62,11 +67,76 @@ enable_system_service() {
     ln -sf "/usr/lib/systemd/system/${unit_name}" "${wants_dir}/${unit_name}"
 }
 
+read_platform_adapter_value() {
+    local key="$1"
+    if [ ! -f "${PLATFORM_ADAPTER_SOURCE}" ]; then
+        return
+    fi
+    awk -F= -v target="${key}" '
+        /^[[:space:]]*#/ { next }
+        /^[[:space:]]*$/ { next }
+        {
+            left = $1
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", left)
+            if (left != target) {
+                next
+            }
+            right = substr($0, index($0, "=") + 1)
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", right)
+            gsub(/^["'\''"]|["'\''"]$/, "", right)
+            print right
+            exit
+        }
+    ' "${PLATFORM_ADAPTER_SOURCE}"
+}
+
+resolve_platform_values() {
+    local value
+    value="${NMOS_GDM_USER:-$(read_platform_adapter_value NMOS_GDM_USER)}"
+    if [ -n "${value}" ]; then
+        PLATFORM_GDM_USER="${value}"
+    fi
+    value="${NMOS_RUNTIME_DIR:-$(read_platform_adapter_value NMOS_RUNTIME_DIR)}"
+    if [ -n "${value}" ]; then
+        PLATFORM_RUNTIME_DIR="${value}"
+    fi
+    value="${NMOS_STATE_DIR:-$(read_platform_adapter_value NMOS_STATE_DIR)}"
+    if [ -n "${value}" ]; then
+        PLATFORM_STATE_DIR="${value}"
+    fi
+}
+
+escape_for_sed() {
+    printf '%s' "$1" | sed -e 's/[\/&]/\\&/g'
+}
+
+render_platform_overlay_templates() {
+    local settings_policy_file="${ROOTFS_DIR}/etc/dbus-1/system.d/org.nmos.Settings1.conf"
+    local persistent_policy_file="${ROOTFS_DIR}/etc/dbus-1/system.d/org.nmos.PersistentStorage.conf"
+    local tmpfiles_file="${ROOTFS_DIR}/usr/lib/tmpfiles.d/nmos.conf"
+    local escaped_gdm_user
+    local escaped_runtime_dir
+    local escaped_state_dir
+    escaped_gdm_user="$(escape_for_sed "${PLATFORM_GDM_USER}")"
+    escaped_runtime_dir="$(escape_for_sed "${PLATFORM_RUNTIME_DIR}")"
+    escaped_state_dir="$(escape_for_sed "${PLATFORM_STATE_DIR}")"
+    for path in "${settings_policy_file}" "${persistent_policy_file}" "${tmpfiles_file}"; do
+        [ -f "${path}" ] || continue
+        sed -i \
+            -e "s/@NMOS_GDM_USER@/${escaped_gdm_user}/g" \
+            -e "s|@NMOS_RUNTIME_DIR@|${escaped_runtime_dir}|g" \
+            -e "s|@NMOS_STATE_DIR@|${escaped_state_dir}|g" \
+            "${path}"
+    done
+}
+
 stage_system_overlay_tree() {
     prepare_directories
     rm -rf "${WORK_DIR}"
     mkdir -p "${ROOTFS_DIR}"
     rsync -a --exclude '__pycache__/' --exclude '*.pyc' --exclude '*.pyo' "${SYSTEM_OVERLAY_SOURCE}/" "${ROOTFS_DIR}/"
+    resolve_platform_values
+    render_platform_overlay_templates
     mkdir -p "${TARGET_PYTHON_DIR}"
     install_python_package_dir "${APPS_SOURCE}/nmos_common/nmos_common"
     install_python_package_dir "${APPS_SOURCE}/nmos_greeter/nmos_greeter"

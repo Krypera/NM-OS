@@ -55,13 +55,13 @@ grep -q 'logger -t nmos-postlogin' "${POSTLOGIN_FILE}" || {
     exit 1
 }
 
-grep -q 'Debian-gdm' "${POLICY_FILE}" || {
-    echo "D-Bus policy does not grant Debian-gdm access to the persistence backend." >&2
+grep -q '@NMOS_GDM_USER@' "${POLICY_FILE}" || {
+    echo "D-Bus persistence policy is not platform-adapter aware." >&2
     exit 1
 }
 
-grep -q 'Debian-gdm' "${SETTINGS_POLICY_FILE}" || {
-    echo "D-Bus policy does not grant Debian-gdm access to the settings service." >&2
+grep -q '@NMOS_GDM_USER@' "${SETTINGS_POLICY_FILE}" || {
+    echo "D-Bus settings policy is not platform-adapter aware." >&2
     exit 1
 }
 

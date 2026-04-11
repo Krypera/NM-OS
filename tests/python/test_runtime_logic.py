@@ -298,6 +298,26 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
     assert "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK" in network_service
 
 
+def test_platform_adapter_templates_rendered_by_build_helpers(repo_root: Path) -> None:
+    common_source = (repo_root / "build" / "lib" / "common.sh").read_text(encoding="utf-8")
+    settings_policy_source = (
+        repo_root / "config" / "system-overlay" / "etc" / "dbus-1" / "system.d" / "org.nmos.Settings1.conf"
+    ).read_text(encoding="utf-8")
+    persistent_policy_source = (
+        repo_root / "config" / "system-overlay" / "etc" / "dbus-1" / "system.d" / "org.nmos.PersistentStorage.conf"
+    ).read_text(encoding="utf-8")
+    tmpfiles_source = (
+        repo_root / "config" / "system-overlay" / "usr" / "lib" / "tmpfiles.d" / "nmos.conf"
+    ).read_text(encoding="utf-8")
+
+    assert "render_platform_overlay_templates" in common_source
+    assert "resolve_platform_values" in common_source
+    assert "@NMOS_GDM_USER@" in settings_policy_source
+    assert "@NMOS_GDM_USER@" in persistent_policy_source
+    assert "@NMOS_RUNTIME_DIR@" in tmpfiles_source
+    assert "@NMOS_STATE_DIR@" in tmpfiles_source
+
+
 def test_workflow_includes_overlay_and_windows_validation(repo_root: Path) -> None:
     workflow_source = (repo_root / ".github" / "workflows" / "smoke.yml").read_text(encoding="utf-8")
     assert "build-smoke:" in workflow_source

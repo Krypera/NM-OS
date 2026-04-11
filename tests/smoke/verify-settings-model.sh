@@ -16,13 +16,13 @@ for path in "${SETTINGS_MODULE}" "${SETTINGS_CLIENT}" "${SETTINGS_SERVICE}" "${S
     }
 done
 
-grep -q 'PERSISTENT_SETTINGS_FILE = Path("/var/lib/nmos/system-settings.json")' "${SETTINGS_MODULE}" || {
-    echo "system settings module does not use the persistent settings file." >&2
+grep -q 'get_state_dir' "${SETTINGS_MODULE}" || {
+    echo "system settings module does not resolve state directory via platform adapter." >&2
     exit 1
 }
 
-grep -q 'RUNTIME_SETTINGS_FILE = Path("/run/nmos/system-settings.json")' "${SETTINGS_MODULE}" || {
-    echo "system settings module does not use the runtime settings file." >&2
+grep -q 'get_runtime_dir' "${SETTINGS_MODULE}" || {
+    echo "system settings module does not resolve runtime directory via platform adapter." >&2
     exit 1
 }
 
