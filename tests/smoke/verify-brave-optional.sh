@@ -35,8 +35,8 @@ grep -q 'load_feature_flag' "${DESKTOP_MODE_SCRIPT}" || {
     exit 1
 }
 
-grep -q 'load_system_settings' "${DESKTOP_MODE_SCRIPT}" || {
-    echo "desktop mode helper does not read persisted system settings." >&2
+grep -q 'load_effective_system_settings' "${DESKTOP_MODE_SCRIPT}" || {
+    echo "desktop mode helper does not read effective system settings." >&2
     exit 1
 }
 
@@ -50,8 +50,8 @@ grep -q 'Exec=/usr/local/lib/nmos/desktop_mode.py' "${AUTOSTART_FILE}" || {
     exit 1
 }
 
-grep -q 'load_system_settings' "${BRAVE_POLICY_SCRIPT}" || {
-    echo "Brave policy helper does not read persisted system settings." >&2
+grep -q 'load_effective_system_settings' "${BRAVE_POLICY_SCRIPT}" || {
+    echo "Brave policy helper does not read effective system settings." >&2
     exit 1
 }
 

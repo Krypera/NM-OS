@@ -4,14 +4,14 @@ import json
 from pathlib import Path
 
 from nmos_common.network_status import normalize_network_status, parse_bootstrap_status
-from nmos_common.system_settings import load_system_settings
+from nmos_common.system_settings import load_effective_system_settings
 
 READY_FILE = Path("/run/nmos/network-ready")
 STATUS_FILE = Path("/run/nmos/network-status.json")
 
 
 def read_status() -> dict:
-    settings = load_system_settings()
+    settings = load_effective_system_settings()
     policy = str(settings.get("network_policy", "tor"))
     if policy == "offline":
         return normalize_network_status(

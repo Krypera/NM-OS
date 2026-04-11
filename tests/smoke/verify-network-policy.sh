@@ -6,8 +6,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BOOTSTRAP_FILE="${ROOT_DIR}/config/system-overlay/usr/local/lib/nmos/network_bootstrap.py"
 STATUS_FILE="${ROOT_DIR}/config/system-overlay/usr/local/lib/nmos/tor_bootstrap_status.py"
 
-grep -q 'load_system_settings' "${BOOTSTRAP_FILE}" || {
-    echo "network bootstrap does not read persisted system settings." >&2
+grep -q 'load_effective_system_settings' "${BOOTSTRAP_FILE}" || {
+    echo "network bootstrap does not read effective system settings." >&2
     exit 1
 }
 

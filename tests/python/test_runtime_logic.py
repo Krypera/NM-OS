@@ -11,9 +11,14 @@ sys.path.insert(0, str(ROOT / "apps" / "nmos_persistent_storage"))
 
 from nmos_common.system_settings import (
     DEFAULT_SYSTEM_SETTINGS,
+    apply_system_profile,
+    derive_overrides_for_profile,
+    extract_effective_settings,
+    load_effective_system_settings,
     load_system_settings,
     normalize_system_settings,
     save_system_settings,
+    update_system_overrides,
 )
 
 
@@ -29,31 +34,65 @@ def load_module(name: str, path: Path):
 def test_system_settings_round_trip(workspace_tmp_path: Path) -> None:
     persistent = workspace_tmp_path / "system-settings.json"
     runtime = workspace_tmp_path / "runtime-settings.json"
+    applied = workspace_tmp_path / "applied-settings.json"
 
     saved = save_system_settings(
         {
-            "locale": "es_ES.UTF-8",
-            "keyboard": "tr",
-            "network_policy": "direct",
-            "allow_brave_browser": True,
+            "active_profile": "hardened",
+            "overrides": {
+                "locale": "es_ES.UTF-8",
+                "keyboard": "tr",
+                "network_policy": "direct",
+                "allow_brave_browser": True,
+                "ui_theme_profile": "nmos-light",
+            },
         },
         persistent_path=persistent,
         runtime_path=runtime,
+        applied_path=applied,
     )
+    assert saved["schema_version"] == 1
+    assert saved["active_profile"] == "hardened"
     assert saved["network_policy"] == "direct"
     assert saved["allow_brave_browser"] is True
+    assert saved["sandbox_default"] == "strict"
+    assert "network_policy" in saved["pending_reboot"]
+    assert "sandbox_default" in saved["pending_reboot"]
 
-    loaded = load_system_settings(persistent_path=persistent, runtime_path=runtime)
+    loaded = load_system_settings(persistent_path=persistent, runtime_path=runtime, applied_path=applied)
     assert loaded["locale"] == "es_ES.UTF-8"
     assert loaded["keyboard"] == "tr"
     assert loaded["network_policy"] == "direct"
     assert loaded["allow_brave_browser"] is True
+    assert loaded["ui_theme_profile"] == "nmos-light"
+    assert extract_effective_settings(loaded)["active_profile"] == "hardened"
+    assert load_effective_system_settings(persistent_path=persistent, runtime_path=runtime, applied_path=applied)[
+        "sandbox_default"
+    ] == "strict"
 
     assert normalize_system_settings({"network_policy": "invalid"})["network_policy"] == "tor"
     assert load_system_settings(
         persistent_path=workspace_tmp_path / "missing.json",
         runtime_path=workspace_tmp_path / "also-missing.json",
     ) == DEFAULT_SYSTEM_SETTINGS
+
+    saved = apply_system_profile(
+        "relaxed",
+        persistent_path=persistent,
+        runtime_path=runtime,
+        applied_path=applied,
+    )
+    assert saved["active_profile"] == "relaxed"
+    assert saved["network_policy"] == "direct"
+
+    updated = update_system_overrides(
+        derive_overrides_for_profile("relaxed", {"network_policy": "offline", "logging_policy": "sealed"}),
+        persistent_path=persistent,
+        runtime_path=runtime,
+        applied_path=applied,
+    )
+    assert updated["network_policy"] == "offline"
+    assert "network_policy" in updated["pending_reboot"]
 
 
 def test_tor_status_respects_settings(repo_root: Path, workspace_tmp_path: Path) -> None:
@@ -63,16 +102,16 @@ def test_tor_status_respects_settings(repo_root: Path, workspace_tmp_path: Path)
     )
     tor_status.READY_FILE = workspace_tmp_path / "network-ready"
     tor_status.STATUS_FILE = workspace_tmp_path / "network-status.json"
-    tor_status.load_system_settings = lambda: {"network_policy": "offline"}
+    tor_status.load_effective_system_settings = lambda: {"network_policy": "offline"}
     disabled_state = tor_status.read_status()
     assert disabled_state["phase"] == "disabled"
 
-    tor_status.load_system_settings = lambda: {"network_policy": "direct"}
+    tor_status.load_effective_system_settings = lambda: {"network_policy": "direct"}
     direct_state = tor_status.read_status()
     assert direct_state["phase"] == "open"
     assert direct_state["ready"] is True
 
-    tor_status.load_system_settings = lambda: {"network_policy": "tor"}
+    tor_status.load_effective_system_settings = lambda: {"network_policy": "tor"}
     tor_status.READY_FILE.write_text("ready\n", encoding="utf-8")
     ready_state = tor_status.read_status()
     assert ready_state["ready"] is True
@@ -94,7 +133,8 @@ def test_runtime_state_and_overlay_bootstrap_use_hardened_writes(repo_root: Path
     assert "mkstemp" in runtime_state_source
     assert "os.fsync" in runtime_state_source
     assert "os.replace" in runtime_state_source
-    assert "write_runtime_json" in settings_bootstrap_source
+    assert "save_system_settings" in settings_bootstrap_source
+    assert "APPLIED_SETTINGS_FILE" in settings_bootstrap_source
     assert "load_system_settings" in settings_bootstrap_source
     assert "write_runtime_json" in network_bootstrap_source
     assert "write_runtime_text" in network_bootstrap_source
@@ -106,9 +146,11 @@ def test_greeter_layout_is_setup_only(repo_root: Path) -> None:
         encoding="utf-8"
     )
 
-    assert "save_system_settings" in main_source
+    assert "SettingsClient" in main_source
     assert "GDM" not in main_source
+    assert "profile_combo" in ui_source
     assert "network_policy_combo" in ui_source
+    assert "theme_profile_combo" in ui_source
     assert "allow_brave_browser" in ui_source
     assert not (repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "gdmclient.py").exists()
     assert not (repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "gdm_handoff.py").exists()
@@ -152,8 +194,8 @@ def test_brave_visibility_and_runtime_share_settings_helper(repo_root: Path) -> 
         repo_root / "config" / "system-overlay" / "usr" / "local" / "lib" / "nmos" / "brave_policy.py"
     ).read_text(encoding="utf-8")
 
-    assert "load_system_settings" in desktop_mode_source
-    assert "load_system_settings" in brave_policy_source
+    assert "load_effective_system_settings" in desktop_mode_source
+    assert "load_effective_system_settings" in brave_policy_source
     assert 'allow_brave_browser' in desktop_mode_source
     assert 'allow_brave_browser' in brave_policy_source
 
@@ -163,17 +205,37 @@ def test_overlay_build_uses_installed_python_packages(repo_root: Path) -> None:
     greeter_launcher_source = (
         repo_root / "config" / "system-overlay" / "usr" / "local" / "bin" / "nmos-greeter"
     ).read_text(encoding="utf-8")
+    settings_launcher_source = (
+        repo_root / "config" / "system-overlay" / "usr" / "local" / "bin" / "nmos-settings-service"
+    ).read_text(encoding="utf-8")
+    control_center_launcher_source = (
+        repo_root / "config" / "system-overlay" / "usr" / "local" / "bin" / "nmos-control-center"
+    ).read_text(encoding="utf-8")
     persistence_launcher_source = (
         repo_root / "config" / "system-overlay" / "usr" / "local" / "bin" / "nmos-persistent-storage"
     ).read_text(encoding="utf-8")
 
     assert "install_python_package_dir" in common_source
     assert "/usr/lib/python3/dist-packages" in common_source
+    assert "nmos_settings/nmos_settings" in common_source
+    assert "nmos_control_center/nmos_control_center" in common_source
     assert "PYTHONPATH" not in greeter_launcher_source
+    assert "PYTHONPATH" not in settings_launcher_source
+    assert "PYTHONPATH" not in control_center_launcher_source
     assert "PYTHONPATH" not in persistence_launcher_source
 
 
 def test_service_units_include_requested_hardening(repo_root: Path) -> None:
+    settings_service = (
+        repo_root
+        / "config"
+        / "system-overlay"
+        / "usr"
+        / "lib"
+        / "systemd"
+        / "system"
+        / "nmos-settings.service"
+    ).read_text(encoding="utf-8")
     persistent_service = (
         repo_root
         / "config"
@@ -195,6 +257,14 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
         / "nmos-network-bootstrap.service"
     ).read_text(encoding="utf-8")
 
+    for service_source in (settings_service, persistent_service, network_service):
+        for value in ("NoNewPrivileges=yes", "ProtectSystem=strict", "ProtectHome=yes", "PrivateTmp=yes"):
+            assert value in service_source
+
+    assert "CapabilityBoundingSet=" in settings_service
+    assert "ReadWritePaths=/run/nmos /var/lib/nmos" in settings_service
+    assert "RestrictAddressFamilies=AF_UNIX" in settings_service
+
     for value in ("NoNewPrivileges=yes", "ProtectSystem=strict", "ProtectHome=yes", "PrivateTmp=yes"):
         assert value in persistent_service
         assert value in network_service
@@ -212,6 +282,53 @@ def test_workflow_includes_overlay_and_windows_validation(repo_root: Path) -> No
     assert "smoke-overlay.sh" in workflow_source
     assert "windows-smoke:" in workflow_source
     assert "verify-windows-wsl-bridge.ps1" in workflow_source
+    assert "verify-control-center.sh" in workflow_source
+
+
+def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
+    settings_service_source = (
+        repo_root / "apps" / "nmos_settings" / "nmos_settings" / "service.py"
+    ).read_text(encoding="utf-8")
+    settings_client_source = (
+        repo_root / "apps" / "nmos_common" / "nmos_common" / "settings_client.py"
+    ).read_text(encoding="utf-8")
+    control_center_source = (
+        repo_root / "apps" / "nmos_control_center" / "nmos_control_center" / "main.py"
+    ).read_text(encoding="utf-8")
+    css_source = (
+        repo_root / "config" / "system-overlay" / "usr" / "share" / "nmos" / "theme" / "nmos.css"
+    ).read_text(encoding="utf-8")
+
+    assert "DBUS_NAME" in settings_service_source
+    assert "ApplyPreset" in settings_service_source
+    assert "SetOverrides" in settings_service_source
+    assert "GetPendingRebootChanges" in settings_service_source
+    assert "SettingsClient" in settings_client_source
+    assert "NM-OS Control Center" in control_center_source
+    assert "Profiles" in control_center_source
+    assert "Appearance" in control_center_source
+    assert ".nmos-root" in css_source
+    assert "theme-nmos-classic" in css_source
+
+
+def test_installer_assets_are_packaged(repo_root: Path) -> None:
+    build_source = (repo_root / "build" / "build.sh").read_text(encoding="utf-8")
+    installer_settings = (
+        repo_root / "config" / "installer" / "calamares" / "settings.conf"
+    ).read_text(encoding="utf-8")
+    branding_source = (
+        repo_root / "config" / "installer" / "calamares" / "branding" / "nmos" / "branding.desc"
+    ).read_text(encoding="utf-8")
+    installer_packages = (
+        repo_root / "config" / "installer-packages" / "base.txt"
+    ).read_text(encoding="utf-8")
+
+    assert "installer_assets" in build_source
+    assert "stage_installer_assets_tree" in build_source
+    assert "branding: nmos" in installer_settings
+    assert "productName: \"NM-OS\"" in branding_source
+    assert "calamares" in installer_packages
+    assert "flatpak" in installer_packages
 
 
 def test_i18n_supports_spanish_without_extra_locales(repo_root: Path) -> None:

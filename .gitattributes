@@ -12,8 +12,11 @@
 *.desktop text eol=lf
 *.json text eol=lf
 *.svg text eol=lf
+*.css text eol=lf
+*.desc text eol=lf
 *.list text eol=lf
 *.md text eol=lf
+*.txt text eol=lf
 *.yml text eol=lf
 *.toml text eol=lf
 

@@ -10,7 +10,17 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, GLib, Gio, Gtk
 
 from nmos_common.i18n import LANGUAGE_OPTIONS, resolve_supported_locale, translate, translate_message
-from nmos_common.system_settings import DEFAULT_UI_LOCALE, load_system_settings, save_system_settings
+from nmos_common.settings_client import SettingsClient
+from nmos_common.system_settings import (
+    ACCENT_LABELS,
+    DEFAULT_UI_LOCALE,
+    DENSITY_LABELS,
+    MOTION_LABELS,
+    PROFILE_METADATA,
+    THEME_PROFILE_LABELS,
+    derive_overrides_for_profile,
+)
+from nmos_common.ui_theme import load_css
 from nmos_greeter import network_model, persistence_actions, ui_composition
 from nmos_greeter.client import PersistenceClient
 from nmos_greeter.state import load_state, save_state
@@ -22,12 +32,18 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.set_default_size(860, 560)
         self.logger = logging.getLogger("nmos.greeter")
 
-        persisted_settings = load_system_settings()
+        self.settings_client_factory = SettingsClient
+        persisted_settings = self.settings_client_factory().get_settings()
         self.state = {**persisted_settings, **load_state()}
         self.system_settings = dict(persisted_settings)
         self.save_state = save_state
         self.language_values = [locale for locale, _label in LANGUAGE_OPTIONS]
+        self.profile_values = list(PROFILE_METADATA)
         self.network_policy_values = ["tor", "direct", "offline"]
+        self.theme_profile_values = list(THEME_PROFILE_LABELS)
+        self.accent_values = list(ACCENT_LABELS)
+        self.density_values = list(DENSITY_LABELS)
+        self.motion_values = list(MOTION_LABELS)
         self.ui_locale = resolve_supported_locale(self.state.get("locale", os.environ.get("LANG", DEFAULT_UI_LOCALE)))
         self.page_order = self.resolve_page_order()
         self.network_status = self.default_network_status()
@@ -77,6 +93,15 @@ class GreeterWindow(Adw.ApplicationWindow):
     def current_language_name(self) -> str:
         return ui_composition.current_language_name(self)
 
+    def current_profile(self) -> str:
+        return ui_composition.current_profile(self)
+
+    def current_profile_name(self) -> str:
+        return ui_composition.current_profile_name(self)
+
+    def current_profile_summary(self) -> str:
+        return ui_composition.current_profile_summary(self)
+
     def current_network_policy(self) -> str:
         return ui_composition.current_network_policy(self)
 
@@ -95,8 +120,8 @@ class GreeterWindow(Adw.ApplicationWindow):
     def restore_state(self) -> None:
         ui_composition.restore_state(self)
 
-    def current_string(self, dropdown: Gtk.DropDown) -> str:
-        return ui_composition.current_string(dropdown)
+    def current_string(self, dropdown: Gtk.DropDown, values: list[str] | None = None) -> str:
+        return ui_composition.current_string(dropdown, values)
 
     def set_status(self, text: str, *, source: str = "event", force: bool = True) -> None:
         ui_composition.set_status(self, text, source=source, force=force)
@@ -143,7 +168,12 @@ class GreeterWindow(Adw.ApplicationWindow):
     def apply_keyboard(self) -> bool:
         if not self.persist_pending_state():
             return False
-        self.set_status(self.tr("Keyboard layout will be applied as {layout}.", layout=self.current_string(self.keyboard_combo)))
+        self.set_status(
+            self.tr(
+                "Keyboard layout will be applied as {layout}.",
+                layout=self.current_string(self.keyboard_combo, ui_composition.KEYBOARD_OPTIONS),
+            )
+        )
         return True
 
     def apply_network_preferences(self) -> bool:
@@ -158,11 +188,19 @@ class GreeterWindow(Adw.ApplicationWindow):
     def on_refresh_network(self, _button: Gtk.Button) -> None:
         self.refresh_network(force_status=True)
 
+    def on_profile_changed(self, *_args) -> None:
+        self.profile_summary_label.set_text(self.tr(self.current_profile_summary()))
+        self.update_navigation()
+
     def on_network_policy_changed(self, *_args) -> None:
         self.apply_settings_ui_policy()
         self.update_navigation()
 
     def on_allow_brave_browser_toggled(self, *_args) -> None:
+        self.update_navigation()
+
+    def on_theme_preview_changed(self, *_args) -> None:
+        self.apply_settings_ui_policy()
         self.update_navigation()
 
     def on_create_persistence(self, _button: Gtk.Button) -> None:
@@ -201,6 +239,8 @@ class GreeterWindow(Adw.ApplicationWindow):
             return
         if current_key == "keyboard" and not self.apply_keyboard():
             return
+        if current_key == "profile":
+            self.profile_summary_label.set_text(self.tr(self.current_profile_summary()))
         if current_key == "network" and not self.apply_network_preferences():
             return
         if self.page_index < len(self.page_order) - 1:
@@ -217,9 +257,20 @@ class GreeterWindow(Adw.ApplicationWindow):
             self.set_status(self.tr("Encrypted vault activity is still running."))
             return
         state = self.collect_state()
+        profile = str(state.get("active_profile", "balanced"))
+        overrides = derive_overrides_for_profile(profile, state)
         try:
-            self.save_state(state)
-            self.system_settings = save_system_settings(state)
+            self.save_state(
+                {
+                    "locale": state.get("locale", DEFAULT_UI_LOCALE),
+                    "keyboard": state.get("keyboard", "us"),
+                }
+            )
+            client = self.settings_client_factory()
+            client.apply_preset(profile)
+            if overrides:
+                client.set_overrides(overrides)
+            self.system_settings = client.commit()
             self.state = dict(self.system_settings)
         except (OSError, ValueError, RuntimeError) as exc:
             self.logger.error("failed to save system settings: %s", exc)
@@ -258,6 +309,7 @@ class GreeterApplication(Adw.Application):
         super().__init__(application_id="org.nmos.Greeter")
 
     def do_activate(self) -> None:
+        load_css()
         window = self.props.active_window
         if window is None:
             window = GreeterWindow(self)

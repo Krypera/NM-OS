@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=NM-OS Control Center
+Name[es]=Centro de control de NM-OS
+Exec=/usr/local/bin/nmos-control-center
+Terminal=false
+Categories=Settings;Security;System;

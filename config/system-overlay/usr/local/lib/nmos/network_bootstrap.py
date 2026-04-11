@@ -9,7 +9,7 @@ from pathlib import Path
 
 from nmos_common.network_status import parse_bootstrap_status
 from nmos_common.runtime_state import write_runtime_json, write_runtime_text
-from nmos_common.system_settings import load_system_settings
+from nmos_common.system_settings import load_effective_system_settings
 
 READY_DIR = Path("/run/nmos")
 READY_FILE = READY_DIR / "network-ready"
@@ -211,7 +211,7 @@ def apply_direct_mode() -> None:
 
 
 def main() -> None:
-    settings = load_system_settings()
+    settings = load_effective_system_settings()
     policy = str(settings.get("network_policy", "tor"))
     READY_DIR.mkdir(parents=True, exist_ok=True)
     if policy == "offline":

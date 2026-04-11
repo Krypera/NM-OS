@@ -9,10 +9,11 @@ GDM_SHELL_FILE="${ROOT_DIR}/config/system-overlay/usr/share/gdm/greeter/applicat
 SESSION_FILE="${ROOT_DIR}/config/system-overlay/usr/share/gnome-session/sessions/gdm-nmos.session"
 POSTLOGIN_FILE="${ROOT_DIR}/config/system-overlay/etc/gdm3/PostLogin/Default"
 POLICY_FILE="${ROOT_DIR}/config/system-overlay/etc/dbus-1/system.d/org.nmos.PersistentStorage.conf"
+SETTINGS_POLICY_FILE="${ROOT_DIR}/config/system-overlay/etc/dbus-1/system.d/org.nmos.Settings1.conf"
 TMPFILES_FILE="${ROOT_DIR}/config/system-overlay/usr/lib/tmpfiles.d/nmos.conf"
 COMMON_SH="${ROOT_DIR}/build/lib/common.sh"
 
-for path in "${MODE_FILE}" "${GREETER_DESKTOP_FILE}" "${GDM_SHELL_FILE}" "${SESSION_FILE}" "${POSTLOGIN_FILE}" "${POLICY_FILE}" "${TMPFILES_FILE}" "${COMMON_SH}"; do
+for path in "${MODE_FILE}" "${GREETER_DESKTOP_FILE}" "${GDM_SHELL_FILE}" "${SESSION_FILE}" "${POSTLOGIN_FILE}" "${POLICY_FILE}" "${SETTINGS_POLICY_FILE}" "${TMPFILES_FILE}" "${COMMON_SH}"; do
     [ -e "${path}" ] || {
         echo "missing required pre-login asset: ${path}" >&2
         exit 1
@@ -59,8 +60,23 @@ grep -q 'Debian-gdm' "${POLICY_FILE}" || {
     exit 1
 }
 
+grep -q 'Debian-gdm' "${SETTINGS_POLICY_FILE}" || {
+    echo "D-Bus policy does not grant Debian-gdm access to the settings service." >&2
+    exit 1
+}
+
 grep -q 'system-settings.json' "${TMPFILES_FILE}" || {
     echo "tmpfiles configuration does not provision the runtime system settings file." >&2
+    exit 1
+}
+
+grep -q 'applied-system-settings.json' "${TMPFILES_FILE}" || {
+    echo "tmpfiles configuration does not provision the applied settings runtime file." >&2
+    exit 1
+}
+
+grep -q 'enable_system_service "nmos-settings.service"' "${COMMON_SH}" || {
+    echo "build staging does not enable the settings service." >&2
     exit 1
 }
 

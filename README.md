@@ -1,27 +1,42 @@
 # NM-OS
 
-NM-OS is a privacy-focused installed operating system profile for Debian-based systems.
+NM-OS is a privacy-first installed operating system profile for Debian-based systems.
 
-The goal is simple: ship cautious defaults, keep privacy features understandable, and let the user tune them from a setup assistant instead of juggling boot-time modes.
+The current direction is simple:
 
-NM-OS is still in alpha, but the current direction is already clear:
-
+- security presets instead of one hard-coded mode
 - a pre-login setup assistant inside GDM
-- Tor-first, direct, or offline network policy as normal system settings
+- a desktop control center for everyday tuning
+- Tor-first, direct, or offline networking as system settings
 - an encrypted vault for sensitive files
-- optional Brave support gated by both build-time and runtime settings
-- a reproducible system overlay build for Linux and WSL2
+- a retro-futuristic but user-friendly visual language
 
-## What It Builds Today
+## What Exists Today
 
-The repository now produces an installed-system overlay bundle, not a live USB image.
+The repo currently builds an installed-system overlay plus installer scaffolding assets.
 
-The overlay contains:
+The first product slice now includes:
 
-- systemd units and runtime helpers
-- GDM greeter session wiring
-- NM-OS Python applications installed into the target Python path
-- package manifests for the expected Debian base system
+- preset-aware system settings with schema versioning
+- `org.nmos.Settings1` for settings management
+- the existing encrypted vault backend on `org.nmos.PersistentStorage`
+- a richer greeter onboarding flow with profile and appearance choices
+- an `NM-OS Control Center` desktop app skeleton
+- shared theme CSS and branding assets
+- Calamares installer configuration scaffolding
+
+## Product Direction
+
+NM-OS is not trying to be a Qubes clone.
+
+The goal is a normal desktop OS that can start from cautious defaults, then let the user move toward:
+
+- more comfort
+- more privacy
+- more restriction
+- or a custom balance
+
+The default profile is `Balanced`.
 
 ## Quick Start
 
@@ -61,36 +76,28 @@ NMOS_ENABLE_BRAVE=1 ./build/build.sh
 
 ## Repository Layout
 
-- `apps/` application code for the setup assistant and backend services
+- `apps/` Python applications and services
 - `build/` build entry points and artifact verification helpers
-- `config/system-overlay/` filesystem overlay content for the installed system
-- `config/system-packages/` expected Debian package manifests
-- `tests/` smoke checks for repo and runtime safety
-- `docs/` project notes and setup guides
+- `config/system-overlay/` runtime overlay content for the installed system
+- `config/installer/` Calamares installer scaffolding
+- `config/system-packages/` target runtime package manifests
+- `config/installer-packages/` installer-side package manifests
+- `tests/` smoke and Python validation
 
-## Current Scope
+## Current Limits
 
-Already in progress:
+Still not finished in this alpha:
 
-- overlay assembly for an installed base system
-- pre-login setup assistant flow
-- settings-driven network policy
-- encrypted vault management
-
-Not part of the current alpha yet:
-
-- a full graphical installer
-- an updater
-- large application bundles
+- a release-grade installer ISO
+- a full update UI
+- full per-app permission editing
 - release-grade hardware validation
 
 ## Translations
 
 English is the source language for NM-OS, and Spanish is the first additional UI translation.
 
-Translation help is welcome. If you want to add or improve another language, feel free to open a PR.
-
-The current translation workflow is documented in [docs/translations.md](docs/translations.md).
+Translation help is welcome. The current workflow is documented in [docs/translations.md](docs/translations.md).
 
 ## License
 

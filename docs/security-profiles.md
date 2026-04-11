@@ -1,42 +1,65 @@
 # Security Settings
 
-NM-OS no longer relies on boot-time profile selection.
+NM-OS now treats security as a spectrum instead of a boot-only mode switch.
 
-The installed system keeps its privacy posture in a persistent settings file and exposes those choices through the setup assistant.
+The current alpha ships four presets:
 
-## Current settings
+## `Relaxed`
 
-- `network_policy=tor`
-  - default setting
-  - Tor-first network gate
-  - strongest privacy baseline in the current alpha
-- `network_policy=direct`
-  - allows normal outbound networking
-  - still keeps the same setup assistant and vault model
-- `network_policy=offline`
-  - disables networking intentionally
-  - skips Tor bootstrap
-- `allow_brave_browser=true|false`
-  - only relevant when the build enables Brave support
-  - hidden by default
+- direct networking by default
+- broadest comfort profile
+- lighter sandbox expectations
+- best when ease of use matters more than stricter defaults
 
-## Runtime contract
+## `Balanced`
 
-- `/var/lib/nmos/system-settings.json` is the persistent source of truth
-- `/run/nmos/system-settings.json` is the runtime mirror
-- runtime services must read the settings file, not kernel boot parameters
-- missing or invalid settings fail closed to the default Tor-first policy
+- default NM-OS profile
+- Tor-first networking by default
+- moderate friction
+- recommended starting point for most users
 
-## Browser policy in alpha
+## `Hardened`
 
-- Tor-first keeps the temporary network gate until Tor readiness
-- Direct mode removes the gate immediately
-- Offline mode keeps networking disabled
-- Brave is optional at build time and optional again at runtime
-- This does not make Brave equivalent to Tor Browser anonymity guarantees
+- tighter sandbox and device defaults
+- reduced motion and denser UI defaults
+- stronger posture for daily use with less convenience
+
+## `Maximum`
+
+- offline by default
+- strict device and logging posture
+- strongest practical baseline in the current product slice
+
+## Overrides
+
+Every preset can be customized with per-setting overrides.
+
+Current override surfaces include:
+
+- language and keyboard
+- network policy
+- Brave visibility
+- sandbox default
+- vault preferences
+- device policy
+- logging policy
+- theme profile, accent, density, and motion
+
+## Pending reboot behavior
+
+Some changes can apply immediately.
+
+Some changes are tracked in `pending_reboot`, especially:
+
+- `network_policy`
+- `sandbox_default`
+- `device_policy`
+- `logging_policy`
+
+This is why both the greeter summary and the control center show reboot hints.
 
 ## Current limits
 
-- the alpha does not claim full amnesic guarantees
-- the repo does not yet ship a full installer image
-- release-level guarantees still require hardware and deployment validation
+- presets do not yet map to full per-app permission editing
+- the current alpha does not claim amnesic guarantees
+- the visual theme is curated and intentionally limited, not a full theme editor

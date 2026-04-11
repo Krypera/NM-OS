@@ -5,6 +5,18 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 from nmos_common.i18n import display_language_name, display_network_policy_name, resolve_supported_locale
+from nmos_common.system_settings import (
+    ACCENT_LABELS,
+    DENSITY_LABELS,
+    MOTION_LABELS,
+    PROFILE_METADATA,
+    THEME_PROFILE_LABELS,
+    derive_overrides_for_profile,
+    normalize_system_settings,
+)
+from nmos_common.ui_theme import apply_window_theme
+
+KEYBOARD_OPTIONS = ["us", "tr", "de", "fr"]
 
 
 def _combo(values: list[str]) -> Gtk.DropDown:
@@ -12,18 +24,33 @@ def _combo(values: list[str]) -> Gtk.DropDown:
     return Gtk.DropDown(model=model)
 
 
-def _page(window, page_key: str, title_text: str, subtitle_text: str, control: Gtk.Widget) -> Gtk.Widget:
-    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+def _page(window, page_key: str, title_text: str, subtitle_text: str, controls: list[Gtk.Widget]) -> Gtk.Widget:
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
     title = Gtk.Label(label=title_text, xalign=0)
     title.add_css_class("title-3")
     subtitle = Gtk.Label(label=subtitle_text, xalign=0)
     subtitle.set_wrap(True)
+    subtitle.add_css_class("dim-label")
     setattr(window, f"{page_key}_title_label", title)
     setattr(window, f"{page_key}_subtitle_label", subtitle)
     box.append(title)
     box.append(subtitle)
-    box.append(control)
+    for control in controls:
+        box.append(control)
     return box
+
+
+def _profile_page(window) -> Gtk.Widget:
+    return _page(
+        window,
+        "profile",
+        "Security profile",
+        "Choose a starting point. You can still fine-tune it later from the desktop.",
+        [
+            window.profile_combo,
+            window.profile_summary_label,
+        ],
+    )
 
 
 def _network_page(window) -> Gtk.Widget:
@@ -32,6 +59,7 @@ def _network_page(window) -> Gtk.Widget:
     window.network_title_label.add_css_class("title-3")
     window.network_subtitle_label = Gtk.Label(label="Choose how NM-OS should treat the network.", xalign=0)
     window.network_subtitle_label.set_wrap(True)
+    window.network_subtitle_label.add_css_class("dim-label")
     window.network_policy_label = Gtk.Label(label="Network policy", xalign=0)
     box.append(window.network_title_label)
     box.append(window.network_subtitle_label)
@@ -44,6 +72,21 @@ def _network_page(window) -> Gtk.Widget:
     return box
 
 
+def _appearance_page(window) -> Gtk.Widget:
+    return _page(
+        window,
+        "appearance",
+        "Appearance",
+        "Keep the visual language intentional. A few curated options go a long way.",
+        [
+            window.theme_profile_combo,
+            window.accent_combo,
+            window.density_combo,
+            window.motion_combo,
+        ],
+    )
+
+
 def _storage_page(window) -> Gtk.Widget:
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
     window.storage_title_label = Gtk.Label(label="Encrypted Vault", xalign=0)
@@ -53,6 +96,7 @@ def _storage_page(window) -> Gtk.Widget:
         xalign=0,
     )
     window.storage_subtitle_label.set_wrap(True)
+    window.storage_subtitle_label.add_css_class("dim-label")
     box.append(window.storage_title_label)
     box.append(window.storage_subtitle_label)
     box.append(window.persistence_label)
@@ -66,12 +110,26 @@ def _storage_page(window) -> Gtk.Widget:
     return box
 
 
+def _summary_page(window) -> Gtk.Widget:
+    return _page(
+        window,
+        "summary",
+        "Review",
+        "A few changes can apply right away. Network and deeper security policy changes may wait until reboot.",
+        [
+            window.summary_label,
+            window.summary_reboot_label,
+        ],
+    )
+
+
 def build_ui(window) -> None:
     root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
     root.set_margin_top(24)
     root.set_margin_bottom(24)
     root.set_margin_start(24)
     root.set_margin_end(24)
+    window.root_container = root
 
     header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
     window.header_title_label = Gtk.Label(label="NM-OS Setup")
@@ -79,11 +137,13 @@ def build_ui(window) -> None:
     window.header_title_label.set_xalign(0)
     window.header_subtitle_label = Gtk.Label(xalign=0)
     window.header_subtitle_label.set_wrap(True)
+    window.header_subtitle_label.add_css_class("dim-label")
     header.append(window.header_title_label)
     header.append(window.header_subtitle_label)
     root.append(header)
 
     window.session_status = Gtk.Label(xalign=0)
+    window.session_status.set_wrap(True)
     window.session_status.add_css_class("caption")
     root.append(window.session_status)
 
@@ -91,17 +151,31 @@ def build_ui(window) -> None:
     window.stack.set_vexpand(True)
 
     window.language_combo = _combo([display_language_name(locale) for locale in window.language_values])
-    window.keyboard_combo = _combo(["us", "tr", "de", "fr"])
+    window.keyboard_combo = _combo(KEYBOARD_OPTIONS)
+    window.profile_combo = _combo([PROFILE_METADATA[profile]["label"] for profile in window.profile_values])
+    window.profile_combo.connect("notify::selected", window.on_profile_changed)
+    window.profile_summary_label = Gtk.Label(xalign=0)
+    window.profile_summary_label.set_wrap(True)
+    window.profile_summary_label.add_css_class("dim-label")
     window.network_policy_combo = _combo([display_network_policy_name(policy) for policy in window.network_policy_values])
     window.network_policy_combo.connect("notify::selected", window.on_network_policy_changed)
     window.allow_brave_browser = Gtk.CheckButton()
     window.allow_brave_browser.connect("toggled", window.on_allow_brave_browser_toggled)
+    window.theme_profile_combo = _combo([THEME_PROFILE_LABELS[value] for value in window.theme_profile_values])
+    window.theme_profile_combo.connect("notify::selected", window.on_theme_preview_changed)
+    window.accent_combo = _combo([ACCENT_LABELS[value] for value in window.accent_values])
+    window.accent_combo.connect("notify::selected", window.on_theme_preview_changed)
+    window.density_combo = _combo([DENSITY_LABELS[value] for value in window.density_values])
+    window.density_combo.connect("notify::selected", window.on_theme_preview_changed)
+    window.motion_combo = _combo([MOTION_LABELS[value] for value in window.motion_values])
+    window.motion_combo.connect("notify::selected", window.on_theme_preview_changed)
     window.network_progress = Gtk.ProgressBar()
     window.network_label = Gtk.Label(xalign=0)
     window.network_refresh = Gtk.Button()
     window.network_refresh.connect("clicked", window.on_refresh_network)
 
     window.persistence_label = Gtk.Label(xalign=0)
+    window.persistence_label.set_wrap(True)
     window.persistence_password = Gtk.PasswordEntry()
     window.persistence_create = Gtk.Button()
     window.persistence_unlock = Gtk.Button()
@@ -112,15 +186,33 @@ def build_ui(window) -> None:
     window.persistence_lock.connect("clicked", window.on_lock_persistence)
     window.persistence_repair.connect("clicked", window.on_repair_persistence)
 
+    window.summary_label = Gtk.Label(xalign=0)
+    window.summary_label.set_wrap(True)
+    window.summary_reboot_label = Gtk.Label(xalign=0)
+    window.summary_reboot_label.set_wrap(True)
+    window.summary_reboot_label.add_css_class("dim-label")
+
     window.page_widgets = {
-        "language": _page(window, "language", "Language", "Choose the interface language.", window.language_combo),
-        "keyboard": _page(window, "keyboard", "Keyboard", "Choose the keyboard layout.", window.keyboard_combo),
+        "language": _page(window, "language", "Language", "Choose the interface language.", [window.language_combo]),
+        "keyboard": _page(window, "keyboard", "Keyboard", "Choose the keyboard layout.", [window.keyboard_combo]),
+        "profile": _profile_page(window),
         "network": _network_page(window),
+        "appearance": _appearance_page(window),
         "storage": _storage_page(window),
+        "summary": _summary_page(window),
     }
 
     for index, key in enumerate(window.page_order):
-        window.stack.add_titled(window.page_widgets[key], f"page-{index}", f"Page {index + 1}")
+        self_page = Gtk.Frame()
+        self_page.add_css_class("card")
+        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        inner.set_margin_top(18)
+        inner.set_margin_bottom(18)
+        inner.set_margin_start(18)
+        inner.set_margin_end(18)
+        inner.append(window.page_widgets[key])
+        self_page.set_child(inner)
+        window.stack.add_titled(self_page, f"page-{index}", f"Page {index + 1}")
 
     root.append(window.stack)
 
@@ -128,6 +220,7 @@ def build_ui(window) -> None:
     window.back_button = Gtk.Button()
     window.next_button = Gtk.Button()
     window.finish_button = Gtk.Button()
+    window.finish_button.add_css_class("suggested-action")
     window.back_button.connect("clicked", window.on_back)
     window.next_button.connect("clicked", window.on_next)
     window.finish_button.connect("clicked", window.on_finish)
@@ -140,7 +233,7 @@ def build_ui(window) -> None:
 
 
 def resolve_page_order(_window) -> list[str]:
-    return ["language", "keyboard", "network", "storage"]
+    return ["language", "keyboard", "profile", "network", "appearance", "storage", "summary"]
 
 
 def current_page_key(window) -> str:
@@ -164,6 +257,22 @@ def current_language_name(window) -> str:
     return display_language_name(current_language_code(window))
 
 
+def current_profile(window) -> str:
+    selected = window.profile_combo.get_selected()
+    if selected == Gtk.INVALID_LIST_POSITION or selected >= len(window.profile_values):
+        window.profile_combo.set_selected(0)
+        return window.profile_values[0]
+    return window.profile_values[selected]
+
+
+def current_profile_name(window) -> str:
+    return PROFILE_METADATA[current_profile(window)]["label"]
+
+
+def current_profile_summary(window) -> str:
+    return PROFILE_METADATA[current_profile(window)]["summary"]
+
+
 def current_network_policy(window) -> str:
     selected = window.network_policy_combo.get_selected()
     if selected == Gtk.INVALID_LIST_POSITION or selected >= len(window.network_policy_values):
@@ -174,6 +283,38 @@ def current_network_policy(window) -> str:
 
 def current_network_policy_name(window) -> str:
     return display_network_policy_name(current_network_policy(window), locale=window.ui_locale)
+
+
+def current_theme_profile(window) -> str:
+    selected = window.theme_profile_combo.get_selected()
+    if selected == Gtk.INVALID_LIST_POSITION or selected >= len(window.theme_profile_values):
+        window.theme_profile_combo.set_selected(0)
+        return window.theme_profile_values[0]
+    return window.theme_profile_values[selected]
+
+
+def current_accent(window) -> str:
+    selected = window.accent_combo.get_selected()
+    if selected == Gtk.INVALID_LIST_POSITION or selected >= len(window.accent_values):
+        window.accent_combo.set_selected(0)
+        return window.accent_values[0]
+    return window.accent_values[selected]
+
+
+def current_density(window) -> str:
+    selected = window.density_combo.get_selected()
+    if selected == Gtk.INVALID_LIST_POSITION or selected >= len(window.density_values):
+        window.density_combo.set_selected(0)
+        return window.density_values[0]
+    return window.density_values[selected]
+
+
+def current_motion(window) -> str:
+    selected = window.motion_combo.get_selected()
+    if selected == Gtk.INVALID_LIST_POSITION or selected >= len(window.motion_values):
+        window.motion_combo.set_selected(0)
+        return window.motion_values[0]
+    return window.motion_values[selected]
 
 
 def apply_translations(window) -> None:
@@ -192,13 +333,25 @@ def apply_translations(window) -> None:
     window.language_subtitle_label.set_text(window.tr("Choose the interface language."))
     window.keyboard_title_label.set_text(window.tr("Keyboard"))
     window.keyboard_subtitle_label.set_text(window.tr("Choose the keyboard layout."))
+    window.profile_title_label.set_text(window.tr("Security profile"))
+    window.profile_subtitle_label.set_text(
+        window.tr("Choose a starting point. You can still fine-tune it later from the desktop.")
+    )
     window.network_title_label.set_text(window.tr("Network"))
     window.network_subtitle_label.set_text(window.tr("Choose how NM-OS should treat the network."))
     window.network_policy_label.set_text(window.tr("Network policy"))
     window.allow_brave_browser.set_label(window.tr("Allow Brave Browser when installed"))
     window.network_refresh.set_label(window.tr("Refresh network status"))
+    window.appearance_title_label.set_text(window.tr("Appearance"))
+    window.appearance_subtitle_label.set_text(
+        window.tr("Keep the visual language intentional. A few curated options go a long way.")
+    )
     window.storage_title_label.set_text(window.tr("Encrypted Vault"))
     window.storage_subtitle_label.set_text(window.tr("Create or unlock an encrypted vault for sensitive files."))
+    window.summary_title_label.set_text(window.tr("Review"))
+    window.summary_subtitle_label.set_text(
+        window.tr("A few changes can apply right away. Network and deeper security policy changes may wait until reboot.")
+    )
     window.persistence_create.set_label(window.tr("Create"))
     window.persistence_unlock.set_label(window.tr("Unlock"))
     window.persistence_lock.set_label(window.tr("Lock"))
@@ -206,6 +359,8 @@ def apply_translations(window) -> None:
     window.back_button.set_label(window.tr("Back"))
     window.next_button.set_label(window.tr("Next"))
     window.finish_button.set_label(window.tr("Apply settings"))
+    window.profile_summary_label.set_text(window.tr(current_profile_summary(window)))
+    refresh_summary(window)
     if window.persistence_init_error:
         window.persistence_label.set_text(
             window.tr(
@@ -222,35 +377,32 @@ def apply_settings_ui_policy(window) -> None:
     if offline:
         window.allow_brave_browser.set_active(False)
     window.allow_brave_browser.set_sensitive(not offline)
+    preview_theme(window)
 
 
-def _select_string(dropdown: Gtk.DropDown, value: str) -> None:
-    model = dropdown.get_model()
-    for index in range(model.get_n_items()):
-        if model.get_string(index) == value:
-            dropdown.set_selected(index)
-            return
+def _select_string(dropdown: Gtk.DropDown, values: list[str], value: str) -> None:
+    try:
+        dropdown.set_selected(values.index(value))
+    except ValueError:
+        dropdown.set_selected(0)
 
 
 def _select_language(window, locale: str) -> None:
     resolved = resolve_supported_locale(locale)
-    for index, value in enumerate(window.language_values):
-        if value == resolved:
-            window.language_combo.set_selected(index)
-            return
-    window.language_combo.set_selected(0)
+    _select_string(window.language_combo, window.language_values, resolved)
 
 
 def _select_network_policy(window, policy: str) -> None:
     normalized = str(policy or "tor").strip().lower()
-    for index, value in enumerate(window.network_policy_values):
-        if value == normalized:
-            window.network_policy_combo.set_selected(index)
-            return
-    window.network_policy_combo.set_selected(0)
+    _select_string(window.network_policy_combo, window.network_policy_values, normalized)
 
 
-def current_string(dropdown: Gtk.DropDown) -> str:
+def _select_profile(window, profile: str) -> None:
+    normalized = str(profile or "balanced").strip().lower()
+    _select_string(window.profile_combo, window.profile_values, normalized)
+
+
+def current_string(dropdown: Gtk.DropDown, values: list[str] | None = None) -> str:
     model = dropdown.get_model()
     selected = dropdown.get_selected()
     if selected == Gtk.INVALID_LIST_POSITION or selected >= model.get_n_items():
@@ -258,19 +410,68 @@ def current_string(dropdown: Gtk.DropDown) -> str:
             return ""
         dropdown.set_selected(0)
         selected = 0
+    if values is not None and selected < len(values):
+        return values[selected]
     return model.get_string(selected)
 
 
 def restore_state(window) -> None:
     locale = window.state.get("locale", "en_US.UTF-8")
     keyboard = window.state.get("keyboard", "us")
+    profile = window.state.get("active_profile", "balanced")
     network_policy = window.state.get("network_policy", "tor")
     allow_brave = bool(window.state.get("allow_brave_browser", False))
     _select_language(window, locale)
-    _select_string(window.keyboard_combo, keyboard)
+    _select_string(window.keyboard_combo, KEYBOARD_OPTIONS, keyboard)
+    _select_profile(window, profile)
     _select_network_policy(window, network_policy)
+    _select_string(window.theme_profile_combo, window.theme_profile_values, str(window.state.get("ui_theme_profile", "nmos-classic")))
+    _select_string(window.accent_combo, window.accent_values, str(window.state.get("ui_accent", "amber")))
+    _select_string(window.density_combo, window.density_values, str(window.state.get("ui_density", "comfortable")))
+    _select_string(window.motion_combo, window.motion_values, str(window.state.get("ui_motion", "full")))
     window.allow_brave_browser.set_active(allow_brave)
+    window.profile_summary_label.set_text(current_profile_summary(window))
     apply_settings_ui_policy(window)
+
+
+def preview_theme(window) -> None:
+    apply_window_theme(
+        window.root_container,
+        {
+            "ui_theme_profile": current_theme_profile(window),
+            "ui_accent": current_accent(window),
+            "ui_density": current_density(window),
+            "ui_motion": current_motion(window),
+        },
+    )
+
+
+def refresh_summary(window) -> None:
+    draft_state = collect_state(window)
+    draft_settings = normalize_system_settings(
+        {
+            "active_profile": draft_state["active_profile"],
+            "overrides": derive_overrides_for_profile(draft_state["active_profile"], draft_state),
+        }
+    )
+    summary_lines = [
+        f"Profile: {current_profile_name(window)}",
+        f"Language: {current_language_name(window)}",
+        f"Keyboard: {current_string(window.keyboard_combo, KEYBOARD_OPTIONS)}",
+        f"Network: {current_network_policy_name(window)}",
+        f"Theme: {THEME_PROFILE_LABELS[current_theme_profile(window)]}",
+        f"Accent: {ACCENT_LABELS[current_accent(window)]}",
+    ]
+    if window.allow_brave_browser.get_active():
+        summary_lines.append("Brave visibility: allowed when installed")
+    else:
+        summary_lines.append("Brave visibility: hidden")
+    window.summary_label.set_text("\n".join(summary_lines))
+    if draft_settings.get("pending_reboot"):
+        pending = ", ".join(str(item).replace("_", " ") for item in draft_settings["pending_reboot"])
+        window.summary_reboot_label.set_text(f"Restart required for: {pending}")
+    else:
+        window.summary_reboot_label.set_text("The current draft does not require a reboot.")
 
 
 def set_status(window, text: str, *, source: str = "event", force: bool = True) -> None:
@@ -283,9 +484,14 @@ def set_status(window, text: str, *, source: str = "event", force: bool = True) 
 def collect_state(window) -> dict:
     return {
         "locale": current_language_code(window),
-        "keyboard": current_string(window.keyboard_combo),
+        "keyboard": current_string(window.keyboard_combo, KEYBOARD_OPTIONS),
+        "active_profile": current_profile(window),
         "network_policy": current_network_policy(window),
         "allow_brave_browser": window.allow_brave_browser.get_active(),
+        "ui_theme_profile": current_theme_profile(window),
+        "ui_accent": current_accent(window),
+        "ui_density": current_density(window),
+        "ui_motion": current_motion(window),
     }
 
 
@@ -296,6 +502,8 @@ def can_finish(window) -> bool:
 
 
 def update_navigation(window) -> None:
+    if current_page_key(window) == "summary":
+        refresh_summary(window)
     window.back_button.set_sensitive(window.page_index > 0)
     window.next_button.set_visible(window.page_index < len(window.page_order) - 1)
     window.next_button.set_sensitive(True)

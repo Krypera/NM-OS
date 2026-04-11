@@ -6,9 +6,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VERSION="$(tr -d '\r\n' < "${ROOT_DIR}/config/version")"
 WORK_DIR="${ROOT_DIR}/.build/system-overlay"
 ROOTFS_DIR="${WORK_DIR}/rootfs"
+INSTALLER_WORK_DIR="${ROOT_DIR}/.build/installer-assets"
 DIST_DIR="${ROOT_DIR}/dist"
 SYSTEM_OVERLAY_SOURCE="${ROOT_DIR}/config/system-overlay"
 SYSTEM_PACKAGES_SOURCE="${ROOT_DIR}/config/system-packages"
+INSTALLER_ASSETS_SOURCE="${ROOT_DIR}/config/installer"
+INSTALLER_PACKAGES_SOURCE="${ROOT_DIR}/config/installer-packages"
 APPS_SOURCE="${ROOT_DIR}/apps"
 TARGET_PYTHON_DIR="${ROOTFS_DIR}/usr/lib/python3/dist-packages"
 VERSION_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$'
@@ -34,7 +37,7 @@ validate_version_format() {
 }
 
 prepare_directories() {
-    mkdir -p "${ROOTFS_DIR}" "${DIST_DIR}"
+    mkdir -p "${ROOTFS_DIR}" "${DIST_DIR}" "${INSTALLER_WORK_DIR}"
 }
 
 install_python_package_dir() {
@@ -62,11 +65,14 @@ stage_system_overlay_tree() {
     install_python_package_dir "${APPS_SOURCE}/nmos_common/nmos_common"
     install_python_package_dir "${APPS_SOURCE}/nmos_greeter/nmos_greeter"
     install_python_package_dir "${APPS_SOURCE}/nmos_persistent_storage/nmos_persistent_storage"
+    install_python_package_dir "${APPS_SOURCE}/nmos_settings/nmos_settings"
+    install_python_package_dir "${APPS_SOURCE}/nmos_control_center/nmos_control_center"
     mkdir -p "${ROOTFS_DIR}/usr/share/nmos"
     cat > "${ROOTFS_DIR}/usr/share/nmos/build-info" <<EOF
 NMOS_VERSION=${VERSION}
 BUILD_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 EOF
+    enable_system_service "nmos-settings.service"
     enable_system_service "nmos-settings-bootstrap.service"
     enable_system_service "nmos-boot-marker.service"
     enable_system_service "nmos-network-bootstrap.service"
@@ -87,10 +93,31 @@ EOF
     fi
 }
 
+stage_installer_assets_tree() {
+    prepare_directories
+    rm -rf "${INSTALLER_WORK_DIR}"
+    mkdir -p "${INSTALLER_WORK_DIR}"
+    if [ -d "${INSTALLER_ASSETS_SOURCE}" ]; then
+        rsync -a --exclude '__pycache__/' "${INSTALLER_ASSETS_SOURCE}/" "${INSTALLER_WORK_DIR}/"
+    fi
+    if [ -d "${INSTALLER_PACKAGES_SOURCE}" ]; then
+        mkdir -p "${INSTALLER_WORK_DIR}/packages"
+        rsync -a "${INSTALLER_PACKAGES_SOURCE}/" "${INSTALLER_WORK_DIR}/packages/"
+    fi
+}
+
 build_output_stem() {
     echo "nmos-system-overlay-${VERSION}"
 }
 
 build_archive_name() {
     echo "$(build_output_stem).tar.gz"
+}
+
+installer_output_stem() {
+    echo "nmos-installer-assets-${VERSION}"
+}
+
+installer_archive_name() {
+    echo "$(installer_output_stem).tar.gz"
 }

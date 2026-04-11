@@ -1,53 +1,73 @@
 # Runtime Notes
 
-## Service flow
+## Main services
 
-1. `nmos-settings-bootstrap.service` mirrors `/var/lib/nmos/system-settings.json` into `/run/nmos/system-settings.json`
-2. `nmos-network-bootstrap.service` enforces the selected network policy
-3. `nmos-persistent-storage.service` exposes the encrypted vault D-Bus backend
-4. the GDM greeter session starts `nmos-greeter` as the setup assistant
-5. GDM `PostLogin` applies the chosen locale and keyboard settings from `/run/nmos/greeter-state.json`
+1. `nmos-settings.service`
+   exposes `org.nmos.Settings1`
+2. `nmos-settings-bootstrap.service`
+   mirrors current settings into `/run/nmos/system-settings.json`
+   and snapshots boot-applied values into `/run/nmos/applied-system-settings.json`
+3. `nmos-network-bootstrap.service`
+   enforces the selected network policy
+4. `nmos-persistent-storage.service`
+   exposes the encrypted vault backend
+5. the GDM greeter session launches `nmos-greeter`
+6. after login, the desktop can use `nmos-control-center`
 
 ## Settings model
 
-The canonical settings file is:
+Persistent source of truth:
 
 - `/var/lib/nmos/system-settings.json`
 
-The runtime mirror is:
+Runtime mirror:
 
 - `/run/nmos/system-settings.json`
 
-The current alpha supports:
+Boot-applied snapshot:
 
-- `network_policy=tor`
-- `network_policy=direct`
-- `network_policy=offline`
-- `allow_brave_browser=true|false`
+- `/run/nmos/applied-system-settings.json`
 
-## Network policy
+Important top-level fields:
 
-### `tor`
+- `schema_version`
+- `active_profile`
+- `overrides`
+- `network_policy`
+- `allow_brave_browser`
+- `sandbox_default`
+- `vault`
+- `device_policy`
+- `logging_policy`
+- `ui_theme_profile`
+- `ui_accent`
+- `ui_density`
+- `ui_motion`
+- `pending_reboot`
 
-- starts Tor bootstrap
-- keeps the temporary nftables gate until Tor is ready
-- writes status to `/run/nmos/network-status.json`
+## D-Bus services
 
-### `direct`
+### Settings
 
-- removes the temporary gate
-- marks networking ready immediately
-- still publishes runtime status for the setup assistant
+- service: `org.nmos.Settings1`
+- path: `/org/nmos/Settings1`
+- interface: `org.nmos.Settings1`
 
-### `offline`
+Methods:
 
-- applies an offline-only nftables policy
-- does not start Tor bootstrap
-- reports a disabled network phase in `/run/nmos/network-status.json`
+- `GetSettings()`
+- `GetEffectiveSettings()`
+- `ApplyPreset(profile)`
+- `SetOverrides(map)`
+- `ResetToPreset()`
+- `GetPendingRebootChanges()`
+- `Commit()`
 
-## Encrypted vault
+Signal:
 
-The storage backend is exposed on the system bus as:
+- `SettingsChanged`
+
+### Encrypted vault
 
 - service: `org.nmos.PersistentStorage`
 - path: `/org/nmos/PersistentStorage`
@@ -61,17 +81,35 @@ Methods:
 - `Repair()`
 - `GetState()`
 
-The backend manages:
+## Network policy
 
-- image file: `/var/lib/nmos/storage/vault.img`
-- mapper: `/dev/mapper/nmos-vault`
-- mount point: `/var/lib/nmos/storage/mnt`
+### `tor`
 
-## Optional Brave support
+- keeps the nftables gate until Tor is ready
+- writes runtime status to `/run/nmos/network-status.json`
 
-NM-OS can optionally enable Brave-aware runtime policy at build time.
+### `direct`
 
-- this is disabled by default
-- launcher visibility still depends on the user setting
-- Brave is blocked when networking is set to `offline`
-- Brave is privacy-focused but not equivalent to Tor Browser anonymity
+- removes the temporary gate
+- marks networking ready immediately
+
+### `offline`
+
+- applies an offline-only nftables policy
+- skips Tor bootstrap
+
+## Desktop surfaces
+
+Greeter:
+
+- onboarding for language, keyboard, profile, network, appearance, and vault
+
+Control Center:
+
+- profiles
+- privacy and network
+- apps and permissions
+- vault preferences
+- system and recovery
+- language and region
+- appearance

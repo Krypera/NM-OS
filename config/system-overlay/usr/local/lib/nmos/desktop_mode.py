@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from nmos_common.config_helpers import load_feature_flag
-from nmos_common.system_settings import load_system_settings
+from nmos_common.system_settings import load_effective_system_settings
 
 BRAVE_FEATURE_FILE = Path("/etc/nmos/features/brave")
 BRAVE_DESKTOP_SOURCE = Path("/usr/share/applications/brave-browser.desktop")
@@ -44,7 +44,7 @@ def main() -> None:
         remove_override()
         return
     brave_enabled = load_feature_flag(BRAVE_FEATURE_FILE)
-    settings = load_system_settings()
+    settings = load_effective_system_settings()
     allow_brave = bool(settings.get("allow_brave_browser", False))
     offline = str(settings.get("network_policy", "tor")) == "offline"
     if brave_enabled and allow_brave and not offline:

@@ -1,0 +1,21 @@
+[Unit]
+Description=NM-OS settings service
+After=local-fs.target dbus.service systemd-tmpfiles-setup.service
+Wants=dbus.service
+Before=display-manager.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/nmos-settings-service
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/run/nmos /var/lib/nmos
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

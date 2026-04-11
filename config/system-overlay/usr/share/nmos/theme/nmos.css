@@ -1,0 +1,66 @@
+.nmos-root {
+  background:
+    linear-gradient(180deg, rgba(10, 14, 19, 0.97), rgba(16, 22, 29, 0.98)),
+    radial-gradient(circle at top right, rgba(255, 186, 73, 0.08), transparent 45%);
+  color: #f3f4f6;
+}
+
+.nmos-root frame.card {
+  background: rgba(18, 24, 31, 0.88);
+  border-radius: 18px;
+  border: 1px solid alpha(currentColor, 0.08);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.24);
+}
+
+.nmos-root.theme-nmos-classic {
+  background:
+    linear-gradient(180deg, rgba(8, 12, 17, 0.98), rgba(18, 24, 30, 0.98)),
+    radial-gradient(circle at top right, rgba(255, 183, 77, 0.08), transparent 42%);
+}
+
+.nmos-root.theme-nmos-night {
+  background:
+    linear-gradient(180deg, rgba(5, 9, 15, 0.99), rgba(10, 16, 22, 0.99)),
+    radial-gradient(circle at top right, rgba(85, 217, 255, 0.08), transparent 42%);
+}
+
+.nmos-root.theme-nmos-light {
+  background:
+    linear-gradient(180deg, rgba(238, 242, 245, 0.99), rgba(224, 232, 237, 0.99)),
+    radial-gradient(circle at top right, rgba(255, 168, 115, 0.1), transparent 38%);
+  color: #12202d;
+}
+
+.nmos-root.accent-amber button.suggested-action,
+.nmos-root.accent-amber switch:checked slider {
+  background: #ffb74d;
+  color: #1c1207;
+}
+
+.nmos-root.accent-cyan button.suggested-action,
+.nmos-root.accent-cyan switch:checked slider {
+  background: #4cc9f0;
+  color: #08151c;
+}
+
+.nmos-root.accent-mint button.suggested-action,
+.nmos-root.accent-mint switch:checked slider {
+  background: #67e8bf;
+  color: #061712;
+}
+
+.nmos-root.accent-rose button.suggested-action,
+.nmos-root.accent-rose switch:checked slider {
+  background: #ff8fab;
+  color: #230a12;
+}
+
+.nmos-root.density-compact frame.card > box {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.nmos-root.motion-reduced * {
+  transition-duration: 0s;
+  animation-duration: 0s;
+}

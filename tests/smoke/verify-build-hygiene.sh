@@ -31,6 +31,11 @@ grep -q "staged system overlay tree contains Python cache artifacts" "${COMMON_S
     exit 1
 }
 
+grep -q 'stage_installer_assets_tree' "${COMMON_SH}" || {
+    echo "build helpers do not stage installer assets." >&2
+    exit 1
+}
+
 grep -Fq 'config/system-overlay/usr/local/bin/* text eol=lf' "${GITATTRIBUTES}" || {
     echo ".gitattributes does not pin LF endings for overlay launchers." >&2
     exit 1
@@ -48,7 +53,7 @@ from pathlib import Path
 
 root = Path(os.environ["NMOS_ROOT"])
 tracked = subprocess.check_output(["git", "-C", str(root), "ls-files"], text=True).splitlines()
-lf_patterns = (".sh", ".py", ".service", ".target", ".conf", ".desktop", ".json", ".md", ".yml", ".toml")
+lf_patterns = (".sh", ".py", ".service", ".target", ".conf", ".desktop", ".json", ".md", ".yml", ".toml", ".css")
 lf_violations: list[str] = []
 
 for rel in tracked:

@@ -1,0 +1,4 @@
+calamares
+flatpak
+xdg-desktop-portal
+xdg-desktop-portal-gtk

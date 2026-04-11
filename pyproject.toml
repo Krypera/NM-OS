@@ -22,8 +22,10 @@ show_error_codes = true
 check_untyped_defs = true
 files = [
   "apps/nmos_common",
+  "apps/nmos_control_center",
   "apps/nmos_greeter",
   "apps/nmos_persistent_storage",
+  "apps/nmos_settings",
   "config/system-overlay/usr/local/lib/nmos",
 ]
 

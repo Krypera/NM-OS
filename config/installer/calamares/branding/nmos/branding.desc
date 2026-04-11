@@ -1,0 +1,21 @@
+---
+componentName: "branding"
+welcomeStyleCalamares: "sidebar"
+welcomeExpandingLogo: false
+strings:
+  productName: "NM-OS"
+  shortProductName: "NM-OS"
+  version: "alpha"
+  shortVersion: "alpha"
+  versionedName: "NM-OS alpha"
+  shortVersionedName: "NM-OS alpha"
+  bootloaderEntryName: "NM-OS"
+images:
+  productLogo: "welcome.svg"
+  productIcon: "welcome.svg"
+  productWelcome: "welcome.svg"
+style:
+  sidebarBackground: "#081019"
+  sidebarText: "#f3f4f6"
+  sidebarTextSelect: "#ffb74d"
+  sidebarTextSelectHover: "#ffd08a"

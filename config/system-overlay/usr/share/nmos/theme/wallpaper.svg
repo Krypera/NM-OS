@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#081019"/>
+      <stop offset="100%" stop-color="#111c27"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffb74d" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#4cc9f0" stop-opacity="0.55"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.05" stroke-width="1">
+    <path d="M0 160 H1920"/>
+    <path d="M0 320 H1920"/>
+    <path d="M0 640 H1920"/>
+    <path d="M0 800 H1920"/>
+    <path d="M280 0 V1080"/>
+    <path d="M640 0 V1080"/>
+    <path d="M1040 0 V1080"/>
+    <path d="M1460 0 V1080"/>
+  </g>
+  <circle cx="1460" cy="190" r="210" fill="url(#accent)" fill-opacity="0.14"/>
+  <path d="M160 770 L620 770 L760 630 L1260 630" stroke="#ffb74d" stroke-opacity="0.7" stroke-width="4" fill="none"/>
+  <path d="M160 842 L510 842 L720 660 L1080 660" stroke="#4cc9f0" stroke-opacity="0.45" stroke-width="2" fill="none"/>
+  <text x="160" y="260" fill="#f3f4f6" font-size="96" font-family="monospace" letter-spacing="8">NM-OS</text>
+  <text x="166" y="322" fill="#9ca3af" font-size="28" font-family="monospace" letter-spacing="4">privacy-first desktop profile</text>
+</svg>

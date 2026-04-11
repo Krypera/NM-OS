@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from nmos_common.config_helpers import load_feature_flag
-from nmos_common.system_settings import load_system_settings
+from nmos_common.system_settings import load_effective_system_settings
 
 BRAVE_FEATURE_FILE = Path("/etc/nmos/features/brave")
 
@@ -41,7 +41,7 @@ def main() -> int:
     if not load_feature_flag(BRAVE_FEATURE_FILE):
         return deny("Brave is not enabled in this NM-OS build.")
 
-    settings = load_system_settings()
+    settings = load_effective_system_settings()
     if not bool(settings.get("allow_brave_browser", False)):
         return deny("Brave is disabled in system settings.")
     if str(settings.get("network_policy", "tor")) == "offline":
