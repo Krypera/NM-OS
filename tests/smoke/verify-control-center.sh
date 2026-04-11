@@ -61,7 +61,7 @@ grep -q '^ExecStart=/usr/local/bin/nmos-settings-service$' "${SETTINGS_UNIT}" ||
     exit 1
 }
 
-grep -q '^  <allow send_destination="org.nmos.Settings1"' "${SETTINGS_POLICY}" || {
+grep -q 'send_destination="org.nmos.Settings1"' "${SETTINGS_POLICY}" || {
     echo "settings D-Bus policy does not allow sending to org.nmos.Settings1." >&2
     exit 1
 }
