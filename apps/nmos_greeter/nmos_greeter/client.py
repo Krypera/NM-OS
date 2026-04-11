@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from nmos_common.network_status import normalize_network_status
+from nmos_common.platform_adapter import get_runtime_dir
 
 DBUS_NAME = "org.nmos.PersistentStorage"
 DBUS_PATH = "/org/nmos/PersistentStorage"
 DBUS_INTERFACE = "org.nmos.PersistentStorage"
-NETWORK_READY_FILE = Path("/run/nmos/network-ready")
-NETWORK_STATUS_FILE = Path("/run/nmos/network-status.json")
+RUNTIME_DIR = get_runtime_dir()
+NETWORK_READY_FILE = RUNTIME_DIR / "network-ready"
+NETWORK_STATUS_FILE = RUNTIME_DIR / "network-status.json"
 
 
 def load_dbus():

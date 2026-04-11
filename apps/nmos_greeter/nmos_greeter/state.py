@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
+from nmos_common.platform_adapter import get_runtime_dir
 from nmos_common.runtime_state import ensure_runtime_state_path_safe, read_runtime_text, write_runtime_text
 
-STATE_FILE = Path("/run/nmos/greeter-state.json")
+STATE_FILE = get_runtime_dir() / "greeter-state.json"
 STATE_FILE_MODE = 0o660
 
 

@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT / "apps" / "nmos_greeter"))
 sys.path.insert(0, str(ROOT / "apps" / "nmos_persistent_storage"))
 
 from nmos_common.i18n import display_language_name, translate
+from nmos_common.platform_adapter import load_platform_adapter
 from nmos_common.system_settings import (
     DEFAULT_SYSTEM_SETTINGS,
     apply_system_profile,
@@ -96,6 +97,27 @@ def test_system_settings_round_trip(workspace_tmp_path: Path) -> None:
     assert "network_policy" in updated["pending_reboot"]
 
 
+def test_platform_adapter_override_loading(workspace_tmp_path: Path) -> None:
+    adapter_file = workspace_tmp_path / "platform-adapter.env"
+    adapter_file.write_text(
+        "\n".join(
+            [
+                "NMOS_TOR_USER=test-tor",
+                "NMOS_GDM_USER=test-gdm",
+                "NMOS_RUNTIME_DIR=/tmp/nmos-run",
+                "NMOS_STATE_DIR=/tmp/nmos-state",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    loaded = load_platform_adapter(adapter_file)
+    assert loaded["tor_user"] == "test-tor"
+    assert loaded["gdm_user"] == "test-gdm"
+    assert loaded["runtime_dir"] == "/tmp/nmos-run"
+    assert loaded["state_dir"] == "/tmp/nmos-state"
+
+
 def test_tor_status_respects_settings(repo_root: Path, workspace_tmp_path: Path) -> None:
     tor_status = load_module(
         "tor_bootstrap_status",
@@ -160,6 +182,16 @@ def test_greeter_layout_is_setup_only(repo_root: Path) -> None:
     assert "network_policy_combo" in ui_source
     assert "theme_profile_combo" in ui_source
     assert "allow_brave_browser" in ui_source
+    state_source = (repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "state.py").read_text(encoding="utf-8")
+    client_source = (repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "client.py").read_text(encoding="utf-8")
+    network_model_source = (
+        repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "network_model.py"
+    ).read_text(encoding="utf-8")
+    assert "get_runtime_dir" in state_source
+    assert "get_runtime_dir" in client_source
+    assert "get_runtime_dir" in network_model_source
+    assert 'Path("/run/nmos' not in state_source
+    assert 'Path("/run/nmos' not in client_source
     assert not (repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "gdmclient.py").exists()
     assert not (repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "gdm_handoff.py").exists()
 

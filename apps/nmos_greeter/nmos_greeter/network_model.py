@@ -4,6 +4,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gio, GLib
+from nmos_common.platform_adapter import get_runtime_dir
 
 from nmos_greeter.client import read_network_status
 
@@ -56,7 +57,8 @@ def refresh_network(window, *, force_status: bool = False) -> None:
 
 
 def setup_network_watchers(window) -> None:
-    for path in ("/run/nmos/network-status.json", "/run/nmos/network-ready"):
+    runtime_dir = get_runtime_dir()
+    for path in (str(runtime_dir / "network-status.json"), str(runtime_dir / "network-ready")):
         file_obj = Gio.File.new_for_path(path)
         monitor = None
         try:

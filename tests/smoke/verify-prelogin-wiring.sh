@@ -40,8 +40,8 @@ grep -q 'RequiredComponents=gdm-shell-nmos;nmos-greeter;' "${SESSION_FILE}" || {
     exit 1
 }
 
-grep -q '/run/nmos/greeter-state.json' "${POSTLOGIN_FILE}" || {
-    echo "GDM PostLogin hook does not consume the greeter runtime handoff file." >&2
+grep -q 'get_runtime_dir' "${POSTLOGIN_FILE}" || {
+    echo "GDM PostLogin hook does not resolve runtime paths through the platform adapter." >&2
     exit 1
 }
 

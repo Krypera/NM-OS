@@ -107,6 +107,7 @@ Methods:
 Greeter:
 
 - onboarding for language, keyboard, profile, network, appearance, and vault
+- greeter state and network watcher paths resolve from platform adapter runtime directory
 
 Control Center:
 
