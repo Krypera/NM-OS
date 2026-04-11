@@ -13,7 +13,7 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/run/nmos /var/lib/nmos
+ReadWritePaths=@NMOS_RUNTIME_DIR@ @NMOS_STATE_DIR@
 CapabilityBoundingSet=
 RestrictAddressFamilies=AF_UNIX
 

@@ -23,13 +23,13 @@ grep -q 'create_image_file' "${OPS_FILE}" || {
     exit 1
 }
 
-grep -q '/var/lib/nmos/storage' "${TMPFILES_FILE}" || {
-    echo "tmpfiles configuration does not provision the vault storage directory." >&2
+grep -q '@NMOS_STATE_DIR@/storage' "${TMPFILES_FILE}" || {
+    echo "tmpfiles configuration does not provision the vault storage directory via platform adapter path." >&2
     exit 1
 }
 
-grep -q '^ReadWritePaths=/run/nmos /var/lib/nmos$' "${SERVICE_FILE}" || {
-    echo "persistent storage service is missing the installed-system write paths." >&2
+grep -q '^ReadWritePaths=@NMOS_RUNTIME_DIR@ @NMOS_STATE_DIR@$' "${SERVICE_FILE}" || {
+    echo "persistent storage service is missing platform-adapter-aware write paths." >&2
     exit 1
 }
 

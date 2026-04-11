@@ -34,8 +34,8 @@ for unit in "${SETTINGS_SERVICE}" "${PERSISTENT_SERVICE}" "${NETWORK_SERVICE}"; 
     }
 done
 
-grep -q '^ReadWritePaths=/run/nmos /var/lib/nmos$' "${SETTINGS_SERVICE}" || {
-    echo "settings service hardening is missing explicit write paths." >&2
+grep -q '^ReadWritePaths=@NMOS_RUNTIME_DIR@ @NMOS_STATE_DIR@$' "${SETTINGS_SERVICE}" || {
+    echo "settings service hardening is not platform-adapter aware for write paths." >&2
     exit 1
 }
 
@@ -44,13 +44,13 @@ grep -q '^RestrictAddressFamilies=AF_UNIX$' "${SETTINGS_SERVICE}" || {
     exit 1
 }
 
-grep -q '^ReadWritePaths=/run/nmos /var/lib/nmos$' "${PERSISTENT_SERVICE}" || {
-    echo "persistent storage service hardening is missing explicit write paths." >&2
+grep -q '^ReadWritePaths=@NMOS_RUNTIME_DIR@ @NMOS_STATE_DIR@$' "${PERSISTENT_SERVICE}" || {
+    echo "persistent storage service hardening is not platform-adapter aware for write paths." >&2
     exit 1
 }
 
-grep -q '^ReadWritePaths=/run/nmos$' "${NETWORK_SERVICE}" || {
-    echo "network bootstrap service hardening is missing explicit runtime write path." >&2
+grep -q '^ReadWritePaths=@NMOS_RUNTIME_DIR@$' "${NETWORK_SERVICE}" || {
+    echo "network bootstrap service hardening is not platform-adapter aware for write path." >&2
     exit 1
 }
 

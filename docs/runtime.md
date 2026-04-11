@@ -16,6 +16,7 @@
 7. the desktop autostart helper applies the selected wallpaper, color scheme, motion, density, and Brave visibility policy
 8. optional platform adapter overrides can be declared in `/etc/nmos/platform-adapter.env`
 9. runtime and state base directories can be overridden with `NMOS_RUNTIME_DIR` and `NMOS_STATE_DIR`
+10. static D-Bus, tmpfiles, and systemd write-path entries are rendered during build from platform adapter values
 
 ## Settings model
 

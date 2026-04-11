@@ -280,6 +280,7 @@ def test_overlay_build_uses_installed_python_packages(repo_root: Path) -> None:
 
 
 def test_service_units_include_requested_hardening(repo_root: Path) -> None:
+    common_source = (repo_root / "build" / "lib" / "common.sh").read_text(encoding="utf-8")
     settings_service = (
         repo_root
         / "config"
@@ -316,7 +317,7 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
             assert value in service_source
 
     assert "CapabilityBoundingSet=" in settings_service
-    assert "ReadWritePaths=/run/nmos /var/lib/nmos" in settings_service
+    assert "ReadWritePaths=@NMOS_RUNTIME_DIR@ @NMOS_STATE_DIR@" in settings_service
     assert "RestrictAddressFamilies=AF_UNIX" in settings_service
 
     for value in ("NoNewPrivileges=yes", "ProtectSystem=strict", "ProtectHome=yes", "PrivateTmp=yes"):
@@ -325,9 +326,13 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
 
     assert "CapabilityBoundingSet=" in persistent_service
     assert "CapabilityBoundingSet=" in network_service
-    assert "ReadWritePaths=/run/nmos /var/lib/nmos" in persistent_service
-    assert "ReadWritePaths=/run/nmos" in network_service
+    assert "ReadWritePaths=@NMOS_RUNTIME_DIR@ @NMOS_STATE_DIR@" in persistent_service
+    assert "ReadWritePaths=@NMOS_RUNTIME_DIR@" in network_service
     assert "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK" in network_service
+    assert "render_platform_overlay_templates" in common_source
+    assert "nmos-settings.service" in common_source
+    assert "nmos-persistent-storage.service" in common_source
+    assert "nmos-network-bootstrap.service" in common_source
 
 
 def test_platform_adapter_templates_rendered_by_build_helpers(repo_root: Path) -> None:

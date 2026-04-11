@@ -114,13 +114,22 @@ render_platform_overlay_templates() {
     local settings_policy_file="${ROOTFS_DIR}/etc/dbus-1/system.d/org.nmos.Settings1.conf"
     local persistent_policy_file="${ROOTFS_DIR}/etc/dbus-1/system.d/org.nmos.PersistentStorage.conf"
     local tmpfiles_file="${ROOTFS_DIR}/usr/lib/tmpfiles.d/nmos.conf"
+    local settings_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-settings.service"
+    local persistent_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-persistent-storage.service"
+    local network_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-network-bootstrap.service"
     local escaped_gdm_user
     local escaped_runtime_dir
     local escaped_state_dir
     escaped_gdm_user="$(escape_for_sed "${PLATFORM_GDM_USER}")"
     escaped_runtime_dir="$(escape_for_sed "${PLATFORM_RUNTIME_DIR}")"
     escaped_state_dir="$(escape_for_sed "${PLATFORM_STATE_DIR}")"
-    for path in "${settings_policy_file}" "${persistent_policy_file}" "${tmpfiles_file}"; do
+    for path in \
+        "${settings_policy_file}" \
+        "${persistent_policy_file}" \
+        "${tmpfiles_file}" \
+        "${settings_service_file}" \
+        "${persistent_service_file}" \
+        "${network_service_file}"; do
         [ -f "${path}" ] || continue
         sed -i \
             -e "s/@NMOS_GDM_USER@/${escaped_gdm_user}/g" \

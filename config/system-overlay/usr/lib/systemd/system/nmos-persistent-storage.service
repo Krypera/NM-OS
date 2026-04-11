@@ -12,7 +12,7 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/run/nmos /var/lib/nmos
+ReadWritePaths=@NMOS_RUNTIME_DIR@ @NMOS_STATE_DIR@
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER CAP_CHOWN CAP_MKNOD CAP_SYS_RAWIO
 
 [Install]
