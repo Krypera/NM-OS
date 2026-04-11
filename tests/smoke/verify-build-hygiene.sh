@@ -36,6 +36,16 @@ grep -q 'stage_installer_assets_tree' "${COMMON_SH}" || {
     exit 1
 }
 
+grep -q 'resolve_base_installer_iso' "${COMMON_SH}" || {
+    echo "build helpers do not resolve the base installer ISO." >&2
+    exit 1
+}
+
+grep -q 'build_installer_iso_image' "${COMMON_SH}" || {
+    echo "build helpers do not expose the installer ISO builder." >&2
+    exit 1
+}
+
 grep -Fq 'config/system-overlay/usr/local/bin/* text eol=lf' "${GITATTRIBUTES}" || {
     echo ".gitattributes does not pin LF endings for overlay launchers." >&2
     exit 1
@@ -53,7 +63,7 @@ from pathlib import Path
 
 root = Path(os.environ["NMOS_ROOT"])
 tracked = subprocess.check_output(["git", "-C", str(root), "ls-files"], text=True).splitlines()
-lf_patterns = (".sh", ".py", ".service", ".target", ".conf", ".desktop", ".json", ".md", ".yml", ".toml", ".css")
+lf_patterns = (".sh", ".py", ".service", ".target", ".conf", ".desktop", ".json", ".md", ".yml", ".toml", ".css", ".in")
 lf_violations: list[str] = []
 
 for rel in tracked:

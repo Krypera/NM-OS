@@ -39,6 +39,7 @@ jobs:
           bash ./tests/smoke/verify-version-policy.sh
           bash ./tests/smoke/verify-settings-model.sh
           bash ./tests/smoke/verify-control-center.sh
+          bash ./tests/smoke/verify-installer-media.sh
           bash ./tests/smoke/verify-systemd-hardening.sh
           bash ./tests/smoke/verify-brave-optional.sh
           bash ./tests/smoke/verify-greeter-state.sh
@@ -80,6 +81,13 @@ jobs:
         run: |
           set -euo pipefail
           bash ./build/smoke-overlay.sh
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nmos-build-dist
+          path: dist/
+          if-no-files-found: error
 
   windows-smoke:
     runs-on: windows-latest

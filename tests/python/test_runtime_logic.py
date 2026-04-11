@@ -288,6 +288,7 @@ def test_workflow_includes_overlay_and_windows_validation(repo_root: Path) -> No
     workflow_source = (repo_root / ".github" / "workflows" / "smoke.yml").read_text(encoding="utf-8")
     assert "build-smoke:" in workflow_source
     assert "smoke-overlay.sh" in workflow_source
+    assert "verify-installer-media.sh" in workflow_source
     assert "windows-smoke:" in workflow_source
     assert "verify-windows-wsl-bridge.ps1" in workflow_source
     assert "verify-control-center.sh" in workflow_source
@@ -323,22 +324,38 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert wallpaper_light.exists()
 
 
-def test_installer_assets_are_packaged(repo_root: Path) -> None:
+def test_installer_media_and_assets_are_packaged(repo_root: Path) -> None:
     build_source = (repo_root / "build" / "build.sh").read_text(encoding="utf-8")
+    common_source = (repo_root / "build" / "lib" / "common.sh").read_text(encoding="utf-8")
+    verify_artifacts_source = (repo_root / "build" / "verify-artifacts.sh").read_text(encoding="utf-8")
     installer_settings = (
         repo_root / "config" / "installer" / "calamares" / "settings.conf"
     ).read_text(encoding="utf-8")
     branding_source = (
         repo_root / "config" / "installer" / "calamares" / "branding" / "nmos" / "branding.desc"
     ).read_text(encoding="utf-8")
+    installer_preseed = (
+        repo_root / "config" / "installer" / "debian-installer" / "preseed" / "nmos.cfg.in"
+    ).read_text(encoding="utf-8")
+    late_command_template = (
+        repo_root / "config" / "installer" / "debian-installer" / "preseed" / "install-overlay.sh.in"
+    ).read_text(encoding="utf-8")
     installer_packages = (
         repo_root / "config" / "installer-packages" / "base.txt"
     ).read_text(encoding="utf-8")
 
     assert "installer_assets" in build_source
-    assert "stage_installer_assets_tree" in build_source
+    assert "installer_iso=" in build_source
+    assert "build_installer_iso_image" in build_source
+    assert "resolve_base_installer_iso" in common_source
+    assert "installer_iso_name" in common_source
+    assert "preseed/file=/cdrom/preseed/nmos.cfg" in common_source
+    assert "xorriso -osirrox on -indev" in verify_artifacts_source
     assert "branding: nmos" in installer_settings
     assert "productName: \"NM-OS\"" in branding_source
+    assert "@PKGSEL_INCLUDE@" in installer_preseed
+    assert "in-target /bin/bash /root/nmos-install-overlay.sh" in installer_preseed
+    assert 'tar -xzf "${OVERLAY_ARCHIVE}" -C /' in late_command_template
     assert "calamares" in installer_packages
     assert "flatpak" in installer_packages
 

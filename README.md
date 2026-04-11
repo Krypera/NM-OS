@@ -1,21 +1,27 @@
 # NM-OS
 
-NM-OS is a privacy-first installed operating system profile for Debian-based systems.
+NM-OS is a privacy-focused desktop system profile for Debian-based systems.
 
-The current direction is simple:
+The goal is simple: start with careful defaults, stay easy to understand, and let people shape the system around their own comfort level.
 
-- security presets instead of one hard-coded mode
-- a pre-login setup assistant inside GDM
-- a desktop control center for everyday tuning
-- Tor-first, direct, or offline networking as system settings
+Today NM-OS includes:
+
+- security profiles with room for custom tuning
+- a setup assistant before login
+- a desktop control center for everyday changes
+- Tor-first, direct, or offline networking choices
 - an encrypted vault for sensitive files
-- a retro-futuristic but user-friendly visual language
+- a clean visual style with a few intentional theme options
 
 ## What Exists Today
 
-The repo currently builds an installed-system overlay plus installer scaffolding assets.
+The repo currently builds:
 
-The first product slice now includes:
+- an installed-system overlay archive
+- installer assets
+- a ready-to-boot installer ISO
+
+The current slice includes:
 
 - preset-aware system settings with schema versioning
 - `org.nmos.Settings1` for settings management
@@ -23,18 +29,8 @@ The first product slice now includes:
 - a richer greeter onboarding flow with profile and appearance choices
 - an `NM-OS Control Center` desktop app skeleton
 - shared theme CSS and branding assets
-- Calamares installer configuration scaffolding
-
-## Product Direction
-
-NM-OS is not trying to be a Qubes clone.
-
-The goal is a normal desktop OS that can start from cautious defaults, then let the user move toward:
-
-- more comfort
-- more privacy
-- more restriction
-- or a custom balance
+- a Debian-installer-based NM-OS ISO
+- Calamares installer configuration scaffolding for the desktop installer path
 
 The default profile is `Balanced`.
 
@@ -64,6 +60,20 @@ Optional Brave-aware overlay:
 ```bash
 NMOS_ENABLE_BRAVE=1 ./build/build.sh
 ```
+
+## Testing
+
+The safest way to test NM-OS is inside a virtual machine.
+
+The easiest flow now is:
+
+1. build the installer ISO from this repo
+2. boot that ISO in VirtualBox or another VM
+3. choose `Install NM-OS`
+4. finish the Debian-based install flow
+5. reboot into the installed NM-OS system
+
+The current install details are in [docs/installation.md](docs/installation.md).
 
 ## Useful Docs
 

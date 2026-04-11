@@ -3,14 +3,14 @@
 ## Host requirements
 
 - Linux build host or WSL2
+- `curl`
 - `rsync`
 - `tar`
 - `gzip`
 - `sha256sum`
+- `xorriso`
 
 ## What the build publishes
-
-The current build is still overlay-first, but it now emits installer scaffolding too.
 
 Artifacts in `dist/`:
 
@@ -21,6 +21,20 @@ Artifacts in `dist/`:
 - `nmos-installer-assets-<version>.tar.gz`
 - `nmos-installer-assets-<version>.sha256`
 - `nmos-installer-assets-<version>.packages`
+- `nmos-installer-<version>-amd64.iso`
+- `nmos-installer-<version>-amd64.sha256`
+
+## How the installer ISO is built
+
+The current installer media is built by:
+
+1. staging the NM-OS runtime overlay
+2. staging installer assets and Debian-installer templates
+3. resolving the current official Debian `amd64 netinst` ISO
+4. injecting the NM-OS preseed, overlay archive, and package manifest
+5. replaying the Debian boot layout into a new NM-OS installer ISO
+
+This means you do not need to download a separate Debian ISO by hand just to test NM-OS.
 
 ## What gets staged
 
@@ -34,6 +48,7 @@ Runtime overlay:
 Installer assets:
 
 - `config/installer/calamares/`
+- `config/installer/debian-installer/`
 - `config/installer-packages/`
 
 ## Entry points
@@ -63,6 +78,12 @@ Optional Brave-aware overlay:
 NMOS_ENABLE_BRAVE=1 ./build/build.sh
 ```
 
+Optional base ISO override:
+
+```bash
+NMOS_BASE_INSTALLER_ISO_PATH=/path/to/debian-amd64-netinst.iso ./build/build.sh
+```
+
 ## Verification
 
 Before a build:
@@ -75,6 +96,7 @@ Before a build:
 ./tests/smoke/verify-version-policy.sh
 ./tests/smoke/verify-settings-model.sh
 ./tests/smoke/verify-control-center.sh
+./tests/smoke/verify-installer-media.sh
 ./tests/smoke/verify-network-policy.sh
 ./tests/smoke/verify-prelogin-wiring.sh
 ./tests/smoke/verify-vault-storage.sh

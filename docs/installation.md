@@ -1,9 +1,6 @@
 # Installation Notes
 
-NM-OS is moving toward a `Calamares` installer-first model, but the current repo still publishes:
-
-- a runtime overlay archive
-- installer scaffolding assets
+NM-OS now publishes a bootable installer ISO for VM and hardware testing.
 
 ## Current artifact output
 
@@ -14,8 +11,32 @@ NM-OS is moving toward a `Calamares` installer-first model, but the current repo
 - `dist/nmos-installer-assets-<version>.tar.gz`
 - `dist/nmos-installer-assets-<version>.sha256`
 - `dist/nmos-installer-assets-<version>.packages`
+- `dist/nmos-installer-<version>-amd64.iso`
+- `dist/nmos-installer-<version>-amd64.sha256`
 
-## Overlay install flow today
+## Recommended test flow
+
+1. Build the repository outputs.
+2. Create a new VM in VirtualBox, VMware, or QEMU.
+3. Boot the VM from `nmos-installer-<version>-amd64.iso`.
+4. Choose `Install NM-OS`.
+5. Finish the Debian-based installer flow.
+6. Reboot into the installed system and test the greeter, profiles, vault, and control center.
+
+## What the installer ISO does
+
+The current ISO is based on Debian `amd64 netinst`.
+
+During installation it:
+
+- installs a GNOME-based Debian system
+- installs the NM-OS runtime package set
+- applies the staged NM-OS overlay in a late install step
+- boots into the installed NM-OS environment after setup
+
+## Overlay install flow
+
+The overlay archive is still useful for manual testing or layering NM-OS onto an existing Debian VM.
 
 1. Prepare a Debian-based target with GNOME and GDM.
 2. Install the packages listed in `nmos-system-overlay-<version>.packages`.
@@ -24,21 +45,8 @@ NM-OS is moving toward a `Calamares` installer-first model, but the current repo
 5. Run `systemctl daemon-reload`.
 6. Reboot.
 
-## What the overlay enables
+## Installer notes
 
-- the GDM setup assistant
-- `org.nmos.Settings1`
-- `org.nmos.PersistentStorage`
-- Tor-first, direct, or offline networking
-- the NM-OS Control Center
-- shared theme assets for first-party surfaces
-
-## Installer status
-
-The repo now includes:
-
-- Calamares base configuration
-- NM-OS installer branding assets
-- installer-side package manifests
-
-It does **not** yet publish a finished installer ISO.
+- the current installer path uses Debian-installer media with an NM-OS preseed and overlay payload
+- Calamares branding and module scaffolding remain in the repo for the richer desktop installer path
+- netinst media still expects network access during installation

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+OVERLAY_ARCHIVE="/root/@OVERLAY_ARCHIVE@"
+PACKAGES_FILE="/root/@PACKAGES_FILE@"
+INSTALLER_STATE_DIR="/var/lib/nmos/installer"
+INSTALLER_LOG="/var/log/nmos-installer.log"
+
+mkdir -p "${INSTALLER_STATE_DIR}"
+
+{
+    echo "[nmos-installer] version=@VERSION@"
+    echo "[nmos-installer] extracting overlay"
+    tar -xzf "${OVERLAY_ARCHIVE}" -C /
+    install -Dm0644 "${PACKAGES_FILE}" "${INSTALLER_STATE_DIR}/packages.txt"
+    printf '%s\n' '@VERSION@' > "${INSTALLER_STATE_DIR}/version"
+    systemd-tmpfiles --create /usr/lib/tmpfiles.d/nmos.conf || true
+    rm -f "${OVERLAY_ARCHIVE}" "${PACKAGES_FILE}" /root/nmos-install-overlay.sh
+    touch "${INSTALLER_STATE_DIR}/complete"
+    echo "[nmos-installer] complete"
+} >> "${INSTALLER_LOG}" 2>&1

@@ -7,13 +7,19 @@ VERSION="$(tr -d '\r\n' < "${ROOT_DIR}/config/version")"
 WORK_DIR="${ROOT_DIR}/.build/system-overlay"
 ROOTFS_DIR="${WORK_DIR}/rootfs"
 INSTALLER_WORK_DIR="${ROOT_DIR}/.build/installer-assets"
+INSTALLER_ISO_WORK_DIR="${ROOT_DIR}/.build/installer-iso"
+INSTALLER_ISO_TREE_DIR="${INSTALLER_ISO_WORK_DIR}/tree"
+INSTALLER_CACHE_DIR="${ROOT_DIR}/.cache/debian-installer"
 DIST_DIR="${ROOT_DIR}/dist"
 SYSTEM_OVERLAY_SOURCE="${ROOT_DIR}/config/system-overlay"
 SYSTEM_PACKAGES_SOURCE="${ROOT_DIR}/config/system-packages"
 INSTALLER_ASSETS_SOURCE="${ROOT_DIR}/config/installer"
 INSTALLER_PACKAGES_SOURCE="${ROOT_DIR}/config/installer-packages"
+INSTALLER_PRESEED_TEMPLATE="${ROOT_DIR}/config/installer/debian-installer/preseed/nmos.cfg.in"
+INSTALLER_LATE_COMMAND_TEMPLATE="${ROOT_DIR}/config/installer/debian-installer/preseed/install-overlay.sh.in"
 APPS_SOURCE="${ROOT_DIR}/apps"
 TARGET_PYTHON_DIR="${ROOTFS_DIR}/usr/lib/python3/dist-packages"
+DEBIAN_NETINST_BASE_URL="${NMOS_DEBIAN_NETINST_BASE_URL:-https://cdimage.debian.org/debian-cd/current/amd64/iso-cd}"
 VERSION_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$'
 
 require_cmd() {
@@ -37,7 +43,7 @@ validate_version_format() {
 }
 
 prepare_directories() {
-    mkdir -p "${ROOTFS_DIR}" "${DIST_DIR}" "${INSTALLER_WORK_DIR}"
+    mkdir -p "${ROOTFS_DIR}" "${DIST_DIR}" "${INSTALLER_WORK_DIR}" "${INSTALLER_ISO_TREE_DIR}" "${INSTALLER_CACHE_DIR}"
 }
 
 install_python_package_dir() {
@@ -120,4 +126,179 @@ installer_output_stem() {
 
 installer_archive_name() {
     echo "$(installer_output_stem).tar.gz"
+}
+
+installer_iso_output_stem() {
+    echo "nmos-installer-${VERSION}-amd64"
+}
+
+installer_iso_name() {
+    echo "$(installer_iso_output_stem).iso"
+}
+
+resolve_base_installer_iso() {
+    if [ -n "${NMOS_BASE_INSTALLER_ISO_PATH:-}" ]; then
+        if [ ! -s "${NMOS_BASE_INSTALLER_ISO_PATH}" ]; then
+            echo "configured base installer ISO is missing or empty: ${NMOS_BASE_INSTALLER_ISO_PATH}" >&2
+            exit 1
+        fi
+        echo "${NMOS_BASE_INSTALLER_ISO_PATH}"
+        return
+    fi
+
+    require_cmd curl
+    mkdir -p "${INSTALLER_CACHE_DIR}"
+
+    local checksums_path="${INSTALLER_CACHE_DIR}/SHA256SUMS"
+    curl -fsSL "${DEBIAN_NETINST_BASE_URL}/SHA256SUMS" -o "${checksums_path}"
+
+    local iso_file
+    iso_file="$(awk '$2 ~ /amd64-netinst\.iso$/ {gsub(/^\.\//, "", $2); print $2; exit}' "${checksums_path}")"
+    if [ -z "${iso_file}" ]; then
+        echo "could not resolve the Debian netinst ISO name from ${DEBIAN_NETINST_BASE_URL}/SHA256SUMS" >&2
+        exit 1
+    fi
+
+    local iso_path="${INSTALLER_CACHE_DIR}/${iso_file}"
+    local checksum_file="${INSTALLER_CACHE_DIR}/${iso_file}.sha256"
+    local checksum_value
+    checksum_value="$(awk -v target="./${iso_file}" '$2 == target {print $1; exit}' "${checksums_path}")"
+    if [ -z "${checksum_value}" ]; then
+        echo "could not resolve the Debian netinst checksum for ${iso_file}" >&2
+        exit 1
+    fi
+    printf '%s  %s\n' "${checksum_value}" "${iso_file}" > "${checksum_file}"
+
+    if [ ! -s "${iso_path}" ]; then
+        curl -fL "${DEBIAN_NETINST_BASE_URL}/${iso_file}" -o "${iso_path}.tmp"
+        mv "${iso_path}.tmp" "${iso_path}"
+    fi
+
+    (
+        cd "${INSTALLER_CACHE_DIR}"
+        sha256sum -c "${checksum_file}" >/dev/null
+    )
+
+    echo "${iso_path}"
+}
+
+installer_pkgsel_include() {
+    local packages_file="$1"
+    awk '
+        /^[[:space:]]*#/ { next }
+        /^[[:space:]]*$/ { next }
+        $1 == "brave-browser" { next }
+        { print $1 }
+    ' "${packages_file}" | paste -sd ' ' -
+}
+
+render_installer_preseed_files() {
+    local stage_dir="$1"
+    local overlay_archive_path="$2"
+    local packages_file_path="$3"
+
+    local overlay_archive_name
+    overlay_archive_name="$(basename "${overlay_archive_path}")"
+    local packages_file_name
+    packages_file_name="$(basename "${packages_file_path}")"
+    local pkgsel_include
+    pkgsel_include="$(installer_pkgsel_include "${packages_file_path}")"
+
+    if [ -z "${pkgsel_include}" ]; then
+        echo "installer package selection is empty." >&2
+        exit 1
+    fi
+
+    mkdir -p "${stage_dir}/preseed" "${stage_dir}/nmos"
+    cp "${overlay_archive_path}" "${stage_dir}/nmos/${overlay_archive_name}"
+    cp "${packages_file_path}" "${stage_dir}/nmos/${packages_file_name}"
+
+    sed \
+        -e "s|@PKGSEL_INCLUDE@|${pkgsel_include}|g" \
+        -e "s|@OVERLAY_ARCHIVE@|${overlay_archive_name}|g" \
+        -e "s|@PACKAGES_FILE@|${packages_file_name}|g" \
+        "${INSTALLER_PRESEED_TEMPLATE}" > "${stage_dir}/preseed/nmos.cfg"
+
+    sed \
+        -e "s|@OVERLAY_ARCHIVE@|${overlay_archive_name}|g" \
+        -e "s|@PACKAGES_FILE@|${packages_file_name}|g" \
+        -e "s|@VERSION@|${VERSION}|g" \
+        "${INSTALLER_LATE_COMMAND_TEMPLATE}" > "${stage_dir}/nmos/install-overlay.sh"
+    chmod +x "${stage_dir}/nmos/install-overlay.sh"
+}
+
+patch_debian_installer_menu() {
+    local stage_dir="$1"
+    local isolinux_cfg="${stage_dir}/isolinux/txt.cfg"
+    local grub_cfg="${stage_dir}/boot/grub/grub.cfg"
+
+    [ -f "${isolinux_cfg}" ] || {
+        echo "Debian installer BIOS menu is missing: ${isolinux_cfg}" >&2
+        exit 1
+    }
+    [ -f "${grub_cfg}" ] || {
+        echo "Debian installer UEFI menu is missing: ${grub_cfg}" >&2
+        exit 1
+    }
+
+    if ! grep -q '^label nmos-install$' "${isolinux_cfg}"; then
+        cat >> "${isolinux_cfg}" <<'EOF'
+
+label nmos-install
+    menu label ^Install NM-OS
+    kernel /install.amd/vmlinuz
+    append priority=high preseed/file=/cdrom/preseed/nmos.cfg initrd=/install.amd/initrd.gz ---
+EOF
+    fi
+
+    if ! grep -q "^menuentry 'Install NM-OS'" "${grub_cfg}"; then
+        cat >> "${grub_cfg}" <<'EOF'
+
+menuentry 'Install NM-OS' {
+    linux    /install.amd/vmlinuz priority=high preseed/file=/cdrom/preseed/nmos.cfg ---
+    initrd   /install.amd/initrd.gz
+}
+EOF
+    fi
+}
+
+refresh_installer_md5sums() {
+    local stage_dir="$1"
+    (
+        cd "${stage_dir}"
+        find . -type f ! -name 'md5sum.txt' -print0 | LC_ALL=C sort -z | xargs -0 md5sum > md5sum.txt
+    )
+}
+
+build_installer_iso_image() {
+    local overlay_archive_path="$1"
+    local packages_file_path="$2"
+
+    require_cmd xorriso
+
+    local base_iso
+    base_iso="$(resolve_base_installer_iso)"
+
+    rm -rf "${INSTALLER_ISO_WORK_DIR}"
+    mkdir -p "${INSTALLER_ISO_TREE_DIR}"
+    xorriso -osirrox on -indev "${base_iso}" -extract / "${INSTALLER_ISO_TREE_DIR}" >/dev/null 2>&1
+    if [ -d "${INSTALLER_ISO_TREE_DIR}/[BOOT]" ]; then
+        rm -rf "${INSTALLER_ISO_TREE_DIR}/[BOOT]"
+    fi
+
+    render_installer_preseed_files "${INSTALLER_ISO_TREE_DIR}" "${overlay_archive_path}" "${packages_file_path}"
+    patch_debian_installer_menu "${INSTALLER_ISO_TREE_DIR}"
+    refresh_installer_md5sums "${INSTALLER_ISO_TREE_DIR}"
+
+    local installer_iso_path="${DIST_DIR}/$(installer_iso_name)"
+    rm -f "${installer_iso_path}"
+    xorriso \
+        -indev "${base_iso}" \
+        -outdev "${installer_iso_path}" \
+        -update_r "${INSTALLER_ISO_TREE_DIR}" / \
+        -boot_image any replay \
+        -changes_pending yes \
+        -volid "NMOS-${VERSION}" >/dev/null 2>&1
+
+    sha256sum "${installer_iso_path}" > "${DIST_DIR}/$(installer_iso_output_stem).sha256"
 }

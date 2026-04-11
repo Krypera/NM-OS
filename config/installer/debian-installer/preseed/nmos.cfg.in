@@ -1,0 +1,11 @@
+# NM-OS Debian-installer defaults
+
+tasksel tasksel/first multiselect standard, gnome-desktop
+d-i pkgsel/include string @PKGSEL_INCLUDE@
+popularity-contest popularity-contest/participate boolean false
+
+d-i preseed/late_command string \
+    cp /cdrom/nmos/install-overlay.sh /target/root/nmos-install-overlay.sh; \
+    cp /cdrom/nmos/@OVERLAY_ARCHIVE@ /target/root/@OVERLAY_ARCHIVE@; \
+    cp /cdrom/nmos/@PACKAGES_FILE@ /target/root/@PACKAGES_FILE@; \
+    in-target /bin/bash /root/nmos-install-overlay.sh

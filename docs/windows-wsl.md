@@ -1,14 +1,14 @@
 # Windows + WSL2 Workflow
 
-NM-OS is developed on Windows, but the overlay build runs inside WSL2.
+NM-OS is developed on Windows, but the build runs inside WSL2.
 
 ## What runs where
 
 - Edit code on Windows
 - Run build commands from PowerShell
-- Let WSL2 execute the Linux overlay build
-- Review the generated `.tar.gz` overlay and package manifest from Windows
-- Apply that overlay to a Debian-based test VM, image, or staging system
+- Let WSL2 execute the Linux build
+- Review the generated overlay, installer assets, and installer ISO from Windows
+- Boot the installer ISO in a VM to test the full setup flow
 
 ## First setup
 
@@ -34,9 +34,11 @@ From PowerShell:
 .\build\build.ps1
 ```
 
-The primary output for Windows testing is:
+Outputs for Windows testing:
 
 - `dist\nmos-system-overlay-<version>.tar.gz`
+- `dist\nmos-installer-assets-<version>.tar.gz`
+- `dist\nmos-installer-<version>-amd64.iso`
 
 If you want the optional Brave-aware overlay:
 
@@ -44,12 +46,12 @@ If you want the optional Brave-aware overlay:
 .\build\build.ps1 -EnableBrave
 ```
 
-## Apply Or Inspect
+## Test
 
 Typical next steps are:
 
-1. open the generated `*.packages` file
-2. prepare a Debian-based VM or disk image
-3. install the listed packages
-4. extract the overlay onto the target root filesystem
-5. reload systemd and reboot
+1. open VirtualBox or another hypervisor
+2. create a fresh VM
+3. mount `dist\nmos-installer-<version>-amd64.iso`
+4. boot and choose `Install NM-OS`
+5. finish installation and reboot into the installed system

@@ -15,6 +15,8 @@ require_cmd rsync
 require_cmd tar
 require_cmd sha256sum
 require_cmd grep
+require_cmd curl
+require_cmd xorriso
 validate_version_format "${VERSION}"
 
 bash "${ROOT_DIR}/build/verify-no-leaks.sh"
@@ -43,10 +45,15 @@ ARCHIVE_PATH="${DIST_DIR}/${ARCHIVE_NAME}"
 INSTALLER_STEM="$(installer_output_stem)"
 INSTALLER_ARCHIVE_NAME="$(installer_archive_name)"
 INSTALLER_ARCHIVE_PATH="${DIST_DIR}/${INSTALLER_ARCHIVE_NAME}"
+INSTALLER_ISO_STEM="$(installer_iso_output_stem)"
+INSTALLER_ISO_NAME="$(installer_iso_name)"
+INSTALLER_ISO_PATH="${DIST_DIR}/${INSTALLER_ISO_NAME}"
+
 tar -C "${ROOTFS_DIR}" -czf "${ARCHIVE_PATH}" .
 tar -C "${INSTALLER_WORK_DIR}" -czf "${INSTALLER_ARCHIVE_PATH}" .
 sha256sum "${ARCHIVE_PATH}" > "${DIST_DIR}/${OUTPUT_STEM}.sha256"
 sha256sum "${INSTALLER_ARCHIVE_PATH}" > "${DIST_DIR}/${INSTALLER_STEM}.sha256"
+
 cp "${SYSTEM_PACKAGES_SOURCE}/base.txt" "${DIST_DIR}/${OUTPUT_STEM}.packages"
 if [ "${NMOS_ENABLE_BRAVE:-0}" = "1" ]; then
     cat "${SYSTEM_PACKAGES_SOURCE}/optional-brave.txt" >> "${DIST_DIR}/${OUTPUT_STEM}.packages"
@@ -54,6 +61,8 @@ fi
 if [ -f "${INSTALLER_PACKAGES_SOURCE}/base.txt" ]; then
     cp "${INSTALLER_PACKAGES_SOURCE}/base.txt" "${DIST_DIR}/${INSTALLER_STEM}.packages"
 fi
+
+build_installer_iso_image "${ARCHIVE_PATH}" "${DIST_DIR}/${OUTPUT_STEM}.packages"
 
 cat > "${DIST_DIR}/${OUTPUT_STEM}.build-manifest" <<EOF
 version=${VERSION}
@@ -63,7 +72,10 @@ built_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 source_repo=https://github.com/Krypera/NM-OS.git
 artifact_type=system-overlay
 installer_assets=${INSTALLER_ARCHIVE_NAME}
-installer_stack=calamares
+installer_iso=${INSTALLER_ISO_NAME}
+installer_stack=debian-installer
+installer_ui=calamares-assets
+installer_base=$(basename "$(resolve_base_installer_iso)")
 app_isolation=flatpak-portals
 features=${FEATURES_VALUE}
 EOF
@@ -71,3 +83,4 @@ EOF
 bash "${ROOT_DIR}/build/verify-artifacts.sh"
 
 echo "Build complete: ${ARCHIVE_PATH}"
+echo "Installer ISO complete: ${INSTALLER_ISO_PATH}"

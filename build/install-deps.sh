@@ -16,12 +16,14 @@ export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
 apt-get install -y \
+    curl \
     python3 \
     python3-venv \
     rsync \
     tar \
     gzip \
-    shellcheck
+    shellcheck \
+    xorriso
 
-echo "NM-OS overlay build dependencies are installed."
+echo "NM-OS build dependencies are installed."
 echo "For local smoke tooling, run: bash ./build/install-dev-deps.sh"
