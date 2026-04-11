@@ -38,12 +38,12 @@ grep -q 'preseed/file=/cdrom/preseed/nmos.cfg' "${COMMON_SH}" || {
     exit 1
 }
 
-grep -q 'sub(/^\.\//, "", path)' "${COMMON_SH}" || {
+grep -Fq 'sub(/^\.\//, "", path)' "${COMMON_SH}" || {
     echo "build helpers do not normalize Debian checksum paths with ./ prefixes." >&2
     exit 1
 }
 
-grep -q 'sub(/^\*/, "", path)' "${COMMON_SH}" || {
+grep -Fq 'sub(/^\*/, "", path)' "${COMMON_SH}" || {
     echo "build helpers do not normalize Debian checksum paths with * prefixes." >&2
     exit 1
 }
