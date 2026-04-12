@@ -345,6 +345,21 @@ def _clamp_score(value: int) -> int:
     return max(0, min(10, value))
 
 
+def _coerce_score(value: object, default: int = 5) -> int:
+    if isinstance(value, bool):
+        parsed = int(value)
+    elif isinstance(value, int):
+        parsed = value
+    elif isinstance(value, str):
+        try:
+            parsed = int(value)
+        except ValueError:
+            parsed = default
+    else:
+        parsed = default
+    return _clamp_score(parsed)
+
+
 def compute_posture_scores(effective: object) -> dict[str, int]:
     raw = effective if isinstance(effective, dict) else {}
     protection = 5
@@ -418,6 +433,22 @@ def compute_posture_scores(effective: object) -> dict[str, int]:
     return {
         "protection": _clamp_score(protection),
         "convenience": _clamp_score(convenience),
+    }
+
+
+def compute_posture_score_shift(
+    baseline_scores: object,
+    target_scores: object,
+) -> dict[str, int]:
+    baseline = baseline_scores if isinstance(baseline_scores, dict) else {}
+    target = target_scores if isinstance(target_scores, dict) else {}
+    baseline_protection = _coerce_score(baseline.get("protection", 5))
+    baseline_convenience = _coerce_score(baseline.get("convenience", 5))
+    target_protection = _coerce_score(target.get("protection", 5))
+    target_convenience = _coerce_score(target.get("convenience", 5))
+    return {
+        "protection_delta": target_protection - baseline_protection,
+        "convenience_delta": target_convenience - baseline_convenience,
     }
 
 

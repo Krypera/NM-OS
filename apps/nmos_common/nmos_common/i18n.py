@@ -211,6 +211,7 @@ TRANSLATIONS = {
         "Current balance favors stronger protection.": "El balance actual favorece una proteccion mas fuerte.",
         "Current balance favors convenience.": "El balance actual favorece la comodidad.",
         "Current balance is relatively even.": "El balance actual esta relativamente equilibrado.",
+        "Shift vs current system: protection {protection}, convenience {convenience}": "Cambio respecto al sistema actual: proteccion {protection}, comodidad {convenience}",
     }
 }
 
@@ -360,6 +361,20 @@ def posture_meter_lines(locale: str | None, posture: object) -> list[str]:
     else:
         lines.append(translate(locale, "Current balance is relatively even."))
     return lines
+
+
+def format_posture_shift(locale: str | None, shift: object) -> str:
+    raw = shift if isinstance(shift, dict) else {}
+    protection_delta = int(raw.get("protection_delta", 0))
+    convenience_delta = int(raw.get("convenience_delta", 0))
+    protection_text = f"{protection_delta:+d}"
+    convenience_text = f"{convenience_delta:+d}"
+    return translate(
+        locale,
+        "Shift vs current system: protection {protection}, convenience {convenience}",
+        protection=protection_text,
+        convenience=convenience_text,
+    )
 
 
 def translate_message(locale: str | None, text: str) -> str:

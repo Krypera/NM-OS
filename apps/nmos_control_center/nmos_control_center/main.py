@@ -15,6 +15,7 @@ from nmos_common.i18n import (
     explain_sandbox_default,
     explain_vault_behavior,
     format_change_detail,
+    format_posture_shift,
     posture_explanation_lines,
     posture_meter_lines,
     resolve_supported_locale,
@@ -27,6 +28,8 @@ from nmos_common.system_settings import (
     MOTION_LABELS,
     PROFILE_METADATA,
     THEME_PROFILE_LABELS,
+    compute_posture_score_shift,
+    compute_posture_scores,
     derive_overrides_for_profile,
     describe_effective_change_details,
     describe_posture_preview,
@@ -186,6 +189,9 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.profile_meter_label = Gtk.Label(xalign=0)
         self.profile_meter_label.set_wrap(True)
         self.profile_meter_label.add_css_class("dim-label")
+        self.profile_shift_label = Gtk.Label(xalign=0)
+        self.profile_shift_label.set_wrap(True)
+        self.profile_shift_label.add_css_class("dim-label")
         self.change_timing_label = Gtk.Label(xalign=0)
         self.change_timing_label.set_wrap(True)
         self.change_detail_label = Gtk.Label(xalign=0)
@@ -250,6 +256,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                 self.profile_guidance,
                 self.profile_tradeoff,
                 self.profile_meter_label,
+                self.profile_shift_label,
                 self.profile_details,
                 self.change_timing_label,
                 self.change_detail_label,
@@ -454,6 +461,9 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.profile_guidance.set_text(self.tr(posture["ideal_for"]))
         self.profile_tradeoff.set_text(self.tr(posture["tradeoff"]))
         self.profile_meter_label.set_text("\n".join(posture_meter_lines(self.ui_locale, posture)))
+        current_scores = compute_posture_scores(self.settings)
+        shift = compute_posture_score_shift(current_scores, posture.get("scores", {}))
+        self.profile_shift_label.set_text(format_posture_shift(self.ui_locale, shift))
         self.profile_details.set_text(
             "\n".join(f"- {line}" for line in posture_explanation_lines(self.ui_locale, posture))
         )

@@ -10,6 +10,7 @@ from nmos_common.i18n import (
     explain_brave_visibility,
     explain_network_policy,
     format_change_detail,
+    format_posture_shift,
     posture_explanation_lines,
     posture_meter_lines,
     resolve_supported_locale,
@@ -20,6 +21,8 @@ from nmos_common.system_settings import (
     MOTION_LABELS,
     PROFILE_METADATA,
     THEME_PROFILE_LABELS,
+    compute_posture_score_shift,
+    compute_posture_scores,
     derive_overrides_for_profile,
     describe_effective_change_details,
     describe_posture_preview,
@@ -135,6 +138,7 @@ def _summary_page(window) -> Gtk.Widget:
         [
             window.summary_label,
             window.summary_meter_label,
+            window.summary_shift_label,
             window.summary_posture_label,
             window.summary_timing_label,
             window.summary_change_detail_label,
@@ -222,6 +226,9 @@ def build_ui(window) -> None:
     window.summary_meter_label = Gtk.Label(xalign=0)
     window.summary_meter_label.set_wrap(True)
     window.summary_meter_label.add_css_class("dim-label")
+    window.summary_shift_label = Gtk.Label(xalign=0)
+    window.summary_shift_label.set_wrap(True)
+    window.summary_shift_label.add_css_class("dim-label")
     window.summary_posture_label = Gtk.Label(xalign=0)
     window.summary_posture_label.set_wrap(True)
     window.summary_timing_label = Gtk.Label(xalign=0)
@@ -590,6 +597,9 @@ def refresh_summary(window) -> None:
         summary_lines.append(window.tr("Brave visibility: hidden"))
     window.summary_label.set_text("\n".join(summary_lines))
     window.summary_meter_label.set_text("\n".join(posture_meter_lines(window.ui_locale, posture)))
+    baseline_scores = compute_posture_scores(window.state)
+    shift = compute_posture_score_shift(baseline_scores, posture.get("scores", {}))
+    window.summary_shift_label.set_text(format_posture_shift(window.ui_locale, shift))
     window.summary_posture_label.set_text(
         "\n".join(f"- {line}" for line in posture_explanation_lines(window.ui_locale, posture))
     )

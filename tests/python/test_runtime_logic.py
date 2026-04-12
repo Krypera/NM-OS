@@ -19,6 +19,7 @@ from nmos_common.i18n import (
     explain_sandbox_default,
     explain_vault_behavior,
     format_change_detail,
+    format_posture_shift,
     posture_explanation_lines,
     posture_meter_lines,
     translate,
@@ -28,6 +29,7 @@ from nmos_common.system_settings import (
     DEFAULT_SYSTEM_SETTINGS,
     apply_system_profile,
     classify_effective_changes,
+    compute_posture_score_shift,
     compute_posture_scores,
     derive_overrides_for_profile,
     describe_effective_change_details,
@@ -194,6 +196,12 @@ def test_posture_scores_reflect_stricter_defaults() -> None:
     )
     assert maximum["protection"] > relaxed["protection"]
     assert maximum["convenience"] < relaxed["convenience"]
+    shift = compute_posture_score_shift(relaxed, maximum)
+    assert shift["protection_delta"] > 0
+    assert shift["convenience_delta"] < 0
+    shift_text = format_posture_shift("en_US.UTF-8", shift)
+    assert "protection +" in shift_text
+    assert "convenience -" in shift_text
 
 
 def test_setting_specific_explanations_are_stable() -> None:
