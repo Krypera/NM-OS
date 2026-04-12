@@ -121,11 +121,13 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.set_default_size(1080, 720)
         self.client = SettingsClient(allow_local_fallback=False)
         self.backend_ready = True
+        self.startup_error_message = ""
         try:
             self.settings = self.client.get_settings()
-        except SettingsClientError:
+        except SettingsClientError as error:
             self.settings = dict(DEFAULT_SYSTEM_SETTINGS)
             self.backend_ready = False
+            self.startup_error_message = error.user_message()
         self.profile_values = list(PROFILE_METADATA)
         self.language_values = [locale for locale, _label in LANGUAGE_OPTIONS]
         self.ui_locale = resolve_supported_locale(self.settings.get("locale", "en_US.UTF-8"))
@@ -140,7 +142,8 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         if not self.backend_ready:
             self.apply_button.set_sensitive(False)
             self.reset_button.set_sensitive(False)
-            self.status_label.set_text("Settings backend unavailable. Review mode only until service is reachable.")
+            prefix = f"{self.startup_error_message} " if self.startup_error_message else ""
+            self.status_label.set_text(f"{prefix}Review mode only until service is reachable.")
         self.set_content(self.root)
 
     def _selected_value(self, dropdown: Gtk.DropDown, values: list[str]) -> str:
@@ -571,11 +574,11 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.backend_ready = True
             self.apply_button.set_sensitive(True)
             self.reset_button.set_sensitive(True)
-        except SettingsClientError:
+        except SettingsClientError as error:
             self.backend_ready = False
             self.apply_button.set_sensitive(False)
             self.reset_button.set_sensitive(False)
-            self.status_label.set_text("Settings backend unavailable. Review mode only until service is reachable.")
+            self.status_label.set_text(f"{error.user_message()} Review mode only until service is reachable.")
             return
         self.restore_settings()
         self.refresh_summary()
@@ -585,8 +588,8 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         try:
             self.client.apply_preset(self._selected_value(self.profile_combo, self.profile_values))
             self.settings = self.client.commit()
-        except SettingsClientError:
-            self.status_label.set_text("Cannot apply changes while settings backend is unavailable.")
+        except SettingsClientError as error:
+            self.status_label.set_text(error.user_message())
             return
         self.restore_settings()
         self.refresh_summary()
@@ -601,8 +604,8 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             if overrides:
                 self.client.set_overrides(overrides)
             self.settings = self.client.commit()
-        except SettingsClientError:
-            self.status_label.set_text("Cannot apply changes while settings backend is unavailable.")
+        except SettingsClientError as error:
+            self.status_label.set_text(error.user_message())
             return
         self.restore_settings()
         self.refresh_summary()

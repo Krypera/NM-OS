@@ -167,8 +167,9 @@ def test_settings_client_does_not_fallback_by_default() -> None:
     try:
         client.get_settings()
         assert False, "Expected SettingsClientError when fallback is disabled"
-    except SettingsClientError:
-        pass
+    except SettingsClientError as error:
+        assert error.reason == "transport_error"
+        assert "connection failed" in error.user_message().lower()
 
 
 def test_settings_client_retriable_fallback_is_opt_in() -> None:
@@ -184,8 +185,9 @@ def test_settings_client_access_denied_never_falls_back() -> None:
     try:
         client.get_settings()
         assert False, "Expected SettingsClientError for access denied"
-    except SettingsClientError:
-        pass
+    except SettingsClientError as error:
+        assert error.reason == "access_denied"
+        assert "denied access" in error.user_message().lower()
 
 
 def test_posture_preview_is_explainable() -> None:
@@ -377,7 +379,7 @@ def test_greeter_layout_is_setup_only(repo_root: Path) -> None:
 
     assert "SettingsClient" in main_source
     assert "allow_local_fallback=False" in main_source
-    assert "Settings backend unavailable. Review mode only until service is reachable." in main_source
+    assert "Review mode only until service is reachable." in main_source
     assert "GDM" not in main_source
     assert "profile_combo" in ui_source
     assert "network_policy_combo" in ui_source
@@ -591,10 +593,12 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "GetPendingRebootChanges" in settings_service_source
     assert "SettingsClient" in settings_client_source
     assert "allow_local_fallback=False" in control_center_source
-    assert "Settings backend unavailable. Review mode only until service is reachable." in control_center_source
-    assert "Cannot apply changes while settings backend is unavailable." in control_center_source
+    assert "Review mode only until service is reachable." in control_center_source
+    assert "error.user_message()" in control_center_source
     assert "SettingsClientError" in settings_client_source
     assert "RETRIABLE_DBUS_ERRORS" in settings_client_source
+    assert "connection failed" in settings_client_source
+    assert "denied access" in settings_client_source
     assert "NMOS_ALLOW_LOCAL_SETTINGS_FALLBACK" in settings_client_source
     assert '<deny send_destination="org.nmos.Settings1"/>' in settings_policy_source
     assert '<policy at_console="true">' in settings_policy_source

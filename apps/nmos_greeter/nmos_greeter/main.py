@@ -35,11 +35,13 @@ class GreeterWindow(Adw.ApplicationWindow):
 
         self.settings_client_factory = lambda: SettingsClient(allow_local_fallback=False)
         self.settings_backend_ready = True
+        self.settings_backend_message = ""
         try:
             persisted_settings = self.settings_client_factory().get_settings()
-        except SettingsClientError:
+        except SettingsClientError as error:
             persisted_settings = dict(DEFAULT_SYSTEM_SETTINGS)
             self.settings_backend_ready = False
+            self.settings_backend_message = error.user_message()
         self.state = {**persisted_settings, **load_state()}
         self.system_settings = dict(persisted_settings)
         self.save_state = save_state
@@ -77,7 +79,8 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.setup_network_watchers()
         self.update_navigation()
         if not self.settings_backend_ready:
-            self.set_status("Settings backend unavailable. Review mode only until service is reachable.")
+            prefix = f"{self.settings_backend_message} " if self.settings_backend_message else ""
+            self.set_status(f"{prefix}Review mode only until service is reachable.")
         GLib.timeout_add_seconds(10, self.poll_runtime)
 
     def tr(self, source_text: str, **kwargs) -> str:
@@ -284,7 +287,10 @@ class GreeterWindow(Adw.ApplicationWindow):
             self.state = dict(self.system_settings)
         except (OSError, ValueError, RuntimeError, SettingsClientError) as exc:
             self.logger.error("failed to save system settings: %s", exc)
-            self.set_status(self.tr("Failed to save system settings: {error}", error=self.tr("internal error")))
+            if isinstance(exc, SettingsClientError):
+                self.set_status(exc.user_message())
+            else:
+                self.set_status(self.tr("Failed to save system settings: {error}", error=self.tr("internal error")))
             return
         self.set_status(self.tr("Settings saved. Some privacy changes apply on the next boot."))
         GLib.timeout_add_seconds(2, self.close_after_apply)

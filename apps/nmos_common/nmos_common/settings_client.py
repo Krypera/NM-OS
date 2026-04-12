@@ -32,7 +32,22 @@ RETRIABLE_DBUS_ERRORS = {
 
 
 class SettingsClientError(RuntimeError):
-    pass
+    def __init__(self, method_name: str, reason: str, *, dbus_name: str = "") -> None:
+        self.method_name = method_name
+        self.reason = reason
+        self.dbus_name = dbus_name
+        super().__init__(f"{method_name} failed: {reason}")
+
+    def user_message(self) -> str:
+        if self.reason == "access_denied":
+            return "Settings backend denied access to this session."
+        if self.reason == "backend_unavailable":
+            return "Settings backend is unavailable right now."
+        if self.reason == "transport_error":
+            return "Settings backend connection failed."
+        if self.reason == "dbus_import_error":
+            return "D-Bus bindings are unavailable on this system."
+        return "Settings backend request failed."
 
 
 class LocalSettingsClient:
@@ -76,12 +91,40 @@ class SettingsClient:
             interface = self._interface()
             response = getattr(interface, method_name)(*args)
         except Exception as error:
+            reason = self._classify_error_reason(error)
             if self.allow_local_fallback and self._can_use_local_fallback(error):
                 return local_method(*args)
-            raise SettingsClientError(f"{method_name} failed without a safe fallback path") from error
+            raise SettingsClientError(
+                method_name,
+                reason,
+                dbus_name=self._dbus_error_name(error),
+            ) from error
         if method_name == "GetPendingRebootChanges":
             return [str(item) for item in response]
         return dict(response)
+
+    def _dbus_error_name(self, error: Exception) -> str:
+        get_name = getattr(error, "get_dbus_name", None)
+        if callable(get_name):
+            try:
+                return str(get_name())
+            except Exception:
+                return ""
+        return ""
+
+    def _classify_error_reason(self, error: Exception) -> str:
+        if isinstance(error, ImportError):
+            return "dbus_import_error"
+        dbus_name = self._dbus_error_name(error)
+        if dbus_name == "org.freedesktop.DBus.Error.AccessDenied":
+            return "access_denied"
+        if dbus_name in RETRIABLE_DBUS_ERRORS:
+            return "transport_error"
+        if dbus_name == "org.freedesktop.DBus.Error.ServiceUnknown":
+            return "backend_unavailable"
+        if dbus_name:
+            return "dbus_error"
+        return "unexpected_error"
 
     def _can_use_local_fallback(self, error: Exception) -> bool:
         if isinstance(error, ImportError):
