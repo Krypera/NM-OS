@@ -8,6 +8,12 @@ from gi.repository import Adw, Gtk
 from nmos_common.i18n import (
     LANGUAGE_OPTIONS,
     display_language_name,
+    explain_brave_visibility,
+    explain_device_policy,
+    explain_logging_policy,
+    explain_network_policy,
+    explain_sandbox_default,
+    explain_vault_behavior,
     posture_explanation_lines,
     resolve_supported_locale,
     translate,
@@ -198,6 +204,18 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.vault_auto_lock_combo.connect("notify::selected", self.on_draft_settings_changed)
         self.vault_unlock_on_login = Gtk.Switch()
         self.vault_unlock_on_login.connect("notify::active", self.on_draft_settings_changed)
+        self.privacy_explanation = Gtk.Label(xalign=0)
+        self.privacy_explanation.set_wrap(True)
+        self.privacy_explanation.add_css_class("dim-label")
+        self.apps_explanation = Gtk.Label(xalign=0)
+        self.apps_explanation.set_wrap(True)
+        self.apps_explanation.add_css_class("dim-label")
+        self.vault_explanation = Gtk.Label(xalign=0)
+        self.vault_explanation.set_wrap(True)
+        self.vault_explanation.add_css_class("dim-label")
+        self.system_explanation = Gtk.Label(xalign=0)
+        self.system_explanation.set_wrap(True)
+        self.system_explanation.add_css_class("dim-label")
 
         for dropdown in (
             self.theme_profile_combo,
@@ -234,6 +252,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                     "Brave stays hidden unless the build enables it and you allow it here.",
                     self.brave_switch,
                 ),
+                self.privacy_explanation,
             ],
         )
 
@@ -250,6 +269,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                     label="Per-app overrides will land later. This first slice keeps the default policy readable and easy to change.",
                     xalign=0,
                 ),
+                self.apps_explanation,
             ],
         )
 
@@ -267,6 +287,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                     "Keep this off unless you explicitly want convenience ahead of stronger separation.",
                     self.vault_unlock_on_login,
                 ),
+                self.vault_explanation,
             ],
         )
 
@@ -284,6 +305,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                     "Minimal keeps diagnostics useful without retaining more than necessary.",
                     self.logging_combo,
                 ),
+                self.system_explanation,
             ],
         )
 
@@ -418,6 +440,32 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.profile_tradeoff.set_text(self.tr(posture["tradeoff"]))
         self.profile_details.set_text(
             "\n".join(f"- {line}" for line in posture_explanation_lines(self.ui_locale, posture))
+        )
+        self.privacy_explanation.set_text(
+            "\n".join(
+                [
+                    explain_network_policy(self.ui_locale, draft_values["network_policy"]),
+                    explain_brave_visibility(
+                        self.ui_locale,
+                        bool(draft_values["allow_brave_browser"]),
+                        str(draft_values["network_policy"]),
+                    ),
+                ]
+            )
+        )
+        self.apps_explanation.set_text(
+            explain_sandbox_default(self.ui_locale, str(draft_values["sandbox_default"]))
+        )
+        self.vault_explanation.set_text(
+            "\n".join(explain_vault_behavior(self.ui_locale, draft_values["vault"]))
+        )
+        self.system_explanation.set_text(
+            "\n".join(
+                [
+                    explain_device_policy(self.ui_locale, str(draft_values["device_policy"])),
+                    explain_logging_policy(self.ui_locale, str(draft_values["logging_policy"])),
+                ]
+            )
         )
         pending = draft_settings.get("pending_reboot", [])
         if pending:

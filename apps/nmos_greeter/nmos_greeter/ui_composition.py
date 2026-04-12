@@ -7,6 +7,8 @@ from gi.repository import Gtk
 from nmos_common.i18n import (
     display_language_name,
     display_network_policy_name,
+    explain_brave_visibility,
+    explain_network_policy,
     posture_explanation_lines,
     resolve_supported_locale,
 )
@@ -75,6 +77,7 @@ def _network_page(window) -> Gtk.Widget:
     box.append(window.network_policy_label)
     box.append(window.network_policy_combo)
     box.append(window.allow_brave_browser)
+    box.append(window.network_explanation_label)
     box.append(window.network_label)
     box.append(window.network_progress)
     box.append(window.network_refresh)
@@ -179,6 +182,9 @@ def build_ui(window) -> None:
     window.network_policy_combo.connect("notify::selected", window.on_network_policy_changed)
     window.allow_brave_browser = Gtk.CheckButton()
     window.allow_brave_browser.connect("toggled", window.on_allow_brave_browser_toggled)
+    window.network_explanation_label = Gtk.Label(xalign=0)
+    window.network_explanation_label.set_wrap(True)
+    window.network_explanation_label.add_css_class("dim-label")
     window.theme_profile_combo = _combo([THEME_PROFILE_LABELS[value] for value in window.theme_profile_values])
     window.theme_profile_combo.connect("notify::selected", window.on_theme_preview_changed)
     window.accent_combo = _combo([ACCENT_LABELS[value] for value in window.accent_values])
@@ -523,6 +529,18 @@ def refresh_profile_explanation(window) -> None:
     window.profile_guidance_label.set_text(window.tr(posture["ideal_for"]))
     window.profile_tradeoff_label.set_text(window.tr(posture["tradeoff"]))
     window.profile_details_label.set_text("\n".join(f"- {line}" for line in detail_lines))
+    window.network_explanation_label.set_text(
+        "\n".join(
+            [
+                explain_network_policy(window.ui_locale, current_network_policy(window)),
+                explain_brave_visibility(
+                    window.ui_locale,
+                    window.allow_brave_browser.get_active(),
+                    current_network_policy(window),
+                ),
+            ]
+        )
+    )
 
 
 def refresh_summary(window) -> None:

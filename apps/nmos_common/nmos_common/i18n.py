@@ -248,28 +248,56 @@ def explain_vault_behavior(locale: str | None, vault: object) -> list[str]:
     return lines
 
 
+def explain_network_policy(locale: str | None, policy: str | None) -> str:
+    normalized = str(policy or "tor").strip().lower()
+    template = NETWORK_POLICY_EXPLANATIONS.get(normalized, NETWORK_POLICY_EXPLANATIONS["tor"])
+    return translate(locale, template)
+
+
+def explain_sandbox_default(locale: str | None, value: str | None) -> str:
+    normalized = str(value or "focused").strip().lower()
+    template = SANDBOX_EXPLANATIONS.get(normalized, SANDBOX_EXPLANATIONS["focused"])
+    return translate(locale, template)
+
+
+def explain_device_policy(locale: str | None, value: str | None) -> str:
+    normalized = str(value or "prompt").strip().lower()
+    template = DEVICE_EXPLANATIONS.get(normalized, DEVICE_EXPLANATIONS["prompt"])
+    return translate(locale, template)
+
+
+def explain_logging_policy(locale: str | None, value: str | None) -> str:
+    normalized = str(value or "minimal").strip().lower()
+    template = LOGGING_EXPLANATIONS.get(normalized, LOGGING_EXPLANATIONS["minimal"])
+    return translate(locale, template)
+
+
+def explain_brave_visibility(locale: str | None, allow_brave_browser: bool, network_policy: str | None) -> str:
+    normalized_policy = str(network_policy or "tor").strip().lower()
+    if allow_brave_browser and normalized_policy != "offline":
+        return translate(locale, "Brave can appear when it is installed and the selected network policy allows it.")
+    return translate(locale, "Brave stays hidden unless you explicitly allow it.")
+
+
 def posture_explanation_lines(locale: str | None, posture: object) -> list[str]:
     raw = posture if isinstance(posture, dict) else {}
     effective = raw.get("effective", {}) if isinstance(raw.get("effective", {}), dict) else {}
     lines = []
 
     network_policy = str(effective.get("network_policy", "tor")).strip().lower()
-    lines.append(translate(locale, NETWORK_POLICY_EXPLANATIONS.get(network_policy, NETWORK_POLICY_EXPLANATIONS["tor"])))
+    lines.append(explain_network_policy(locale, network_policy))
 
     sandbox_default = str(effective.get("sandbox_default", "focused")).strip().lower()
-    lines.append(translate(locale, SANDBOX_EXPLANATIONS.get(sandbox_default, SANDBOX_EXPLANATIONS["focused"])))
+    lines.append(explain_sandbox_default(locale, sandbox_default))
 
     device_policy = str(effective.get("device_policy", "prompt")).strip().lower()
-    lines.append(translate(locale, DEVICE_EXPLANATIONS.get(device_policy, DEVICE_EXPLANATIONS["prompt"])))
+    lines.append(explain_device_policy(locale, device_policy))
 
     logging_policy = str(effective.get("logging_policy", "minimal")).strip().lower()
-    lines.append(translate(locale, LOGGING_EXPLANATIONS.get(logging_policy, LOGGING_EXPLANATIONS["minimal"])))
+    lines.append(explain_logging_policy(locale, logging_policy))
 
     lines.extend(explain_vault_behavior(locale, effective.get("vault", {})))
 
-    if bool(effective.get("allow_brave_browser", False)) and network_policy != "offline":
-        lines.append(translate(locale, "Brave can appear when it is installed and the selected network policy allows it."))
-    else:
-        lines.append(translate(locale, "Brave stays hidden unless you explicitly allow it."))
+    lines.append(explain_brave_visibility(locale, bool(effective.get("allow_brave_browser", False)), network_policy))
 
     return lines

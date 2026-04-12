@@ -9,7 +9,17 @@ sys.path.insert(0, str(ROOT / "apps" / "nmos_common"))
 sys.path.insert(0, str(ROOT / "apps" / "nmos_greeter"))
 sys.path.insert(0, str(ROOT / "apps" / "nmos_persistent_storage"))
 
-from nmos_common.i18n import display_language_name, posture_explanation_lines, translate
+from nmos_common.i18n import (
+    display_language_name,
+    explain_brave_visibility,
+    explain_device_policy,
+    explain_logging_policy,
+    explain_network_policy,
+    explain_sandbox_default,
+    explain_vault_behavior,
+    posture_explanation_lines,
+    translate,
+)
 from nmos_common.platform_adapter import load_platform_adapter
 from nmos_common.system_settings import (
     DEFAULT_SYSTEM_SETTINGS,
@@ -147,6 +157,26 @@ def test_posture_preview_is_explainable() -> None:
     spanish_lines = posture_explanation_lines("es_ES.UTF-8", posture)
     assert any("red directa" in line.lower() for line in spanish_lines)
     assert any("5 minutos" in line for line in spanish_lines)
+
+
+def test_setting_specific_explanations_are_stable() -> None:
+    assert "privacy-first default" in explain_network_policy("en_US.UTF-8", "tor")
+    assert "Red directa" not in explain_network_policy("en_US.UTF-8", "direct")
+    assert "red directa" in explain_network_policy("es_ES.UTF-8", "direct").lower()
+
+    assert "containment boundaries" in explain_sandbox_default("en_US.UTF-8", "focused")
+    assert "dispositivos externos" in explain_device_policy("es_ES.UTF-8", "prompt")
+    assert "diagnostics" in explain_logging_policy("en_US.UTF-8", "balanced")
+
+    vault_lines = explain_vault_behavior(
+        "en_US.UTF-8",
+        {"auto_lock_minutes": 0, "unlock_on_login": False},
+    )
+    assert any("manual" in line for line in vault_lines)
+    assert any("explicitly unlock" in line for line in vault_lines)
+
+    assert "Brave can appear" in explain_brave_visibility("en_US.UTF-8", True, "direct")
+    assert "Brave stays hidden" in explain_brave_visibility("en_US.UTF-8", True, "offline")
 
 
 def test_tor_status_respects_settings(repo_root: Path, workspace_tmp_path: Path) -> None:
