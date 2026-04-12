@@ -11,6 +11,12 @@ The current alpha ships four presets:
 - lighter sandbox expectations
 - best when ease of use matters more than stricter defaults
 
+Who it is for:
+People who want the easiest daily desktop experience.
+
+Tradeoff:
+You gain convenience and compatibility, but the default trust boundaries are lighter.
+
 ## `Balanced`
 
 - default NM-OS profile
@@ -18,17 +24,35 @@ The current alpha ships four presets:
 - moderate friction
 - recommended starting point for most users
 
+Who it is for:
+Most people who want a clear privacy baseline without a harsh learning curve.
+
+Tradeoff:
+It keeps a safer default posture, but some tasks can feel slower or more deliberate.
+
 ## `Hardened`
 
 - tighter sandbox and device defaults
 - reduced motion and denser UI defaults
 - stronger posture for daily use with less convenience
 
+Who it is for:
+People who want stronger daily protection and are comfortable with extra friction.
+
+Tradeoff:
+You get tighter defaults, but compatibility and convenience start to narrow.
+
 ## `Maximum`
 
 - offline by default
 - strict device and logging posture
 - strongest practical baseline in the current product slice
+
+Who it is for:
+High-sensitivity situations where minimizing exposure matters more than convenience.
+
+Tradeoff:
+This profile is intentionally restrictive and expects the user to work around missing convenience.
 
 ## Overrides
 

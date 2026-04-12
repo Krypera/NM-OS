@@ -33,18 +33,26 @@ PROFILE_METADATA = {
     "relaxed": {
         "label": "Relaxed",
         "summary": "More convenience, fewer guards, direct networking by default.",
+        "ideal_for": "Best for people who want the easiest daily desktop experience.",
+        "tradeoff": "You gain convenience and compatibility, but the default trust boundaries are lighter.",
     },
     "balanced": {
         "label": "Balanced",
         "summary": "Recommended defaults with Tor-first networking and moderate friction.",
+        "ideal_for": "Best for most people who want a clear privacy baseline without a harsh learning curve.",
+        "tradeoff": "It keeps a safer default posture, but some tasks can feel slower or more deliberate.",
     },
     "hardened": {
         "label": "Hardened",
         "summary": "Stricter defaults for daily use with less convenience and tighter policy.",
+        "ideal_for": "Best for people who want stronger daily protection and are comfortable with extra friction.",
+        "tradeoff": "You get tighter defaults, but compatibility and convenience start to narrow.",
     },
     "maximum": {
         "label": "Maximum",
         "summary": "Highest practical protection with strong restrictions and offline defaults.",
+        "ideal_for": "Best for high-sensitivity situations where minimizing exposure matters more than convenience.",
+        "tradeoff": "This profile is intentionally restrictive and expects the user to work around missing convenience.",
     },
 }
 
@@ -167,6 +175,19 @@ REBOOT_REQUIRED_FIELDS = {
     "device_policy",
     "logging_policy",
 }
+
+POSTURE_PREVIEW_KEYS = (
+    "network_policy",
+    "allow_brave_browser",
+    "sandbox_default",
+    "vault",
+    "device_policy",
+    "logging_policy",
+    "ui_theme_profile",
+    "ui_accent",
+    "ui_density",
+    "ui_motion",
+)
 
 
 def _normalize_choice(value: object, supported: tuple[str, ...] | set[str], default: str) -> str:
@@ -303,6 +324,25 @@ def _apply_overrides(base: dict, overrides: dict) -> dict:
         elif key in EFFECTIVE_SETTING_KEYS:
             effective[key] = _normalize_effective_value(key, value, effective[key])
     return effective
+
+
+def describe_posture_preview(profile: str, values: object | None = None) -> dict:
+    normalized_profile = normalize_security_profile(profile)
+    metadata = PROFILE_METADATA[normalized_profile]
+    effective = profile_defaults(normalized_profile)
+    if isinstance(values, dict):
+        effective = _apply_overrides(
+            effective,
+            derive_overrides_for_profile(normalized_profile, values),
+        )
+    return {
+        "profile": normalized_profile,
+        "label": metadata["label"],
+        "summary": metadata["summary"],
+        "ideal_for": metadata["ideal_for"],
+        "tradeoff": metadata["tradeoff"],
+        "effective": {key: copy.deepcopy(effective[key]) for key in POSTURE_PREVIEW_KEYS},
+    }
 
 
 def _read_json_mapping(path: Path) -> dict:

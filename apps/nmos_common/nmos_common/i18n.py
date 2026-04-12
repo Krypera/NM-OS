@@ -34,6 +34,14 @@ TRANSLATIONS = {
         "Recommended defaults with Tor-first networking and moderate friction.": "Configuración recomendada con red priorizando Tor y fricción moderada.",
         "Stricter defaults for daily use with less convenience and tighter policy.": "Valores más estrictos para el uso diario, con menos comodidad y una política más rígida.",
         "Highest practical protection with strong restrictions and offline defaults.": "La protección práctica más alta con restricciones fuertes y modo sin conexión por defecto.",
+        "Best for people who want the easiest daily desktop experience.": "Ideal para quienes quieren la experiencia diaria de escritorio más sencilla.",
+        "You gain convenience and compatibility, but the default trust boundaries are lighter.": "Ganas comodidad y compatibilidad, pero los límites de confianza por defecto son más ligeros.",
+        "Best for most people who want a clear privacy baseline without a harsh learning curve.": "Ideal para la mayoría de las personas que quieren una base de privacidad clara sin una curva dura de aprendizaje.",
+        "It keeps a safer default posture, but some tasks can feel slower or more deliberate.": "Mantiene una postura por defecto más segura, pero algunas tareas pueden sentirse más lentas o deliberadas.",
+        "Best for people who want stronger daily protection and are comfortable with extra friction.": "Ideal para quienes quieren una protección diaria más fuerte y aceptan una fricción adicional.",
+        "You get tighter defaults, but compatibility and convenience start to narrow.": "Obtienes valores más estrictos, pero la compatibilidad y la comodidad empiezan a reducirse.",
+        "Best for high-sensitivity situations where minimizing exposure matters more than convenience.": "Ideal para situaciones de alta sensibilidad donde minimizar la exposición importa más que la comodidad.",
+        "This profile is intentionally restrictive and expects the user to work around missing convenience.": "Este perfil es intencionalmente restrictivo y espera que la persona usuaria acepte la falta de comodidad.",
         "Network": "Red",
         "Choose how NM-OS should treat the network.": "Elige cómo debe tratar NM-OS la red.",
         "Network policy": "Política de red",
@@ -115,7 +123,49 @@ TRANSLATIONS = {
         "Failed to save system settings: {error}": "No se pudieron guardar los ajustes del sistema: {error}",
         "Settings saved. Some privacy changes apply on the next boot.": "Los ajustes se guardaron. Algunos cambios de privacidad se aplicarán en el próximo arranque.",
         "internal error": "error interno",
+        "Tor-first networking lowers direct exposure and keeps a privacy-first default.": "La red priorizando Tor reduce la exposición directa y mantiene un valor por defecto centrado en la privacidad.",
+        "Direct networking keeps the desktop familiar and compatible, but reduces anonymity and network separation.": "La red directa mantiene el escritorio familiar y compatible, pero reduce el anonimato y la separación de red.",
+        "Offline mode blocks network access until you intentionally relax the policy.": "El modo sin conexión bloquea el acceso a la red hasta que relajes la política de forma intencional.",
+        "Standard app isolation keeps compatibility high, with fewer default restrictions.": "El aislamiento estándar de apps mantiene una alta compatibilidad, con menos restricciones por defecto.",
+        "Focused app isolation balances compatibility with clearer containment boundaries.": "El aislamiento enfocado de apps equilibra la compatibilidad con límites de contención más claros.",
+        "Strict app isolation raises containment, but more workflows may need adjustment.": "El aislamiento estricto de apps aumenta la contención, pero más flujos de trabajo pueden necesitar ajustes.",
+        "Shared device access keeps removable media easy to use, but trusts more by default.": "El acceso compartido a dispositivos mantiene el uso sencillo de medios extraíbles, pero confía más por defecto.",
+        "Prompt-first device access asks before trusting new external devices.": "El acceso a dispositivos con confirmación pide permiso antes de confiar en nuevos dispositivos externos.",
+        "Locked device access reduces trust in external devices and prioritizes containment.": "El acceso bloqueado a dispositivos reduce la confianza en dispositivos externos y prioriza la contención.",
+        "Balanced logging retains more diagnostics for troubleshooting.": "El registro equilibrado conserva más diagnósticos para resolver problemas.",
+        "Minimal logging limits retained traces while keeping day-to-day debugging workable.": "El registro mínimo limita los rastros conservados mientras mantiene viable la depuración diaria.",
+        "Sealed logging minimizes retained traces and favors privacy over diagnostics.": "El registro sellado minimiza los rastros conservados y prioriza la privacidad sobre el diagnóstico.",
+        "Vault locking is manual, which is convenient but easier to forget.": "El bloqueo de la bóveda es manual, lo que es cómodo pero más fácil de olvidar.",
+        "Vault auto-locks after {minutes} minutes to reduce accidental exposure.": "La bóveda se bloquea automáticamente después de {minutes} minutos para reducir la exposición accidental.",
+        "Vault unlock on login favors convenience over separation.": "Desbloquear la bóveda al iniciar sesión favorece la comodidad sobre la separación.",
+        "Vault stays locked until you explicitly unlock it.": "La bóveda permanece bloqueada hasta que la desbloquees explícitamente.",
+        "Brave can appear when it is installed and the selected network policy allows it.": "Brave puede mostrarse cuando está instalado y la política de red seleccionada lo permite.",
+        "Brave stays hidden unless you explicitly allow it.": "Brave permanece oculto salvo que lo permitas explícitamente.",
     }
+}
+
+NETWORK_POLICY_EXPLANATIONS = {
+    "tor": "Tor-first networking lowers direct exposure and keeps a privacy-first default.",
+    "direct": "Direct networking keeps the desktop familiar and compatible, but reduces anonymity and network separation.",
+    "offline": "Offline mode blocks network access until you intentionally relax the policy.",
+}
+
+SANDBOX_EXPLANATIONS = {
+    "standard": "Standard app isolation keeps compatibility high, with fewer default restrictions.",
+    "focused": "Focused app isolation balances compatibility with clearer containment boundaries.",
+    "strict": "Strict app isolation raises containment, but more workflows may need adjustment.",
+}
+
+DEVICE_EXPLANATIONS = {
+    "shared": "Shared device access keeps removable media easy to use, but trusts more by default.",
+    "prompt": "Prompt-first device access asks before trusting new external devices.",
+    "locked": "Locked device access reduces trust in external devices and prioritizes containment.",
+}
+
+LOGGING_EXPLANATIONS = {
+    "balanced": "Balanced logging retains more diagnostics for troubleshooting.",
+    "minimal": "Minimal logging limits retained traces while keeping day-to-day debugging workable.",
+    "sealed": "Sealed logging minimizes retained traces and favors privacy over diagnostics.",
 }
 
 
@@ -171,3 +221,55 @@ def translate_message(locale: str | None, text: str) -> str:
         return translate(locale, "Network is disabled by current settings.")
 
     return text
+
+
+def explain_vault_behavior(locale: str | None, vault: object) -> list[str]:
+    raw = vault if isinstance(vault, dict) else {}
+    lines = []
+    try:
+        auto_lock_minutes = int(raw.get("auto_lock_minutes", 15))
+    except (TypeError, ValueError):
+        auto_lock_minutes = 15
+    auto_lock_minutes = max(0, auto_lock_minutes)
+    if auto_lock_minutes == 0:
+        lines.append(translate(locale, "Vault locking is manual, which is convenient but easier to forget."))
+    else:
+        lines.append(
+            translate(
+                locale,
+                "Vault auto-locks after {minutes} minutes to reduce accidental exposure.",
+                minutes=auto_lock_minutes,
+            )
+        )
+    if bool(raw.get("unlock_on_login", False)):
+        lines.append(translate(locale, "Vault unlock on login favors convenience over separation."))
+    else:
+        lines.append(translate(locale, "Vault stays locked until you explicitly unlock it."))
+    return lines
+
+
+def posture_explanation_lines(locale: str | None, posture: object) -> list[str]:
+    raw = posture if isinstance(posture, dict) else {}
+    effective = raw.get("effective", {}) if isinstance(raw.get("effective", {}), dict) else {}
+    lines = []
+
+    network_policy = str(effective.get("network_policy", "tor")).strip().lower()
+    lines.append(translate(locale, NETWORK_POLICY_EXPLANATIONS.get(network_policy, NETWORK_POLICY_EXPLANATIONS["tor"])))
+
+    sandbox_default = str(effective.get("sandbox_default", "focused")).strip().lower()
+    lines.append(translate(locale, SANDBOX_EXPLANATIONS.get(sandbox_default, SANDBOX_EXPLANATIONS["focused"])))
+
+    device_policy = str(effective.get("device_policy", "prompt")).strip().lower()
+    lines.append(translate(locale, DEVICE_EXPLANATIONS.get(device_policy, DEVICE_EXPLANATIONS["prompt"])))
+
+    logging_policy = str(effective.get("logging_policy", "minimal")).strip().lower()
+    lines.append(translate(locale, LOGGING_EXPLANATIONS.get(logging_policy, LOGGING_EXPLANATIONS["minimal"])))
+
+    lines.extend(explain_vault_behavior(locale, effective.get("vault", {})))
+
+    if bool(effective.get("allow_brave_browser", False)) and network_policy != "offline":
+        lines.append(translate(locale, "Brave can appear when it is installed and the selected network policy allows it."))
+    else:
+        lines.append(translate(locale, "Brave stays hidden unless you explicitly allow it."))
+
+    return lines

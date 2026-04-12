@@ -9,12 +9,13 @@ sys.path.insert(0, str(ROOT / "apps" / "nmos_common"))
 sys.path.insert(0, str(ROOT / "apps" / "nmos_greeter"))
 sys.path.insert(0, str(ROOT / "apps" / "nmos_persistent_storage"))
 
-from nmos_common.i18n import display_language_name, translate
+from nmos_common.i18n import display_language_name, posture_explanation_lines, translate
 from nmos_common.platform_adapter import load_platform_adapter
 from nmos_common.system_settings import (
     DEFAULT_SYSTEM_SETTINGS,
     apply_system_profile,
     derive_overrides_for_profile,
+    describe_posture_preview,
     extract_effective_settings,
     load_effective_system_settings,
     load_system_settings,
@@ -116,6 +117,36 @@ def test_platform_adapter_override_loading(workspace_tmp_path: Path) -> None:
     assert loaded["gdm_user"] == "test-gdm"
     assert loaded["runtime_dir"] == "/tmp/nmos-run"
     assert loaded["state_dir"] == "/tmp/nmos-state"
+
+
+def test_posture_preview_is_explainable() -> None:
+    posture = describe_posture_preview(
+        "balanced",
+        {
+            "network_policy": "direct",
+            "allow_brave_browser": True,
+            "vault": {
+                "enabled": True,
+                "auto_lock_minutes": 5,
+                "unlock_on_login": True,
+            },
+        },
+    )
+
+    assert posture["profile"] == "balanced"
+    assert posture["ideal_for"] == "Best for most people who want a clear privacy baseline without a harsh learning curve."
+    assert posture["effective"]["network_policy"] == "direct"
+    assert posture["effective"]["vault"]["auto_lock_minutes"] == 5
+    assert posture["effective"]["allow_brave_browser"] is True
+
+    english_lines = posture_explanation_lines("en_US.UTF-8", posture)
+    assert any("Direct networking keeps the desktop familiar and compatible" in line for line in english_lines)
+    assert any("Vault auto-locks after 5 minutes" in line for line in english_lines)
+    assert any("Brave can appear when it is installed" in line for line in english_lines)
+
+    spanish_lines = posture_explanation_lines("es_ES.UTF-8", posture)
+    assert any("red directa" in line.lower() for line in spanish_lines)
+    assert any("5 minutos" in line for line in spanish_lines)
 
 
 def test_tor_status_respects_settings(repo_root: Path, workspace_tmp_path: Path) -> None:

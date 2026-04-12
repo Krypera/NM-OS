@@ -4,7 +4,12 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
-from nmos_common.i18n import display_language_name, display_network_policy_name, resolve_supported_locale
+from nmos_common.i18n import (
+    display_language_name,
+    display_network_policy_name,
+    posture_explanation_lines,
+    resolve_supported_locale,
+)
 from nmos_common.system_settings import (
     ACCENT_LABELS,
     DENSITY_LABELS,
@@ -12,6 +17,7 @@ from nmos_common.system_settings import (
     PROFILE_METADATA,
     THEME_PROFILE_LABELS,
     derive_overrides_for_profile,
+    describe_posture_preview,
     normalize_system_settings,
 )
 from nmos_common.ui_theme import apply_window_theme
@@ -49,6 +55,9 @@ def _profile_page(window) -> Gtk.Widget:
         [
             window.profile_combo,
             window.profile_summary_label,
+            window.profile_guidance_label,
+            window.profile_tradeoff_label,
+            window.profile_details_label,
         ],
     )
 
@@ -118,6 +127,7 @@ def _summary_page(window) -> Gtk.Widget:
         "A few changes can apply right away. Network and deeper security policy changes may wait until reboot.",
         [
             window.summary_label,
+            window.summary_posture_label,
             window.summary_reboot_label,
         ],
     )
@@ -157,6 +167,14 @@ def build_ui(window) -> None:
     window.profile_summary_label = Gtk.Label(xalign=0)
     window.profile_summary_label.set_wrap(True)
     window.profile_summary_label.add_css_class("dim-label")
+    window.profile_guidance_label = Gtk.Label(xalign=0)
+    window.profile_guidance_label.set_wrap(True)
+    window.profile_guidance_label.add_css_class("dim-label")
+    window.profile_tradeoff_label = Gtk.Label(xalign=0)
+    window.profile_tradeoff_label.set_wrap(True)
+    window.profile_tradeoff_label.add_css_class("dim-label")
+    window.profile_details_label = Gtk.Label(xalign=0)
+    window.profile_details_label.set_wrap(True)
     window.network_policy_combo = _combo([display_network_policy_name(policy) for policy in window.network_policy_values])
     window.network_policy_combo.connect("notify::selected", window.on_network_policy_changed)
     window.allow_brave_browser = Gtk.CheckButton()
@@ -188,6 +206,8 @@ def build_ui(window) -> None:
 
     window.summary_label = Gtk.Label(xalign=0)
     window.summary_label.set_wrap(True)
+    window.summary_posture_label = Gtk.Label(xalign=0)
+    window.summary_posture_label.set_wrap(True)
     window.summary_reboot_label = Gtk.Label(xalign=0)
     window.summary_reboot_label.set_wrap(True)
     window.summary_reboot_label.add_css_class("dim-label")
@@ -283,6 +303,10 @@ def current_network_policy(window) -> str:
 
 def current_network_policy_name(window) -> str:
     return display_network_policy_name(current_network_policy(window), locale=window.ui_locale)
+
+
+def current_posture_preview(window) -> dict:
+    return describe_posture_preview(current_profile(window), collect_state(window))
 
 
 def current_theme_profile(window) -> str:
@@ -405,7 +429,7 @@ def apply_translations(window) -> None:
     window.back_button.set_label(window.tr("Back"))
     window.next_button.set_label(window.tr("Next"))
     window.finish_button.set_label(window.tr("Apply settings"))
-    window.profile_summary_label.set_text(window.tr(current_profile_summary(window)))
+    refresh_profile_explanation(window)
     refresh_summary(window)
     if window.persistence_init_error:
         window.persistence_label.set_text(
@@ -476,7 +500,7 @@ def restore_state(window) -> None:
     _select_string(window.density_combo, window.density_values, str(window.state.get("ui_density", "comfortable")))
     _select_string(window.motion_combo, window.motion_values, str(window.state.get("ui_motion", "full")))
     window.allow_brave_browser.set_active(allow_brave)
-    window.profile_summary_label.set_text(current_profile_summary(window))
+    refresh_profile_explanation(window)
     apply_settings_ui_policy(window)
 
 
@@ -492,8 +516,18 @@ def preview_theme(window) -> None:
     )
 
 
+def refresh_profile_explanation(window) -> None:
+    posture = current_posture_preview(window)
+    detail_lines = posture_explanation_lines(window.ui_locale, posture)
+    window.profile_summary_label.set_text(window.tr(posture["summary"]))
+    window.profile_guidance_label.set_text(window.tr(posture["ideal_for"]))
+    window.profile_tradeoff_label.set_text(window.tr(posture["tradeoff"]))
+    window.profile_details_label.set_text("\n".join(f"- {line}" for line in detail_lines))
+
+
 def refresh_summary(window) -> None:
     draft_state = collect_state(window)
+    posture = describe_posture_preview(draft_state["active_profile"], draft_state)
     draft_settings = normalize_system_settings(
         {
             "active_profile": draft_state["active_profile"],
@@ -513,6 +547,9 @@ def refresh_summary(window) -> None:
     else:
         summary_lines.append(window.tr("Brave visibility: hidden"))
     window.summary_label.set_text("\n".join(summary_lines))
+    window.summary_posture_label.set_text(
+        "\n".join(f"- {line}" for line in posture_explanation_lines(window.ui_locale, posture))
+    )
     if draft_settings.get("pending_reboot"):
         pending = ", ".join(str(item).replace("_", " ") for item in draft_settings["pending_reboot"])
         window.summary_reboot_label.set_text(window.tr("Restart required for: {pending}", pending=pending))

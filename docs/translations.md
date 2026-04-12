@@ -37,7 +37,7 @@ If you wanted to add Italian support, the high-level change would look like this
 ```python
 LANGUAGE_OPTIONS = (
     ("en_US.UTF-8", "English"),
-    ("es_ES.UTF-8", "Espanol"),
+    ("es_ES.UTF-8", "Español"),
     ("it_IT.UTF-8", "Italiano"),
 )
 

@@ -5,7 +5,13 @@ import gi
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gtk
-from nmos_common.i18n import LANGUAGE_OPTIONS, display_language_name, resolve_supported_locale
+from nmos_common.i18n import (
+    LANGUAGE_OPTIONS,
+    display_language_name,
+    posture_explanation_lines,
+    resolve_supported_locale,
+    translate,
+)
 from nmos_common.settings_client import SettingsClient
 from nmos_common.system_settings import (
     ACCENT_LABELS,
@@ -14,6 +20,8 @@ from nmos_common.system_settings import (
     PROFILE_METADATA,
     THEME_PROFILE_LABELS,
     derive_overrides_for_profile,
+    describe_posture_preview,
+    normalize_system_settings,
 )
 from nmos_common.ui_theme import apply_window_theme, load_css
 
@@ -101,6 +109,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.settings = self.client.get_settings()
         self.profile_values = list(PROFILE_METADATA)
         self.language_values = [locale for locale, _label in LANGUAGE_OPTIONS]
+        self.ui_locale = resolve_supported_locale(self.settings.get("locale", "en_US.UTF-8"))
         self.root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
         self.root.set_margin_top(24)
         self.root.set_margin_bottom(24)
@@ -123,6 +132,9 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             dropdown.set_selected(values.index(value))
         except ValueError:
             dropdown.set_selected(0)
+
+    def tr(self, source_text: str, **kwargs) -> str:
+        return translate(self.ui_locale, source_text, **kwargs)
 
     def build_ui(self) -> None:
         header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -153,22 +165,39 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.profile_combo.connect("notify::selected", self.on_profile_preview_changed)
         self.profile_summary = Gtk.Label(xalign=0)
         self.profile_summary.set_wrap(True)
+        self.profile_guidance = Gtk.Label(xalign=0)
+        self.profile_guidance.set_wrap(True)
+        self.profile_guidance.add_css_class("dim-label")
+        self.profile_tradeoff = Gtk.Label(xalign=0)
+        self.profile_tradeoff.set_wrap(True)
+        self.profile_tradeoff.add_css_class("dim-label")
+        self.profile_details = Gtk.Label(xalign=0)
+        self.profile_details.set_wrap(True)
         self.pending_reboot_label = Gtk.Label(xalign=0)
         self.pending_reboot_label.set_wrap(True)
 
         self.language_combo = _string_dropdown([display_language_name(locale) for locale in self.language_values])
+        self.language_combo.connect("notify::selected", self.on_draft_settings_changed)
         self.keyboard_combo = _string_dropdown(list(KEYBOARD_OPTIONS))
+        self.keyboard_combo.connect("notify::selected", self.on_draft_settings_changed)
         self.network_combo = _string_dropdown([label for _value, label in NETWORK_OPTIONS])
+        self.network_combo.connect("notify::selected", self.on_draft_settings_changed)
         self.brave_switch = Gtk.Switch()
+        self.brave_switch.connect("notify::active", self.on_draft_settings_changed)
         self.sandbox_combo = _string_dropdown([label for _value, label in SANDBOX_OPTIONS])
+        self.sandbox_combo.connect("notify::selected", self.on_draft_settings_changed)
         self.device_policy_combo = _string_dropdown([label for _value, label in DEVICE_POLICY_OPTIONS])
+        self.device_policy_combo.connect("notify::selected", self.on_draft_settings_changed)
         self.logging_combo = _string_dropdown([label for _value, label in LOGGING_OPTIONS])
+        self.logging_combo.connect("notify::selected", self.on_draft_settings_changed)
         self.theme_profile_combo = _string_dropdown([label for _value, label in THEME_PROFILE_OPTIONS])
         self.accent_combo = _string_dropdown([label for _value, label in ACCENT_OPTIONS])
         self.density_combo = _string_dropdown([label for _value, label in DENSITY_OPTIONS])
         self.motion_combo = _string_dropdown([label for _value, label in MOTION_OPTIONS])
         self.vault_auto_lock_combo = _string_dropdown([label for _value, label in VAULT_AUTO_LOCK_OPTIONS])
+        self.vault_auto_lock_combo.connect("notify::selected", self.on_draft_settings_changed)
         self.vault_unlock_on_login = Gtk.Switch()
+        self.vault_unlock_on_login.connect("notify::active", self.on_draft_settings_changed)
 
         for dropdown in (
             self.theme_profile_combo,
@@ -188,6 +217,9 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                     self.profile_combo,
                 ),
                 self.profile_summary,
+                self.profile_guidance,
+                self.profile_tradeoff,
+                self.profile_details,
                 self.pending_reboot_label,
             ],
         )
@@ -334,7 +366,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self._set_dropdown_value(self.vault_auto_lock_combo, [value for value, _label in VAULT_AUTO_LOCK_OPTIONS], auto_lock)
         self.brave_switch.set_active(bool(settings.get("allow_brave_browser", False)))
         self.vault_unlock_on_login.set_active(bool(vault.get("unlock_on_login", False)))
-        self.profile_summary.set_text(PROFILE_METADATA[profile]["summary"])
+        self.ui_locale = locale
         self.preview_theme()
 
     def preview_theme(self) -> None:
@@ -372,20 +404,41 @@ class ControlCenterWindow(Adw.ApplicationWindow):
 
     def refresh_summary(self) -> None:
         profile = self._selected_value(self.profile_combo, self.profile_values)
-        self.profile_summary.set_text(PROFILE_METADATA[profile]["summary"])
-        pending = self.settings.get("pending_reboot", [])
+        draft_values = self.collect_values()
+        self.ui_locale = resolve_supported_locale(self._selected_value(self.language_combo, self.language_values))
+        posture = describe_posture_preview(profile, {"active_profile": profile, **draft_values})
+        draft_settings = normalize_system_settings(
+            {
+                "active_profile": profile,
+                "overrides": derive_overrides_for_profile(profile, draft_values),
+            }
+        )
+        self.profile_summary.set_text(self.tr(posture["summary"]))
+        self.profile_guidance.set_text(self.tr(posture["ideal_for"]))
+        self.profile_tradeoff.set_text(self.tr(posture["tradeoff"]))
+        self.profile_details.set_text(
+            "\n".join(f"- {line}" for line in posture_explanation_lines(self.ui_locale, posture))
+        )
+        pending = draft_settings.get("pending_reboot", [])
         if pending:
             self.pending_reboot_label.set_text(
-                "Restart required for: " + ", ".join(str(item).replace("_", " ") for item in pending)
+                self.tr(
+                    "Restart required for: {pending}",
+                    pending=", ".join(str(item).replace("_", " ") for item in pending),
+                )
             )
         else:
-            self.pending_reboot_label.set_text("No restart is currently required.")
+            self.pending_reboot_label.set_text(self.tr("The current draft does not require a reboot."))
 
     def on_profile_preview_changed(self, *_args) -> None:
         self.refresh_summary()
 
+    def on_draft_settings_changed(self, *_args) -> None:
+        self.refresh_summary()
+
     def on_theme_preview_changed(self, *_args) -> None:
         self.preview_theme()
+        self.refresh_summary()
 
     def on_refresh(self, _button: Gtk.Button) -> None:
         self.settings = self.client.get_settings()

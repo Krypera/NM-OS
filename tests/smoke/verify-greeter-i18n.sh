@@ -40,10 +40,12 @@ sys.path.insert(0, str(root / "apps" / "nmos_common"))
 from nmos_common.i18n import (
     display_language_name,
     display_network_policy_name,
+    posture_explanation_lines,
     resolve_supported_locale,
     translate,
     translate_message,
 )
+from nmos_common.system_settings import describe_posture_preview
 
 assert resolve_supported_locale("es_MX.UTF-8") == "es_ES.UTF-8"
 assert display_language_name("es_ES.UTF-8") == "Español"
@@ -54,6 +56,8 @@ assert translate("es_ES.UTF-8", "Security profile") == "Perfil de seguridad"
 assert translate("es_ES.UTF-8", "Review") == "Resumen"
 assert display_network_policy_name("direct", locale="es_ES.UTF-8") == "Red directa"
 assert translate_message("es_ES.UTF-8", "Tor is ready") == "Tor está listo"
+posture = describe_posture_preview("balanced", {"network_policy": "direct", "allow_brave_browser": True})
+assert any("red directa" in line.lower() for line in posture_explanation_lines("es_ES.UTF-8", posture))
 assert translate("de_DE.UTF-8", "Language") == "Language"
 
 print("Greeter i18n checks passed")

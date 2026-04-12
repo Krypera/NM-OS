@@ -189,14 +189,16 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.refresh_network(force_status=True)
 
     def on_profile_changed(self, *_args) -> None:
-        self.profile_summary_label.set_text(self.tr(self.current_profile_summary()))
+        ui_composition.refresh_profile_explanation(self)
         self.update_navigation()
 
     def on_network_policy_changed(self, *_args) -> None:
         self.apply_settings_ui_policy()
+        ui_composition.refresh_profile_explanation(self)
         self.update_navigation()
 
     def on_allow_brave_browser_toggled(self, *_args) -> None:
+        ui_composition.refresh_profile_explanation(self)
         self.update_navigation()
 
     def on_theme_preview_changed(self, *_args) -> None:
