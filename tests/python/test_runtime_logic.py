@@ -151,7 +151,7 @@ def test_platform_adapter_override_loading(workspace_tmp_path: Path) -> None:
     assert env_loaded["runtime_dir"] == "/tmp/env-run"
 
 
-class _MockRetriableDBusError(Exception):
+class _MockBackendUnavailableDBusError(Exception):
     def get_dbus_name(self) -> str:
         return "org.freedesktop.DBus.Error.ServiceUnknown"
 
@@ -159,6 +159,11 @@ class _MockRetriableDBusError(Exception):
 class _MockDeniedDBusError(Exception):
     def get_dbus_name(self) -> str:
         return "org.freedesktop.DBus.Error.AccessDenied"
+
+
+class _MockRetriableDBusError(Exception):
+    def get_dbus_name(self) -> str:
+        return "org.freedesktop.DBus.Error.TimedOut"
 
 
 def test_settings_client_does_not_fallback_by_default() -> None:
@@ -170,6 +175,17 @@ def test_settings_client_does_not_fallback_by_default() -> None:
     except SettingsClientError as error:
         assert error.reason == "transport_error"
         assert "connection failed" in error.user_message().lower()
+
+
+def test_settings_client_backend_unavailable_reason_is_explicit() -> None:
+    client = SettingsClient(allow_local_fallback=False)
+    client._interface = lambda: (_ for _ in ()).throw(_MockBackendUnavailableDBusError())  # type: ignore[method-assign]
+    try:
+        client.get_settings()
+        assert False, "Expected SettingsClientError when backend is unavailable"
+    except SettingsClientError as error:
+        assert error.reason == "backend_unavailable"
+        assert "unavailable" in error.user_message().lower()
 
 
 def test_settings_client_retriable_fallback_is_opt_in() -> None:
@@ -597,6 +613,8 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "error.user_message()" in control_center_source
     assert "SettingsClientError" in settings_client_source
     assert "RETRIABLE_DBUS_ERRORS" in settings_client_source
+    assert "BACKEND_UNAVAILABLE_DBUS_ERRORS" in settings_client_source
+    assert "backend_unavailable" in settings_client_source
     assert "connection failed" in settings_client_source
     assert "denied access" in settings_client_source
     assert "NMOS_ALLOW_LOCAL_SETTINGS_FALLBACK" in settings_client_source

@@ -24,10 +24,14 @@ def load_dbus():
 
 
 RETRIABLE_DBUS_ERRORS = {
-    "org.freedesktop.DBus.Error.ServiceUnknown",
     "org.freedesktop.DBus.Error.NoReply",
     "org.freedesktop.DBus.Error.Disconnected",
     "org.freedesktop.DBus.Error.TimedOut",
+}
+
+BACKEND_UNAVAILABLE_DBUS_ERRORS = {
+    "org.freedesktop.DBus.Error.ServiceUnknown",
+    "org.freedesktop.DBus.Error.NameHasNoOwner",
 }
 
 
@@ -116,12 +120,12 @@ class SettingsClient:
         if isinstance(error, ImportError):
             return "dbus_import_error"
         dbus_name = self._dbus_error_name(error)
+        if dbus_name in BACKEND_UNAVAILABLE_DBUS_ERRORS:
+            return "backend_unavailable"
         if dbus_name == "org.freedesktop.DBus.Error.AccessDenied":
             return "access_denied"
         if dbus_name in RETRIABLE_DBUS_ERRORS:
             return "transport_error"
-        if dbus_name == "org.freedesktop.DBus.Error.ServiceUnknown":
-            return "backend_unavailable"
         if dbus_name:
             return "dbus_error"
         return "unexpected_error"
@@ -135,7 +139,7 @@ class SettingsClient:
                 name = str(get_name())
             except Exception:
                 return False
-            return name in RETRIABLE_DBUS_ERRORS
+            return name in RETRIABLE_DBUS_ERRORS or name in BACKEND_UNAVAILABLE_DBUS_ERRORS
         return False
 
     def get_settings(self) -> dict:
