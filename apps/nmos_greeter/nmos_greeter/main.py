@@ -32,7 +32,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.set_default_size(860, 560)
         self.logger = logging.getLogger("nmos.greeter")
 
-        self.settings_client_factory = SettingsClient
+        self.settings_client_factory = lambda: SettingsClient(allow_local_fallback=False)
         persisted_settings = self.settings_client_factory().get_settings()
         self.state = {**persisted_settings, **load_state()}
         self.system_settings = dict(persisted_settings)

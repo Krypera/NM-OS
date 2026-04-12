@@ -26,6 +26,7 @@ from nmos_common.i18n import (
     translate,
 )
 from nmos_common.platform_adapter import load_platform_adapter
+from nmos_common.settings_client import SettingsClient, SettingsClientError
 from nmos_common.system_settings import (
     DEFAULT_SYSTEM_SETTINGS,
     apply_system_profile,
@@ -148,6 +149,43 @@ def test_platform_adapter_override_loading(workspace_tmp_path: Path) -> None:
         else:
             os.environ["NMOS_RUNTIME_DIR"] = original_runtime
     assert env_loaded["runtime_dir"] == "/tmp/env-run"
+
+
+class _MockRetriableDBusError(Exception):
+    def get_dbus_name(self) -> str:
+        return "org.freedesktop.DBus.Error.ServiceUnknown"
+
+
+class _MockDeniedDBusError(Exception):
+    def get_dbus_name(self) -> str:
+        return "org.freedesktop.DBus.Error.AccessDenied"
+
+
+def test_settings_client_does_not_fallback_by_default() -> None:
+    client = SettingsClient(allow_local_fallback=False)
+    client._interface = lambda: (_ for _ in ()).throw(_MockRetriableDBusError())  # type: ignore[method-assign]
+    try:
+        client.get_settings()
+        assert False, "Expected SettingsClientError when fallback is disabled"
+    except SettingsClientError:
+        pass
+
+
+def test_settings_client_retriable_fallback_is_opt_in() -> None:
+    client = SettingsClient(allow_local_fallback=True)
+    client._interface = lambda: (_ for _ in ()).throw(_MockRetriableDBusError())  # type: ignore[method-assign]
+    client.local.get_settings = lambda: {"source": "local"}  # type: ignore[method-assign]
+    assert client.get_settings() == {"source": "local"}
+
+
+def test_settings_client_access_denied_never_falls_back() -> None:
+    client = SettingsClient(allow_local_fallback=True)
+    client._interface = lambda: (_ for _ in ()).throw(_MockDeniedDBusError())  # type: ignore[method-assign]
+    try:
+        client.get_settings()
+        assert False, "Expected SettingsClientError for access denied"
+    except SettingsClientError:
+        pass
 
 
 def test_posture_preview_is_explainable() -> None:
@@ -338,6 +376,7 @@ def test_greeter_layout_is_setup_only(repo_root: Path) -> None:
     )
 
     assert "SettingsClient" in main_source
+    assert "allow_local_fallback=False" in main_source
     assert "GDM" not in main_source
     assert "profile_combo" in ui_source
     assert "network_policy_combo" in ui_source
@@ -550,6 +589,7 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "SetOverrides" in settings_service_source
     assert "GetPendingRebootChanges" in settings_service_source
     assert "SettingsClient" in settings_client_source
+    assert "allow_local_fallback=False" in control_center_source
     assert "SettingsClientError" in settings_client_source
     assert "RETRIABLE_DBUS_ERRORS" in settings_client_source
     assert "NMOS_ALLOW_LOCAL_SETTINGS_FALLBACK" in settings_client_source

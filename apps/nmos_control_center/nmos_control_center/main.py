@@ -118,7 +118,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
     def __init__(self, app: Adw.Application) -> None:
         super().__init__(application=app, title="NM-OS Control Center")
         self.set_default_size(1080, 720)
-        self.client = SettingsClient()
+        self.client = SettingsClient(allow_local_fallback=False)
         self.settings = self.client.get_settings()
         self.profile_values = list(PROFILE_METADATA)
         self.language_values = [locale for locale, _label in LANGUAGE_OPTIONS]
