@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -58,6 +58,7 @@ assert display_network_policy_name("direct", locale="es_ES.UTF-8") == "Red direc
 assert translate_message("es_ES.UTF-8", "Tor is ready") == "Tor está listo"
 posture = describe_posture_preview("balanced", {"network_policy": "direct", "allow_brave_browser": True})
 assert any("red directa" in line.lower() for line in posture_explanation_lines("es_ES.UTF-8", posture))
+assert "Ã" not in translate("es_ES.UTF-8", "NM-OS Setup")
 assert translate("de_DE.UTF-8", "Language") == "Language"
 
 print("Greeter i18n checks passed")

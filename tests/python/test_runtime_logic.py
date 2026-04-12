@@ -662,25 +662,10 @@ def test_i18n_supports_spanish_without_extra_locales(repo_root: Path) -> None:
     assert "es_ES.UTF-8" in i18n_source
     for unsupported_locale in ("tr_TR.UTF-8", "de_DE.UTF-8", "fr_FR.UTF-8"):
         assert unsupported_locale not in i18n_source
-    assert display_language_name("es_ES.UTF-8") == "Español"
+    assert display_language_name("es_ES.UTF-8") == "Espa\u00f1ol"
     assert translate("es_ES.UTF-8", "Security profile") == "Perfil de seguridad"
-    assert translate("es_ES.UTF-8", "Theme: {theme}", theme="Señal clásica") == "Tema: Señal clásica"
-    assert translate("es_ES.UTF-8", "NM-OS Setup") == "Configuración de NM-OS"
-    assert translate("es_ES.UTF-8", "Applies now: {changes}", changes="Idioma") == "Se aplica ahora: Idioma"
-    assert translate("es_ES.UTF-8", "None") == "Ninguno"
-    return
-    assert display_language_name("es_ES.UTF-8") == "Español"
-    assert translate("es_ES.UTF-8", "Security profile") == "Perfil de seguridad"
-    assert translate("es_ES.UTF-8", "Theme: {theme}", theme="Señal clásica") == "Tema: Señal clásica"
+    assert translate("es_ES.UTF-8", "Theme: {theme}", theme="Se\u00f1al cl\u00e1sica") == "Tema: Se\u00f1al cl\u00e1sica"
+    assert translate("es_ES.UTF-8", "NM-OS Setup") == "Configuraci\u00f3n de NM-OS"
     assert translate("es_ES.UTF-8", "Applies now: {changes}", changes="Idioma") == "Se aplica ahora: Idioma"
     assert translate("es_ES.UTF-8", "None") == "Ninguno"
     assert "Ã" not in translate("es_ES.UTF-8", "NM-OS Setup")
-    return
-    assert "Español" in i18n_source
-    for unsupported_locale in ("tr_TR.UTF-8", "de_DE.UTF-8", "fr_FR.UTF-8"):
-        assert unsupported_locale not in i18n_source
-    assert display_language_name("es_ES.UTF-8") == "Español"
-    assert translate("es_ES.UTF-8", "Security profile") == "Perfil de seguridad"
-    assert translate("es_ES.UTF-8", "Theme: {theme}", theme="Señal clásica") == "Tema: Señal clásica"
-    assert translate("es_ES.UTF-8", "Applies now: {changes}", changes="Idioma") == "Se aplica ahora: Idioma"
-    assert translate("es_ES.UTF-8", "None") == "Ninguno"

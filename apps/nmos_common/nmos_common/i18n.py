@@ -278,7 +278,11 @@ def display_language_name(locale: str | None) -> str:
 def translate(locale: str | None, source_text: str, **kwargs) -> str:
     language = locale_language(resolve_supported_locale(locale))
     template = _repair_mojibake(TRANSLATIONS.get(language, {}).get(source_text, source_text))
-    return template.format(**kwargs)
+    repaired_kwargs = {
+        key: _repair_mojibake(value) if isinstance(value, str) else value
+        for key, value in kwargs.items()
+    }
+    return template.format(**repaired_kwargs)
 
 
 def display_network_policy_name(policy: str | None, locale: str | None = None) -> str:
