@@ -341,6 +341,86 @@ def _apply_overrides(base: dict, overrides: dict) -> dict:
     return effective
 
 
+def _clamp_score(value: int) -> int:
+    return max(0, min(10, value))
+
+
+def compute_posture_scores(effective: object) -> dict[str, int]:
+    raw = effective if isinstance(effective, dict) else {}
+    protection = 5
+    convenience = 5
+
+    network_policy = str(raw.get("network_policy", "tor")).strip().lower()
+    if network_policy == "direct":
+        protection -= 2
+        convenience += 2
+    elif network_policy == "offline":
+        protection += 3
+        convenience -= 4
+    else:
+        protection += 1
+
+    sandbox_default = str(raw.get("sandbox_default", "focused")).strip().lower()
+    if sandbox_default == "standard":
+        protection -= 1
+        convenience += 2
+    elif sandbox_default == "strict":
+        protection += 3
+        convenience -= 2
+    else:
+        protection += 1
+
+    device_policy = str(raw.get("device_policy", "prompt")).strip().lower()
+    if device_policy == "shared":
+        protection -= 1
+        convenience += 1
+    elif device_policy == "locked":
+        protection += 2
+        convenience -= 1
+    else:
+        protection += 1
+
+    logging_policy = str(raw.get("logging_policy", "minimal")).strip().lower()
+    if logging_policy == "balanced":
+        protection -= 1
+        convenience += 1
+    elif logging_policy == "sealed":
+        protection += 2
+        convenience -= 2
+    else:
+        protection += 1
+
+    if bool(raw.get("allow_brave_browser", False)):
+        protection -= 1
+        convenience += 1
+
+    vault = raw.get("vault", {}) if isinstance(raw.get("vault", {}), dict) else {}
+    try:
+        auto_lock_minutes = int(vault.get("auto_lock_minutes", 15))
+    except (TypeError, ValueError):
+        auto_lock_minutes = 15
+    auto_lock_minutes = max(0, auto_lock_minutes)
+    if auto_lock_minutes == 0:
+        protection -= 1
+        convenience += 1
+    elif auto_lock_minutes <= 1:
+        protection += 2
+        convenience -= 2
+    elif auto_lock_minutes <= 5:
+        protection += 1
+        convenience -= 1
+    elif auto_lock_minutes <= 15:
+        protection += 1
+    if bool(vault.get("unlock_on_login", False)):
+        protection -= 1
+        convenience += 1
+
+    return {
+        "protection": _clamp_score(protection),
+        "convenience": _clamp_score(convenience),
+    }
+
+
 def describe_posture_preview(profile: str, values: object | None = None) -> dict:
     normalized_profile = normalize_security_profile(profile)
     metadata = PROFILE_METADATA[normalized_profile]
@@ -357,6 +437,7 @@ def describe_posture_preview(profile: str, values: object | None = None) -> dict
         "ideal_for": metadata["ideal_for"],
         "tradeoff": metadata["tradeoff"],
         "effective": {key: copy.deepcopy(effective[key]) for key in POSTURE_PREVIEW_KEYS},
+        "scores": compute_posture_scores(effective),
     }
 
 

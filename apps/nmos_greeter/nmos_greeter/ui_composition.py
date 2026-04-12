@@ -11,6 +11,7 @@ from nmos_common.i18n import (
     explain_network_policy,
     format_change_detail,
     posture_explanation_lines,
+    posture_meter_lines,
     resolve_supported_locale,
 )
 from nmos_common.system_settings import (
@@ -133,6 +134,7 @@ def _summary_page(window) -> Gtk.Widget:
         "A few changes can apply right away. Network and deeper security policy changes may wait until reboot.",
         [
             window.summary_label,
+            window.summary_meter_label,
             window.summary_posture_label,
             window.summary_timing_label,
             window.summary_change_detail_label,
@@ -217,6 +219,9 @@ def build_ui(window) -> None:
 
     window.summary_label = Gtk.Label(xalign=0)
     window.summary_label.set_wrap(True)
+    window.summary_meter_label = Gtk.Label(xalign=0)
+    window.summary_meter_label.set_wrap(True)
+    window.summary_meter_label.add_css_class("dim-label")
     window.summary_posture_label = Gtk.Label(xalign=0)
     window.summary_posture_label.set_wrap(True)
     window.summary_timing_label = Gtk.Label(xalign=0)
@@ -584,6 +589,7 @@ def refresh_summary(window) -> None:
     else:
         summary_lines.append(window.tr("Brave visibility: hidden"))
     window.summary_label.set_text("\n".join(summary_lines))
+    window.summary_meter_label.set_text("\n".join(posture_meter_lines(window.ui_locale, posture)))
     window.summary_posture_label.set_text(
         "\n".join(f"- {line}" for line in posture_explanation_lines(window.ui_locale, posture))
     )

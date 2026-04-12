@@ -20,6 +20,7 @@ from nmos_common.i18n import (
     explain_vault_behavior,
     format_change_detail,
     posture_explanation_lines,
+    posture_meter_lines,
     translate,
 )
 from nmos_common.platform_adapter import load_platform_adapter
@@ -27,6 +28,7 @@ from nmos_common.system_settings import (
     DEFAULT_SYSTEM_SETTINGS,
     apply_system_profile,
     classify_effective_changes,
+    compute_posture_scores,
     derive_overrides_for_profile,
     describe_effective_change_details,
     describe_posture_preview,
@@ -153,6 +155,9 @@ def test_posture_preview_is_explainable() -> None:
     assert posture["effective"]["network_policy"] == "direct"
     assert posture["effective"]["vault"]["auto_lock_minutes"] == 5
     assert posture["effective"]["allow_brave_browser"] is True
+    assert posture["scores"]["protection"] <= posture["scores"]["convenience"]
+    assert 0 <= posture["scores"]["protection"] <= 10
+    assert 0 <= posture["scores"]["convenience"] <= 10
 
     english_lines = posture_explanation_lines("en_US.UTF-8", posture)
     assert any("Direct networking keeps the desktop familiar and compatible" in line for line in english_lines)
@@ -162,6 +167,33 @@ def test_posture_preview_is_explainable() -> None:
     spanish_lines = posture_explanation_lines("es_ES.UTF-8", posture)
     assert any("red directa" in line.lower() for line in spanish_lines)
     assert any("5 minutos" in line for line in spanish_lines)
+    meter_lines = posture_meter_lines("es_ES.UTF-8", posture)
+    assert any("Nivel de proteccion" in line for line in meter_lines)
+
+
+def test_posture_scores_reflect_stricter_defaults() -> None:
+    relaxed = compute_posture_scores(
+        {
+            "network_policy": "direct",
+            "sandbox_default": "standard",
+            "device_policy": "shared",
+            "logging_policy": "balanced",
+            "allow_brave_browser": True,
+            "vault": {"auto_lock_minutes": 0, "unlock_on_login": True},
+        }
+    )
+    maximum = compute_posture_scores(
+        {
+            "network_policy": "offline",
+            "sandbox_default": "strict",
+            "device_policy": "locked",
+            "logging_policy": "sealed",
+            "allow_brave_browser": False,
+            "vault": {"auto_lock_minutes": 1, "unlock_on_login": False},
+        }
+    )
+    assert maximum["protection"] > relaxed["protection"]
+    assert maximum["convenience"] < relaxed["convenience"]
 
 
 def test_setting_specific_explanations_are_stable() -> None:

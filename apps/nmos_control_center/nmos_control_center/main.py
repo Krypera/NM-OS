@@ -16,6 +16,7 @@ from nmos_common.i18n import (
     explain_vault_behavior,
     format_change_detail,
     posture_explanation_lines,
+    posture_meter_lines,
     resolve_supported_locale,
     translate,
 )
@@ -182,6 +183,9 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.profile_tradeoff.add_css_class("dim-label")
         self.profile_details = Gtk.Label(xalign=0)
         self.profile_details.set_wrap(True)
+        self.profile_meter_label = Gtk.Label(xalign=0)
+        self.profile_meter_label.set_wrap(True)
+        self.profile_meter_label.add_css_class("dim-label")
         self.change_timing_label = Gtk.Label(xalign=0)
         self.change_timing_label.set_wrap(True)
         self.change_detail_label = Gtk.Label(xalign=0)
@@ -245,6 +249,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                 self.profile_summary,
                 self.profile_guidance,
                 self.profile_tradeoff,
+                self.profile_meter_label,
                 self.profile_details,
                 self.change_timing_label,
                 self.change_detail_label,
@@ -448,6 +453,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.profile_summary.set_text(self.tr(posture["summary"]))
         self.profile_guidance.set_text(self.tr(posture["ideal_for"]))
         self.profile_tradeoff.set_text(self.tr(posture["tradeoff"]))
+        self.profile_meter_label.set_text("\n".join(posture_meter_lines(self.ui_locale, posture)))
         self.profile_details.set_text(
             "\n".join(f"- {line}" for line in posture_explanation_lines(self.ui_locale, posture))
         )

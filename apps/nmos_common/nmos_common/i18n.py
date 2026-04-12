@@ -206,6 +206,11 @@ TRANSLATIONS = {
         "Vault behavior": "Comportamiento de la bóveda",
         "Theme profile": "Perfil de tema",
         "Motion": "Movimiento",
+        "Protection level: {level}/10": "Nivel de proteccion: {level}/10",
+        "Convenience level: {level}/10": "Nivel de comodidad: {level}/10",
+        "Current balance favors stronger protection.": "El balance actual favorece una proteccion mas fuerte.",
+        "Current balance favors convenience.": "El balance actual favorece la comodidad.",
+        "Current balance is relatively even.": "El balance actual esta relativamente equilibrado.",
     }
 }
 
@@ -337,6 +342,24 @@ def format_change_detail(
         before=display_setting_value(locale, key, before),
         after=display_setting_value(locale, key, after),
     )
+
+
+def posture_meter_lines(locale: str | None, posture: object) -> list[str]:
+    raw = posture if isinstance(posture, dict) else {}
+    scores = raw.get("scores", {}) if isinstance(raw.get("scores", {}), dict) else {}
+    protection = int(scores.get("protection", 5))
+    convenience = int(scores.get("convenience", 5))
+    lines = [
+        translate(locale, "Protection level: {level}/10", level=protection),
+        translate(locale, "Convenience level: {level}/10", level=convenience),
+    ]
+    if protection - convenience >= 2:
+        lines.append(translate(locale, "Current balance favors stronger protection."))
+    elif convenience - protection >= 2:
+        lines.append(translate(locale, "Current balance favors convenience."))
+    else:
+        lines.append(translate(locale, "Current balance is relatively even."))
+    return lines
 
 
 def translate_message(locale: str | None, text: str) -> str:
