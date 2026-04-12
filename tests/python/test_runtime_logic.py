@@ -638,9 +638,12 @@ def test_installer_media_and_assets_are_packaged(repo_root: Path) -> None:
     assert "installer_iso=" in build_source
     assert "build_installer_iso_image" in build_source
     assert "resolve_base_installer_iso" in common_source
+    assert "is_truthy" in common_source
     assert "BASE_ISO_LOCK_FILE" in common_source
     assert "read_base_iso_lock_value" in common_source
     assert "NMOS_BASE_INSTALLER_SHA256" in common_source
+    assert "NMOS_ALLOW_UNPINNED_BASE_ISO" in common_source
+    assert "base ISO lock is incomplete" in common_source
     assert "installer_iso_name" in common_source
     assert "preseed/file=/cdrom/preseed/nmos.cfg" in common_source
     assert 'sub(/^\\.\\//, "", path)' in common_source

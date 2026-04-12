@@ -35,6 +35,7 @@ The current installer media is built by:
 5. replaying the Debian boot layout into a new NM-OS installer ISO
 
 This means you do not need to download a separate Debian ISO by hand just to test NM-OS.
+By default, installer builds fail closed if the base ISO lock metadata is incomplete.
 
 ## What gets staged
 
@@ -91,6 +92,12 @@ NMOS_BASE_INSTALLER_BASE_URL=https://mirror.example/debian-cd/13.4.0/amd64/iso-c
 NMOS_BASE_INSTALLER_ISO_FILE=debian-13.4.0-amd64-netinst.iso \
 NMOS_BASE_INSTALLER_SHA256=<sha256> \
 ./build/build.sh
+```
+
+Temporary non-reproducible fallback (explicit opt-in):
+
+```bash
+NMOS_ALLOW_UNPINNED_BASE_ISO=1 ./build/build.sh
 ```
 
 ## Verification

@@ -35,6 +35,17 @@ require_cmd() {
     }
 }
 
+is_truthy() {
+    case "${1:-}" in
+        1|true|TRUE|yes|YES|on|ON)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 validate_version_format() {
     local value="${1:-${VERSION}}"
     if [[ -z "${value}" ]]; then
@@ -264,6 +275,17 @@ resolve_base_installer_iso() {
         checksum_value="${locked_sha256}"
         resolved_base_url="${locked_base_url}"
     else
+        local allow_unpinned="${NMOS_ALLOW_UNPINNED_BASE_ISO:-0}"
+        if ! is_truthy "${allow_unpinned}"; then
+            local missing=()
+            [ -n "${locked_base_url}" ] || missing+=("BASE_URL")
+            [ -n "${locked_iso_file}" ] || missing+=("ISO_FILE")
+            [ -n "${locked_sha256}" ] || missing+=("SHA256")
+            echo "base ISO lock is incomplete; missing keys: ${missing[*]}." >&2
+            echo "set config/installer/base-iso.lock (or NMOS_BASE_INSTALLER_* env vars) for reproducible builds." >&2
+            echo "to explicitly allow unpinned current Debian netinst resolution, set NMOS_ALLOW_UNPINNED_BASE_ISO=1." >&2
+            exit 1
+        fi
         local checksums_path="${INSTALLER_CACHE_DIR}/SHA256SUMS"
         curl -fsSL "${resolved_base_url}/SHA256SUMS" -o "${checksums_path}"
         iso_file="$(

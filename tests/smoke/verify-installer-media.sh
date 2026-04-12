@@ -28,6 +28,16 @@ grep -q 'resolve_base_installer_iso' "${COMMON_SH}" || {
     exit 1
 }
 
+grep -q 'NMOS_ALLOW_UNPINNED_BASE_ISO' "${COMMON_SH}" || {
+    echo "build helpers do not expose explicit opt-in for unpinned Debian base ISO resolution." >&2
+    exit 1
+}
+
+grep -q 'base ISO lock is incomplete' "${COMMON_SH}" || {
+    echo "build helpers do not fail closed when base ISO lock metadata is incomplete." >&2
+    exit 1
+}
+
 grep -q 'build_installer_iso_image' "${COMMON_SH}" || {
     echo "build helpers do not expose the installer ISO builder." >&2
     exit 1
