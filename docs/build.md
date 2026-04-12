@@ -30,7 +30,7 @@ The current installer media is built by:
 
 1. staging the NM-OS runtime overlay
 2. staging installer assets and Debian-installer templates
-3. resolving the current official Debian `amd64 netinst` ISO
+3. resolving the pinned Debian `amd64 netinst` ISO from `config/installer/base-iso.lock` (or explicit env overrides)
 4. injecting the NM-OS preseed, overlay archive, and package manifest
 5. replaying the Debian boot layout into a new NM-OS installer ISO
 
@@ -82,6 +82,15 @@ Optional base ISO override:
 
 ```bash
 NMOS_BASE_INSTALLER_ISO_PATH=/path/to/debian-amd64-netinst.iso ./build/build.sh
+```
+
+Pinned base ISO metadata override:
+
+```bash
+NMOS_BASE_INSTALLER_BASE_URL=https://mirror.example/debian-cd/13.4.0/amd64/iso-cd \
+NMOS_BASE_INSTALLER_ISO_FILE=debian-13.4.0-amd64-netinst.iso \
+NMOS_BASE_INSTALLER_SHA256=<sha256> \
+./build/build.sh
 ```
 
 ## Verification

@@ -15,6 +15,7 @@ SYSTEM_OVERLAY_SOURCE="${ROOT_DIR}/config/system-overlay"
 SYSTEM_PACKAGES_SOURCE="${ROOT_DIR}/config/system-packages"
 INSTALLER_ASSETS_SOURCE="${ROOT_DIR}/config/installer"
 INSTALLER_PACKAGES_SOURCE="${ROOT_DIR}/config/installer-packages"
+BASE_ISO_LOCK_FILE="${ROOT_DIR}/config/installer/base-iso.lock"
 PLATFORM_ADAPTER_SOURCE="${SYSTEM_OVERLAY_SOURCE}/etc/nmos/platform-adapter.env"
 INSTALLER_PRESEED_TEMPLATE="${ROOT_DIR}/config/installer/debian-installer/preseed/nmos.cfg.in"
 INSTALLER_LATE_COMMAND_TEMPLATE="${ROOT_DIR}/config/installer/debian-installer/preseed/install-overlay.sh.in"
@@ -88,6 +89,29 @@ read_platform_adapter_value() {
             exit
         }
     ' "${PLATFORM_ADAPTER_SOURCE}"
+}
+
+read_base_iso_lock_value() {
+    local key="$1"
+    if [ ! -f "${BASE_ISO_LOCK_FILE}" ]; then
+        return
+    fi
+    awk -F= -v target="${key}" '
+        /^[[:space:]]*#/ { next }
+        /^[[:space:]]*$/ { next }
+        {
+            left = $1
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", left)
+            if (left != target) {
+                next
+            }
+            right = substr($0, index($0, "=") + 1)
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", right)
+            gsub(/^["'\''"]|["'\''"]$/, "", right)
+            print right
+            exit
+        }
+    ' "${BASE_ISO_LOCK_FILE}"
 }
 
 resolve_platform_values() {
@@ -228,50 +252,60 @@ resolve_base_installer_iso() {
     require_cmd curl
     mkdir -p "${INSTALLER_CACHE_DIR}"
 
-    local checksums_path="${INSTALLER_CACHE_DIR}/SHA256SUMS"
-    curl -fsSL "${DEBIAN_NETINST_BASE_URL}/SHA256SUMS" -o "${checksums_path}"
+    local locked_base_url="${NMOS_BASE_INSTALLER_BASE_URL:-$(read_base_iso_lock_value BASE_URL)}"
+    local locked_iso_file="${NMOS_BASE_INSTALLER_ISO_FILE:-$(read_base_iso_lock_value ISO_FILE)}"
+    local locked_sha256="${NMOS_BASE_INSTALLER_SHA256:-$(read_base_iso_lock_value SHA256)}"
 
-    local iso_file
-    iso_file="$(
-        awk '
-            $2 ~ /amd64-netinst\.iso$/ {
-                path = $2
-                sub(/^\.\//, "", path)
-                sub(/^\*/, "", path)
-                print path
-                exit
-            }
-        ' "${checksums_path}"
-    )"
-    if [ -z "${iso_file}" ]; then
-        echo "could not resolve the Debian netinst ISO name from ${DEBIAN_NETINST_BASE_URL}/SHA256SUMS" >&2
-        exit 1
+    local iso_file=""
+    local checksum_value=""
+    local resolved_base_url="${DEBIAN_NETINST_BASE_URL}"
+    if [ -n "${locked_base_url}" ] && [ -n "${locked_iso_file}" ] && [ -n "${locked_sha256}" ]; then
+        iso_file="${locked_iso_file}"
+        checksum_value="${locked_sha256}"
+        resolved_base_url="${locked_base_url}"
+    else
+        local checksums_path="${INSTALLER_CACHE_DIR}/SHA256SUMS"
+        curl -fsSL "${resolved_base_url}/SHA256SUMS" -o "${checksums_path}"
+        iso_file="$(
+            awk '
+                $2 ~ /amd64-netinst\.iso$/ {
+                    path = $2
+                    sub(/^\.\//, "", path)
+                    sub(/^\*/, "", path)
+                    print path
+                    exit
+                }
+            ' "${checksums_path}"
+        )"
+        if [ -z "${iso_file}" ]; then
+            echo "could not resolve the Debian netinst ISO name from ${resolved_base_url}/SHA256SUMS" >&2
+            exit 1
+        fi
+        checksum_value="$(
+            awk -v target="${iso_file}" '
+                {
+                    path = $2
+                    sub(/^\.\//, "", path)
+                    sub(/^\*/, "", path)
+                    if (path == target) {
+                        print $1
+                        exit
+                    }
+                }
+            ' "${checksums_path}"
+        )"
+        if [ -z "${checksum_value}" ]; then
+            echo "could not resolve the Debian netinst checksum for ${iso_file}" >&2
+            exit 1
+        fi
     fi
 
     local iso_path="${INSTALLER_CACHE_DIR}/${iso_file}"
     local checksum_file="${INSTALLER_CACHE_DIR}/${iso_file}.sha256"
-    local checksum_value
-    checksum_value="$(
-        awk -v target="${iso_file}" '
-            {
-                path = $2
-                sub(/^\.\//, "", path)
-                sub(/^\*/, "", path)
-                if (path == target) {
-                    print $1
-                    exit
-                }
-            }
-        ' "${checksums_path}"
-    )"
-    if [ -z "${checksum_value}" ]; then
-        echo "could not resolve the Debian netinst checksum for ${iso_file}" >&2
-        exit 1
-    fi
     printf '%s  %s\n' "${checksum_value}" "${iso_file}" > "${checksum_file}"
 
     if [ ! -s "${iso_path}" ]; then
-        curl -fL "${DEBIAN_NETINST_BASE_URL}/${iso_file}" -o "${iso_path}.tmp"
+        curl -fL "${resolved_base_url}/${iso_file}" -o "${iso_path}.tmp"
         mv "${iso_path}.tmp" "${iso_path}"
     fi
 

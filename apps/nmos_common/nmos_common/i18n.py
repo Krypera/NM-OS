@@ -247,6 +247,15 @@ def locale_language(locale: str | None) -> str:
     return re.split(r"[_@.]", text, maxsplit=1)[0].lower()
 
 
+def _repair_mojibake(text: str) -> str:
+    if "Ã" not in text and "Â" not in text:
+        return text
+    try:
+        return text.encode("latin-1").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return text
+
+
 def resolve_supported_locale(locale: str | None, default: str = DEFAULT_UI_LOCALE) -> str:
     text = str(locale or "").strip()
     if not text:
@@ -263,12 +272,12 @@ def resolve_supported_locale(locale: str | None, default: str = DEFAULT_UI_LOCAL
 
 def display_language_name(locale: str | None) -> str:
     resolved = resolve_supported_locale(locale)
-    return LANGUAGE_LABELS.get(resolved, resolved)
+    return _repair_mojibake(LANGUAGE_LABELS.get(resolved, resolved))
 
 
 def translate(locale: str | None, source_text: str, **kwargs) -> str:
     language = locale_language(resolve_supported_locale(locale))
-    template = TRANSLATIONS.get(language, {}).get(source_text, source_text)
+    template = _repair_mojibake(TRANSLATIONS.get(language, {}).get(source_text, source_text))
     return template.format(**kwargs)
 
 

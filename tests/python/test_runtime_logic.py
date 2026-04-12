@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -136,6 +137,17 @@ def test_platform_adapter_override_loading(workspace_tmp_path: Path) -> None:
     assert loaded["gdm_user"] == "test-gdm"
     assert loaded["runtime_dir"] == "/tmp/nmos-run"
     assert loaded["state_dir"] == "/tmp/nmos-state"
+
+    original_runtime = os.environ.get("NMOS_RUNTIME_DIR")
+    os.environ["NMOS_RUNTIME_DIR"] = "/tmp/env-run"
+    try:
+        env_loaded = load_platform_adapter(adapter_file)
+    finally:
+        if original_runtime is None:
+            os.environ.pop("NMOS_RUNTIME_DIR", None)
+        else:
+            os.environ["NMOS_RUNTIME_DIR"] = original_runtime
+    assert env_loaded["runtime_dir"] == "/tmp/env-run"
 
 
 def test_posture_preview_is_explainable() -> None:
@@ -521,6 +533,9 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     settings_client_source = (
         repo_root / "apps" / "nmos_common" / "nmos_common" / "settings_client.py"
     ).read_text(encoding="utf-8")
+    settings_policy_source = (
+        repo_root / "config" / "system-overlay" / "etc" / "dbus-1" / "system.d" / "org.nmos.Settings1.conf"
+    ).read_text(encoding="utf-8")
     control_center_source = (
         repo_root / "apps" / "nmos_control_center" / "nmos_control_center" / "main.py"
     ).read_text(encoding="utf-8")
@@ -535,6 +550,11 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "SetOverrides" in settings_service_source
     assert "GetPendingRebootChanges" in settings_service_source
     assert "SettingsClient" in settings_client_source
+    assert "SettingsClientError" in settings_client_source
+    assert "RETRIABLE_DBUS_ERRORS" in settings_client_source
+    assert "NMOS_ALLOW_LOCAL_SETTINGS_FALLBACK" in settings_client_source
+    assert '<deny send_destination="org.nmos.Settings1"/>' in settings_policy_source
+    assert '<policy at_console="true">' in settings_policy_source
     assert "NM-OS Control Center" in control_center_source
     assert "Profiles" in control_center_source
     assert "Appearance" in control_center_source
@@ -557,6 +577,9 @@ def test_installer_media_and_assets_are_packaged(repo_root: Path) -> None:
     installer_preseed = (
         repo_root / "config" / "installer" / "debian-installer" / "preseed" / "nmos.cfg.in"
     ).read_text(encoding="utf-8")
+    base_iso_lock = (
+        repo_root / "config" / "installer" / "base-iso.lock"
+    ).read_text(encoding="utf-8")
     late_command_template = (
         repo_root / "config" / "installer" / "debian-installer" / "preseed" / "install-overlay.sh.in"
     ).read_text(encoding="utf-8")
@@ -568,6 +591,9 @@ def test_installer_media_and_assets_are_packaged(repo_root: Path) -> None:
     assert "installer_iso=" in build_source
     assert "build_installer_iso_image" in build_source
     assert "resolve_base_installer_iso" in common_source
+    assert "BASE_ISO_LOCK_FILE" in common_source
+    assert "read_base_iso_lock_value" in common_source
+    assert "NMOS_BASE_INSTALLER_SHA256" in common_source
     assert "installer_iso_name" in common_source
     assert "preseed/file=/cdrom/preseed/nmos.cfg" in common_source
     assert 'sub(/^\\.\\//, "", path)' in common_source
@@ -578,6 +604,8 @@ def test_installer_media_and_assets_are_packaged(repo_root: Path) -> None:
     assert "@PKGSEL_INCLUDE@" in installer_preseed
     assert "in-target /bin/bash /root/nmos-install-overlay.sh" in installer_preseed
     assert 'tar -xzf "${OVERLAY_ARCHIVE}" -C /' in late_command_template
+    assert "ISO_FILE=debian-" in base_iso_lock
+    assert "SHA256=" in base_iso_lock
     assert "calamares" in installer_packages
     assert "flatpak" in installer_packages
 
@@ -585,6 +613,15 @@ def test_installer_media_and_assets_are_packaged(repo_root: Path) -> None:
 def test_i18n_supports_spanish_without_extra_locales(repo_root: Path) -> None:
     i18n_source = (repo_root / "apps" / "nmos_common" / "nmos_common" / "i18n.py").read_text(encoding="utf-8")
     assert "es_ES.UTF-8" in i18n_source
+    for unsupported_locale in ("tr_TR.UTF-8", "de_DE.UTF-8", "fr_FR.UTF-8"):
+        assert unsupported_locale not in i18n_source
+    assert display_language_name("es_ES.UTF-8") == "Español"
+    assert translate("es_ES.UTF-8", "Security profile") == "Perfil de seguridad"
+    assert translate("es_ES.UTF-8", "Theme: {theme}", theme="Señal clásica") == "Tema: Señal clásica"
+    assert translate("es_ES.UTF-8", "Applies now: {changes}", changes="Idioma") == "Se aplica ahora: Idioma"
+    assert translate("es_ES.UTF-8", "None") == "Ninguno"
+    assert "Ã" not in translate("es_ES.UTF-8", "NM-OS Setup")
+    return
     assert "Español" in i18n_source
     for unsupported_locale in ("tr_TR.UTF-8", "de_DE.UTF-8", "fr_FR.UTF-8"):
         assert unsupported_locale not in i18n_source

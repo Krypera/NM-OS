@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+
+from nmos_common.config_helpers import parse_bool
 from nmos_common.system_settings import (
     apply_system_profile,
     commit_system_settings,
@@ -18,6 +21,18 @@ def load_dbus():
     import dbus
 
     return dbus
+
+
+RETRIABLE_DBUS_ERRORS = {
+    "org.freedesktop.DBus.Error.ServiceUnknown",
+    "org.freedesktop.DBus.Error.NoReply",
+    "org.freedesktop.DBus.Error.Disconnected",
+    "org.freedesktop.DBus.Error.TimedOut",
+}
+
+
+class SettingsClientError(RuntimeError):
+    pass
 
 
 class LocalSettingsClient:
@@ -44,8 +59,10 @@ class LocalSettingsClient:
 
 
 class SettingsClient:
-    def __init__(self, *, allow_local_fallback: bool = True) -> None:
-        self.allow_local_fallback = allow_local_fallback
+    def __init__(self, *, allow_local_fallback: bool | None = None) -> None:
+        if allow_local_fallback is None:
+            allow_local_fallback = parse_bool(os.environ.get("NMOS_ALLOW_LOCAL_SETTINGS_FALLBACK"), default=False)
+        self.allow_local_fallback = bool(allow_local_fallback)
         self.local = LocalSettingsClient()
 
     def _interface(self):
@@ -58,13 +75,25 @@ class SettingsClient:
         try:
             interface = self._interface()
             response = getattr(interface, method_name)(*args)
-        except Exception:
-            if not self.allow_local_fallback:
-                raise
-            return local_method(*args)
+        except Exception as error:
+            if self.allow_local_fallback and self._can_use_local_fallback(error):
+                return local_method(*args)
+            raise SettingsClientError(f"{method_name} failed without a safe fallback path") from error
         if method_name == "GetPendingRebootChanges":
             return [str(item) for item in response]
         return dict(response)
+
+    def _can_use_local_fallback(self, error: Exception) -> bool:
+        if isinstance(error, ImportError):
+            return True
+        get_name = getattr(error, "get_dbus_name", None)
+        if callable(get_name):
+            try:
+                name = str(get_name())
+            except Exception:
+                return False
+            return name in RETRIABLE_DBUS_ERRORS
+        return False
 
     def get_settings(self) -> dict:
         return self._with_fallback("GetSettings", self.local.get_settings)

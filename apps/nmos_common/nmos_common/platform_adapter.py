@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from nmos_common.config_helpers import read_assignment_file
@@ -28,7 +29,9 @@ def load_platform_adapter(path: Path = DEFAULT_PLATFORM_ADAPTER_FILE) -> dict[st
     except OSError:
         raw = {}
     for env_key, key in ENV_KEY_MAP.items():
-        value = str(raw.get(env_key, "")).strip()
+        value = str(os.environ.get(env_key, "")).strip()
+        if not value:
+            value = str(raw.get(env_key, "")).strip()
         if value:
             resolved[key] = value
     return resolved
