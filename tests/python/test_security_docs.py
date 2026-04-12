@@ -11,6 +11,8 @@ def test_security_model_maps_settings_to_enforcement(repo_root: Path) -> None:
     assert "`sandbox_default`" in security_model_source
     assert "`device_policy`" in security_model_source
     assert "`logging_policy`" in security_model_source
+    assert "logging_policy.py" in security_model_source
+    assert "journald.conf.d/90-nmos-logging-policy.conf" in security_model_source
     assert "`allow_brave_browser`" in security_model_source
     assert "desktop_mode.py" in security_model_source
     assert "brave_policy.py" in security_model_source

@@ -500,6 +500,28 @@ def test_brave_visibility_and_runtime_share_settings_helper(repo_root: Path) -> 
     assert "wallpaper-light.svg" in desktop_mode_source
 
 
+def test_logging_policy_enforcement_assets_exist(repo_root: Path) -> None:
+    logging_policy_source = (
+        repo_root / "config" / "system-overlay" / "usr" / "local" / "lib" / "nmos" / "logging_policy.py"
+    ).read_text(encoding="utf-8")
+    logging_service_source = (
+        repo_root
+        / "config"
+        / "system-overlay"
+        / "usr"
+        / "lib"
+        / "systemd"
+        / "system"
+        / "nmos-logging-policy.service"
+    ).read_text(encoding="utf-8")
+    assert "load_effective_system_settings" in logging_policy_source
+    assert "journald.conf.d" in logging_policy_source
+    assert "journalctl" in logging_policy_source
+    assert "systemd-journald.service" in logging_policy_source
+    assert "NMOS_LOGGING_POLICY" in logging_policy_source
+    assert "ExecStart=/usr/local/lib/nmos/logging_policy.py" in logging_service_source
+
+
 def test_overlay_build_uses_installed_python_packages(repo_root: Path) -> None:
     common_source = (repo_root / "build" / "lib" / "common.sh").read_text(encoding="utf-8")
     greeter_launcher_source = (
@@ -544,6 +566,16 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
         / "system"
         / "nmos-settings.service"
     ).read_text(encoding="utf-8")
+    logging_service = (
+        repo_root
+        / "config"
+        / "system-overlay"
+        / "usr"
+        / "lib"
+        / "systemd"
+        / "system"
+        / "nmos-logging-policy.service"
+    ).read_text(encoding="utf-8")
     persistent_service = (
         repo_root
         / "config"
@@ -565,13 +597,15 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
         / "nmos-network-bootstrap.service"
     ).read_text(encoding="utf-8")
 
-    for service_source in (settings_service, persistent_service, network_service):
+    for service_source in (settings_service, logging_service, persistent_service, network_service):
         for value in ("NoNewPrivileges=yes", "ProtectSystem=strict", "ProtectHome=yes", "PrivateTmp=yes"):
             assert value in service_source
 
     assert "CapabilityBoundingSet=" in settings_service
     assert "ReadWritePaths=@NMOS_RUNTIME_DIR@ @NMOS_STATE_DIR@" in settings_service
     assert "RestrictAddressFamilies=AF_UNIX" in settings_service
+    assert "ReadWritePaths=/etc/systemd/journald.conf.d @NMOS_RUNTIME_DIR@" in logging_service
+    assert "RestrictAddressFamilies=AF_UNIX" in logging_service
 
     for value in ("NoNewPrivileges=yes", "ProtectSystem=strict", "ProtectHome=yes", "PrivateTmp=yes"):
         assert value in persistent_service
@@ -584,6 +618,7 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
     assert "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK" in network_service
     assert "render_platform_overlay_templates" in common_source
     assert "nmos-settings.service" in common_source
+    assert "nmos-logging-policy.service" in common_source
     assert "nmos-persistent-storage.service" in common_source
     assert "nmos-network-bootstrap.service" in common_source
 
