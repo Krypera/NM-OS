@@ -106,6 +106,20 @@ The encrypted vault is a concrete example of explainable security:
 | Hardened | Stronger daily containment | Tor-first | Strict | Locked | Minimal | Less convenience and narrower compatibility |
 | Maximum | Highest practical restriction | Offline | Strict | Locked | Sealed | Strongest posture, intentionally restrictive |
 
+## Setting To Enforcement Matrix
+
+| Setting | User-facing meaning | Enforcement layer today | Status |
+| --- | --- | --- | --- |
+| `network_policy` | Direct / Tor-first / Offline network posture | `config/system-overlay/usr/local/lib/nmos/network_bootstrap.py` + nftables bootstrap rules + Tor bootstrap state | Enforced |
+| `sandbox_default` | Standard / Focused / Strict default app isolation intent | Settings model + UI explanation in greeter/control center | Partial (policy language exists, per-app enforcement roadmap) |
+| `device_policy` | Shared / Prompt / Locked external device trust posture | Settings model + UI explanation | Partial (udev/polkit/udisks enforcement roadmap) |
+| `logging_policy` | Balanced / Minimal / Sealed retained trace posture | Settings model + UI explanation | Partial (journald/app-log retention enforcement roadmap) |
+| `allow_brave_browser` | Whether Brave can appear when allowed by build/network posture | `config/system-overlay/usr/local/lib/nmos/desktop_mode.py` and `brave_policy.py` runtime gating | Enforced (feature-gated + policy-aware) |
+| `vault` | Auto-lock and unlock-on-login defaults for encrypted vault behavior | Persistent storage service state + greeter/control-center orchestration | Enforced for current vault flow |
+| `active_profile` + overrides | Explainable security baseline with explicit deviations | `nmos_common.system_settings` normalization + pending reboot classification | Enforced in settings model, maps to runtime components above |
+
+This matrix is a release gate aid: every new security-facing setting should be mapped here with a concrete enforcement layer (or explicitly marked partial).
+
 ## Direction For Future Work
 
 1. Make every security-facing setting map to a real enforcement layer.
