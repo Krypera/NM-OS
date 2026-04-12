@@ -41,7 +41,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         except SettingsClientError as error:
             persisted_settings = dict(DEFAULT_SYSTEM_SETTINGS)
             self.settings_backend_ready = False
-            self.settings_backend_message = error.user_message()
+            self.settings_backend_message = self.describe_backend_issue(error)
         self.state = {**persisted_settings, **load_state()}
         self.system_settings = dict(persisted_settings)
         self.save_state = save_state
@@ -82,6 +82,17 @@ class GreeterWindow(Adw.ApplicationWindow):
             prefix = f"{self.settings_backend_message} " if self.settings_backend_message else ""
             self.set_status(f"{prefix}Review mode only until service is reachable.")
         GLib.timeout_add_seconds(10, self.poll_runtime)
+
+    def describe_backend_issue(self, error: SettingsClientError) -> str:
+        if error.reason == "access_denied":
+            return "Settings backend denied access. Sign in with an authorized session and retry."
+        if error.reason == "backend_unavailable":
+            return "Settings backend is unavailable. Retry in a moment or check the settings service health."
+        if error.reason == "transport_error":
+            return "Settings backend connection failed. Check runtime service status, then retry."
+        if error.reason == "dbus_import_error":
+            return "D-Bus runtime is unavailable on this system."
+        return error.user_message()
 
     def tr(self, source_text: str, **kwargs) -> str:
         return translate(self.ui_locale, source_text, **kwargs)
@@ -288,7 +299,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         except (OSError, ValueError, RuntimeError, SettingsClientError) as exc:
             self.logger.error("failed to save system settings: %s", exc)
             if isinstance(exc, SettingsClientError):
-                self.set_status(exc.user_message())
+                self.set_status(self.describe_backend_issue(exc))
             else:
                 self.set_status(self.tr("Failed to save system settings: {error}", error=self.tr("internal error")))
             return

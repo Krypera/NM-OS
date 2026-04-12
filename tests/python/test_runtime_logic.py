@@ -426,6 +426,9 @@ def test_greeter_layout_is_setup_only(repo_root: Path) -> None:
 
     assert "SettingsClient" in main_source
     assert "allow_local_fallback=False" in main_source
+    assert "describe_backend_issue" in main_source
+    assert "authorized session" in main_source
+    assert "service health" in main_source
     assert "Review mode only until service is reachable." in main_source
     assert "GDM" not in main_source
     assert "profile_combo" in ui_source
@@ -644,6 +647,9 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "DBUS_READ_INTERFACE" in settings_client_source
     assert "DBUS_WRITE_INTERFACE" in settings_client_source
     assert "allow_local_fallback=False" in control_center_source
+    assert "describe_backend_issue" in control_center_source
+    assert "authorized session" in control_center_source
+    assert "service health" in control_center_source
     assert "Review mode only until service is reachable." in control_center_source
     assert "error.user_message()" in control_center_source
     assert "SettingsClientError" in settings_client_source

@@ -127,7 +127,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         except SettingsClientError as error:
             self.settings = dict(DEFAULT_SYSTEM_SETTINGS)
             self.backend_ready = False
-            self.startup_error_message = error.user_message()
+            self.startup_error_message = self.describe_backend_issue(error)
         self.profile_values = list(PROFILE_METADATA)
         self.language_values = [locale for locale, _label in LANGUAGE_OPTIONS]
         self.ui_locale = resolve_supported_locale(self.settings.get("locale", "en_US.UTF-8"))
@@ -145,6 +145,17 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             prefix = f"{self.startup_error_message} " if self.startup_error_message else ""
             self.status_label.set_text(f"{prefix}Review mode only until service is reachable.")
         self.set_content(self.root)
+
+    def describe_backend_issue(self, error: SettingsClientError) -> str:
+        if error.reason == "access_denied":
+            return "Settings backend denied access. Sign in with an authorized session and retry."
+        if error.reason == "backend_unavailable":
+            return "Settings backend is unavailable. Retry in a moment or check the settings service health."
+        if error.reason == "transport_error":
+            return "Settings backend connection failed. Check runtime service status, then retry."
+        if error.reason == "dbus_import_error":
+            return "D-Bus runtime is unavailable on this system."
+        return error.user_message()
 
     def _selected_value(self, dropdown: Gtk.DropDown, values: list[str]) -> str:
         selected = dropdown.get_selected()
@@ -578,7 +589,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.backend_ready = False
             self.apply_button.set_sensitive(False)
             self.reset_button.set_sensitive(False)
-            self.status_label.set_text(f"{error.user_message()} Review mode only until service is reachable.")
+            self.status_label.set_text(f"{self.describe_backend_issue(error)} Review mode only until service is reachable.")
             return
         self.restore_settings()
         self.refresh_summary()
@@ -589,7 +600,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.client.apply_preset(self._selected_value(self.profile_combo, self.profile_values))
             self.settings = self.client.commit()
         except SettingsClientError as error:
-            self.status_label.set_text(error.user_message())
+            self.status_label.set_text(self.describe_backend_issue(error))
             return
         self.restore_settings()
         self.refresh_summary()
@@ -605,7 +616,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                 self.client.set_overrides(overrides)
             self.settings = self.client.commit()
         except SettingsClientError as error:
-            self.status_label.set_text(error.user_message())
+            self.status_label.set_text(self.describe_backend_issue(error))
             return
         self.restore_settings()
         self.refresh_summary()
