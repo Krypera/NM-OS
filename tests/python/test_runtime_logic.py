@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "apps" / "nmos_greeter"))
 sys.path.insert(0, str(ROOT / "apps" / "nmos_persistent_storage"))
 
 from nmos_common.i18n import (
+    TRANSLATIONS,
     display_language_name,
     display_setting_value,
     explain_brave_visibility,
@@ -168,7 +169,7 @@ class _MockRetriableDBusError(Exception):
 
 def test_settings_client_does_not_fallback_by_default() -> None:
     client = SettingsClient(allow_local_fallback=False)
-    client._interface = lambda: (_ for _ in ()).throw(_MockRetriableDBusError())  # type: ignore[method-assign]
+    client._interface = lambda _interface: (_ for _ in ()).throw(_MockRetriableDBusError())  # type: ignore[method-assign]
     try:
         client.get_settings()
         assert False, "Expected SettingsClientError when fallback is disabled"
@@ -179,7 +180,7 @@ def test_settings_client_does_not_fallback_by_default() -> None:
 
 def test_settings_client_backend_unavailable_reason_is_explicit() -> None:
     client = SettingsClient(allow_local_fallback=False)
-    client._interface = lambda: (_ for _ in ()).throw(_MockBackendUnavailableDBusError())  # type: ignore[method-assign]
+    client._interface = lambda _interface: (_ for _ in ()).throw(_MockBackendUnavailableDBusError())  # type: ignore[method-assign]
     try:
         client.get_settings()
         assert False, "Expected SettingsClientError when backend is unavailable"
@@ -190,20 +191,50 @@ def test_settings_client_backend_unavailable_reason_is_explicit() -> None:
 
 def test_settings_client_retriable_fallback_is_opt_in() -> None:
     client = SettingsClient(allow_local_fallback=True)
-    client._interface = lambda: (_ for _ in ()).throw(_MockRetriableDBusError())  # type: ignore[method-assign]
+    client._interface = lambda _interface: (_ for _ in ()).throw(_MockRetriableDBusError())  # type: ignore[method-assign]
     client.local.get_settings = lambda: {"source": "local"}  # type: ignore[method-assign]
     assert client.get_settings() == {"source": "local"}
 
 
 def test_settings_client_access_denied_never_falls_back() -> None:
     client = SettingsClient(allow_local_fallback=True)
-    client._interface = lambda: (_ for _ in ()).throw(_MockDeniedDBusError())  # type: ignore[method-assign]
+    client._interface = lambda _interface: (_ for _ in ()).throw(_MockDeniedDBusError())  # type: ignore[method-assign]
     try:
         client.get_settings()
         assert False, "Expected SettingsClientError for access denied"
     except SettingsClientError as error:
         assert error.reason == "access_denied"
         assert "denied access" in error.user_message().lower()
+
+
+def test_settings_client_uses_read_write_interfaces() -> None:
+    client = SettingsClient(allow_local_fallback=False)
+    called_interfaces: list[str] = []
+
+    class _FakeInterface:
+        def __init__(self, interface_name: str) -> None:
+            self.interface_name = interface_name
+
+        def GetSettings(self):
+            called_interfaces.append(self.interface_name)
+            return {"active_profile": "balanced"}
+
+        def GetPendingRebootChanges(self):
+            called_interfaces.append(self.interface_name)
+            return ["network_policy"]
+
+        def Commit(self):
+            called_interfaces.append(self.interface_name)
+            return {"active_profile": "balanced"}
+
+    client._interface = lambda interface_name: _FakeInterface(interface_name)  # type: ignore[method-assign]
+    client.get_settings()
+    client.get_pending_reboot_changes()
+    client.commit()
+
+    assert called_interfaces[0] == "org.nmos.Settings1.Read"
+    assert called_interfaces[1] == "org.nmos.Settings1.Read"
+    assert called_interfaces[2] == "org.nmos.Settings1.Write"
 
 
 def test_posture_preview_is_explainable() -> None:
@@ -604,10 +635,14 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     wallpaper_light = repo_root / "config" / "system-overlay" / "usr" / "share" / "nmos" / "theme" / "wallpaper-light.svg"
 
     assert "DBUS_NAME" in settings_service_source
+    assert "DBUS_READ_INTERFACE" in settings_service_source
+    assert "DBUS_WRITE_INTERFACE" in settings_service_source
     assert "ApplyPreset" in settings_service_source
     assert "SetOverrides" in settings_service_source
     assert "GetPendingRebootChanges" in settings_service_source
     assert "SettingsClient" in settings_client_source
+    assert "DBUS_READ_INTERFACE" in settings_client_source
+    assert "DBUS_WRITE_INTERFACE" in settings_client_source
     assert "allow_local_fallback=False" in control_center_source
     assert "Review mode only until service is reachable." in control_center_source
     assert "error.user_message()" in control_center_source
@@ -620,6 +655,8 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "NMOS_ALLOW_LOCAL_SETTINGS_FALLBACK" in settings_client_source
     assert '<deny send_destination="org.nmos.Settings1"/>' in settings_policy_source
     assert '<policy at_console="true">' in settings_policy_source
+    assert 'send_interface="org.nmos.Settings1.Read"' in settings_policy_source
+    assert 'send_interface="org.nmos.Settings1.Write"' in settings_policy_source
     assert "NM-OS Control Center" in control_center_source
     assert "Profiles" in control_center_source
     assert "Appearance" in control_center_source
@@ -690,3 +727,6 @@ def test_i18n_supports_spanish_without_extra_locales(repo_root: Path) -> None:
     assert translate("es_ES.UTF-8", "Applies now: {changes}", changes="Idioma") == "Se aplica ahora: Idioma"
     assert translate("es_ES.UTF-8", "None") == "Ninguno"
     assert "Ã" not in translate("es_ES.UTF-8", "NM-OS Setup")
+    for key, value in TRANSLATIONS.get("es", {}).items():
+        assert "Ã" not in key and "Â" not in key and "�" not in key
+        assert "Ã" not in value and "Â" not in value and "�" not in value

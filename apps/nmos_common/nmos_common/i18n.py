@@ -248,7 +248,7 @@ def locale_language(locale: str | None) -> str:
 
 
 def _repair_mojibake(text: str) -> str:
-    if "Ã" not in text and "Â" not in text:
+    if "\u00c3" not in text and "\u00c2" not in text:
         return text
     try:
         return text.encode("latin-1").decode("utf-8")

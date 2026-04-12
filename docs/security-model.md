@@ -6,6 +6,33 @@ The current direction is to let users move between a more comfortable desktop an
 
 ## Current Layers
 
+### Settings authority model
+
+`org.nmos.Settings1` is split into two D-Bus trust levels:
+
+- `org.nmos.Settings1.Read`: read-only status and effective posture views
+- `org.nmos.Settings1.Write`: mutating settings and commit operations
+
+Current caller boundary:
+
+- `root`: read and write
+- `@NMOS_GDM_USER@`: read and write
+- `at_console=true`: read-only
+
+Method boundary:
+
+- Read-only:
+- `GetSettings`
+- `GetEffectiveSettings`
+- `GetPendingRebootChanges`
+- Mutating:
+- `ApplyPreset`
+- `SetOverrides`
+- `ResetToPreset`
+- `Commit`
+
+This keeps desktop visibility available while reducing the default mutation surface for arbitrary console sessions.
+
 ### Security profiles
 
 Profiles are the top-level entry point for most people.

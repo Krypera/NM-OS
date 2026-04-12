@@ -14,7 +14,8 @@ from nmos_common.system_settings import (
 
 DBUS_NAME = "org.nmos.Settings1"
 DBUS_PATH = "/org/nmos/Settings1"
-DBUS_INTERFACE = "org.nmos.Settings1"
+DBUS_READ_INTERFACE = "org.nmos.Settings1.Read"
+DBUS_WRITE_INTERFACE = "org.nmos.Settings1.Write"
 
 
 def load_dbus():
@@ -84,15 +85,15 @@ class SettingsClient:
         self.allow_local_fallback = bool(allow_local_fallback)
         self.local = LocalSettingsClient()
 
-    def _interface(self):
+    def _interface(self, dbus_interface: str):
         dbus = load_dbus()
         bus = dbus.SystemBus()
         proxy = bus.get_object(DBUS_NAME, DBUS_PATH, introspect=False)
-        return dbus.Interface(proxy, DBUS_INTERFACE)
+        return dbus.Interface(proxy, dbus_interface)
 
-    def _with_fallback(self, method_name: str, local_method, *args):
+    def _with_fallback(self, method_name: str, dbus_interface: str, local_method, *args):
         try:
-            interface = self._interface()
+            interface = self._interface(dbus_interface)
             response = getattr(interface, method_name)(*args)
         except Exception as error:
             reason = self._classify_error_reason(error)
@@ -143,22 +144,26 @@ class SettingsClient:
         return False
 
     def get_settings(self) -> dict:
-        return self._with_fallback("GetSettings", self.local.get_settings)
+        return self._with_fallback("GetSettings", DBUS_READ_INTERFACE, self.local.get_settings)
 
     def get_effective_settings(self) -> dict:
-        return self._with_fallback("GetEffectiveSettings", self.local.get_effective_settings)
+        return self._with_fallback("GetEffectiveSettings", DBUS_READ_INTERFACE, self.local.get_effective_settings)
 
     def apply_preset(self, profile: str) -> dict:
-        return self._with_fallback("ApplyPreset", self.local.apply_preset, profile)
+        return self._with_fallback("ApplyPreset", DBUS_WRITE_INTERFACE, self.local.apply_preset, profile)
 
     def set_overrides(self, overrides: dict) -> dict:
-        return self._with_fallback("SetOverrides", self.local.set_overrides, overrides)
+        return self._with_fallback("SetOverrides", DBUS_WRITE_INTERFACE, self.local.set_overrides, overrides)
 
     def reset_to_preset(self) -> dict:
-        return self._with_fallback("ResetToPreset", self.local.reset_to_preset)
+        return self._with_fallback("ResetToPreset", DBUS_WRITE_INTERFACE, self.local.reset_to_preset)
 
     def get_pending_reboot_changes(self) -> list[str]:
-        return self._with_fallback("GetPendingRebootChanges", self.local.get_pending_reboot_changes)
+        return self._with_fallback(
+            "GetPendingRebootChanges",
+            DBUS_READ_INTERFACE,
+            self.local.get_pending_reboot_changes,
+        )
 
     def commit(self) -> dict:
-        return self._with_fallback("Commit", self.local.commit)
+        return self._with_fallback("Commit", DBUS_WRITE_INTERFACE, self.local.commit)

@@ -38,6 +38,7 @@ root = Path(os.environ["NMOS_ROOT"])
 sys.path.insert(0, str(root / "apps" / "nmos_common"))
 
 from nmos_common.i18n import (
+    TRANSLATIONS,
     display_language_name,
     display_network_policy_name,
     posture_explanation_lines,
@@ -59,6 +60,9 @@ assert translate_message("es_ES.UTF-8", "Tor is ready") == "Tor está listo"
 posture = describe_posture_preview("balanced", {"network_policy": "direct", "allow_brave_browser": True})
 assert any("red directa" in line.lower() for line in posture_explanation_lines("es_ES.UTF-8", posture))
 assert "Ã" not in translate("es_ES.UTF-8", "NM-OS Setup")
+for key, value in TRANSLATIONS.get("es", {}).items():
+    assert "Ã" not in key and "Â" not in key and "�" not in key
+    assert "Ã" not in value and "Â" not in value and "�" not in value
 assert translate("de_DE.UTF-8", "Language") == "Language"
 
 print("Greeter i18n checks passed")
