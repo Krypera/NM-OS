@@ -9,6 +9,7 @@ from nmos_common.i18n import (
     display_network_policy_name,
     explain_brave_visibility,
     explain_network_policy,
+    format_change_detail,
     posture_explanation_lines,
     resolve_supported_locale,
 )
@@ -18,8 +19,8 @@ from nmos_common.system_settings import (
     MOTION_LABELS,
     PROFILE_METADATA,
     THEME_PROFILE_LABELS,
-    classify_effective_changes,
     derive_overrides_for_profile,
+    describe_effective_change_details,
     describe_posture_preview,
     normalize_system_settings,
     setting_display_name,
@@ -134,6 +135,7 @@ def _summary_page(window) -> Gtk.Widget:
             window.summary_label,
             window.summary_posture_label,
             window.summary_timing_label,
+            window.summary_change_detail_label,
             window.summary_reboot_label,
         ],
     )
@@ -219,6 +221,9 @@ def build_ui(window) -> None:
     window.summary_posture_label.set_wrap(True)
     window.summary_timing_label = Gtk.Label(xalign=0)
     window.summary_timing_label.set_wrap(True)
+    window.summary_change_detail_label = Gtk.Label(xalign=0)
+    window.summary_change_detail_label.set_wrap(True)
+    window.summary_change_detail_label.add_css_class("dim-label")
     window.summary_reboot_label = Gtk.Label(xalign=0)
     window.summary_reboot_label.set_wrap(True)
     window.summary_reboot_label.add_css_class("dim-label")
@@ -555,9 +560,11 @@ def refresh_summary(window) -> None:
         "active_profile": draft_state["active_profile"],
         "overrides": derive_overrides_for_profile(draft_state["active_profile"], draft_state),
     }
-    change_groups = classify_effective_changes(effective_payload)
-    immediate_labels = [window.tr(setting_display_name(key)) for key in change_groups["immediate"]]
-    reboot_labels = [window.tr(setting_display_name(key)) for key in change_groups["reboot"]]
+    change_details = describe_effective_change_details(effective_payload)
+    immediate_details = change_details["immediate"]
+    reboot_details = change_details["reboot"]
+    immediate_labels = [window.tr(setting_display_name(str(item["key"]))) for item in immediate_details]
+    reboot_labels = [window.tr(setting_display_name(str(item["key"]))) for item in reboot_details]
     draft_settings = normalize_system_settings(
         {
             "active_profile": draft_state["active_profile"],
@@ -595,8 +602,23 @@ def refresh_summary(window) -> None:
                 ]
             )
         )
+        detail_lines: list[str] = []
+        if immediate_details:
+            detail_lines.append(window.tr("Change details (now):"))
+            detail_lines.extend(
+                f"- {format_change_detail(window.ui_locale, window.tr(setting_display_name(str(item['key']))), str(item['key']), item.get('from'), item.get('to'))}"
+                for item in immediate_details
+            )
+        if reboot_details:
+            detail_lines.append(window.tr("Change details (after reboot):"))
+            detail_lines.extend(
+                f"- {format_change_detail(window.ui_locale, window.tr(setting_display_name(str(item['key']))), str(item['key']), item.get('from'), item.get('to'))}"
+                for item in reboot_details
+            )
+        window.summary_change_detail_label.set_text("\n".join(detail_lines))
     else:
         window.summary_timing_label.set_text(window.tr("No changed settings in the current draft."))
+        window.summary_change_detail_label.set_text("")
     if draft_settings.get("pending_reboot"):
         pending = ", ".join(str(item).replace("_", " ") for item in draft_settings["pending_reboot"])
         window.summary_reboot_label.set_text(window.tr("Restart required for: {pending}", pending=pending))

@@ -372,21 +372,43 @@ def classify_effective_changes(
     *,
     applied_path: Path = APPLIED_SETTINGS_FILE,
 ) -> dict[str, list[str]]:
+    details = describe_effective_change_details(
+        settings,
+        applied_settings=applied_settings,
+        applied_path=applied_path,
+    )
+    return {
+        "immediate": [str(item["key"]) for item in details["immediate"]],
+        "reboot": [str(item["key"]) for item in details["reboot"]],
+    }
+
+
+def describe_effective_change_details(
+    settings: object,
+    applied_settings: object | None = None,
+    *,
+    applied_path: Path = APPLIED_SETTINGS_FILE,
+) -> dict[str, list[dict[str, object]]]:
     effective = extract_effective_settings(settings)
     applied = (
         extract_effective_settings(applied_settings)
         if isinstance(applied_settings, dict)
         else load_applied_system_settings(applied_path)
     )
-    immediate: list[str] = []
-    reboot: list[str] = []
+    immediate: list[dict[str, object]] = []
+    reboot: list[dict[str, object]] = []
     for key in EFFECTIVE_SETTING_KEYS:
         if effective.get(key) == applied.get(key):
             continue
+        detail = {
+            "key": key,
+            "from": copy.deepcopy(applied.get(key)),
+            "to": copy.deepcopy(effective.get(key)),
+        }
         if key in REBOOT_REQUIRED_FIELDS:
-            reboot.append(key)
+            reboot.append(detail)
         else:
-            immediate.append(key)
+            immediate.append(detail)
     return {
         "immediate": immediate,
         "reboot": reboot,

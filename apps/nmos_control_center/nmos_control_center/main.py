@@ -14,6 +14,7 @@ from nmos_common.i18n import (
     explain_network_policy,
     explain_sandbox_default,
     explain_vault_behavior,
+    format_change_detail,
     posture_explanation_lines,
     resolve_supported_locale,
     translate,
@@ -25,8 +26,8 @@ from nmos_common.system_settings import (
     MOTION_LABELS,
     PROFILE_METADATA,
     THEME_PROFILE_LABELS,
-    classify_effective_changes,
     derive_overrides_for_profile,
+    describe_effective_change_details,
     describe_posture_preview,
     normalize_system_settings,
     setting_display_name,
@@ -183,6 +184,9 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.profile_details.set_wrap(True)
         self.change_timing_label = Gtk.Label(xalign=0)
         self.change_timing_label.set_wrap(True)
+        self.change_detail_label = Gtk.Label(xalign=0)
+        self.change_detail_label.set_wrap(True)
+        self.change_detail_label.add_css_class("dim-label")
         self.pending_reboot_label = Gtk.Label(xalign=0)
         self.pending_reboot_label.set_wrap(True)
 
@@ -243,6 +247,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                 self.profile_tradeoff,
                 self.profile_details,
                 self.change_timing_label,
+                self.change_detail_label,
                 self.pending_reboot_label,
             ],
         )
@@ -450,9 +455,11 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             "active_profile": profile,
             "overrides": derive_overrides_for_profile(profile, draft_values),
         }
-        change_groups = classify_effective_changes(effective_payload)
-        immediate_labels = [self.tr(setting_display_name(key)) for key in change_groups["immediate"]]
-        reboot_labels = [self.tr(setting_display_name(key)) for key in change_groups["reboot"]]
+        change_details = describe_effective_change_details(effective_payload)
+        immediate_details = change_details["immediate"]
+        reboot_details = change_details["reboot"]
+        immediate_labels = [self.tr(setting_display_name(str(item["key"]))) for item in immediate_details]
+        reboot_labels = [self.tr(setting_display_name(str(item["key"]))) for item in reboot_details]
         if immediate_labels or reboot_labels:
             self.change_timing_label.set_text(
                 "\n".join(
@@ -468,8 +475,23 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                     ]
                 )
             )
+            detail_lines: list[str] = []
+            if immediate_details:
+                detail_lines.append(self.tr("Change details (now):"))
+                detail_lines.extend(
+                    f"- {format_change_detail(self.ui_locale, self.tr(setting_display_name(str(item['key']))), str(item['key']), item.get('from'), item.get('to'))}"
+                    for item in immediate_details
+                )
+            if reboot_details:
+                detail_lines.append(self.tr("Change details (after reboot):"))
+                detail_lines.extend(
+                    f"- {format_change_detail(self.ui_locale, self.tr(setting_display_name(str(item['key']))), str(item['key']), item.get('from'), item.get('to'))}"
+                    for item in reboot_details
+                )
+            self.change_detail_label.set_text("\n".join(detail_lines))
         else:
             self.change_timing_label.set_text(self.tr("No changed settings in the current draft."))
+            self.change_detail_label.set_text("")
         self.privacy_explanation.set_text(
             "\n".join(
                 [

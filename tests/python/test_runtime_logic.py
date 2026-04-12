@@ -11,12 +11,14 @@ sys.path.insert(0, str(ROOT / "apps" / "nmos_persistent_storage"))
 
 from nmos_common.i18n import (
     display_language_name,
+    display_setting_value,
     explain_brave_visibility,
     explain_device_policy,
     explain_logging_policy,
     explain_network_policy,
     explain_sandbox_default,
     explain_vault_behavior,
+    format_change_detail,
     posture_explanation_lines,
     translate,
 )
@@ -26,6 +28,7 @@ from nmos_common.system_settings import (
     apply_system_profile,
     classify_effective_changes,
     derive_overrides_for_profile,
+    describe_effective_change_details,
     describe_posture_preview,
     extract_effective_settings,
     load_effective_system_settings,
@@ -206,11 +209,22 @@ def test_change_classification_groups_now_and_reboot() -> None:
         "ui_motion": "full",
     }
     grouped = classify_effective_changes(draft, applied_settings=applied)
+    detailed = describe_effective_change_details(draft, applied_settings=applied)
     assert "network_policy" in grouped["reboot"]
     assert "allow_brave_browser" in grouped["immediate"]
     assert "ui_accent" in grouped["immediate"]
+    assert any(item["key"] == "network_policy" and item["from"] == "tor" and item["to"] == "direct" for item in detailed["reboot"])
+    assert any(item["key"] == "ui_accent" and item["from"] == "amber" and item["to"] == "mint" for item in detailed["immediate"])
     assert setting_display_name("network_policy") == "Network policy"
     assert setting_display_name("unknown_field") == "Unknown Field"
+
+
+def test_change_detail_formatting_is_human_readable() -> None:
+    assert display_setting_value("en_US.UTF-8", "network_policy", "tor") == "Tor-first"
+    assert "Activado" == display_setting_value("es_ES.UTF-8", "allow_brave_browser", True)
+    assert "manual" in display_setting_value("en_US.UTF-8", "vault", {"auto_lock_minutes": 0, "unlock_on_login": False}).lower()
+    detail = format_change_detail("en_US.UTF-8", "Network policy", "network_policy", "tor", "offline")
+    assert "Network policy: Tor-first -> Offline" == detail
 
 
 def test_tor_status_respects_settings(repo_root: Path, workspace_tmp_path: Path) -> None:

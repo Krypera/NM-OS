@@ -16,6 +16,47 @@ NETWORK_POLICY_TITLES = {
     "offline": "Offline",
 }
 
+SANDBOX_TITLES = {
+    "standard": "Standard",
+    "focused": "Focused",
+    "strict": "Strict",
+}
+
+DEVICE_POLICY_TITLES = {
+    "shared": "Shared devices",
+    "prompt": "Prompt first",
+    "locked": "Locked down",
+}
+
+LOGGING_POLICY_TITLES = {
+    "balanced": "Balanced",
+    "minimal": "Minimal",
+    "sealed": "Sealed",
+}
+
+THEME_PROFILE_TITLES = {
+    "nmos-classic": "Classic Signal",
+    "nmos-night": "Night Console",
+    "nmos-light": "Light Grid",
+}
+
+ACCENT_TITLES = {
+    "amber": "Amber",
+    "cyan": "Cyan",
+    "mint": "Mint",
+    "rose": "Rose",
+}
+
+DENSITY_TITLES = {
+    "comfortable": "Comfortable",
+    "compact": "Compact",
+}
+
+MOTION_TITLES = {
+    "full": "Full motion",
+    "reduced": "Reduced motion",
+}
+
 TRANSLATIONS = {
     "es": {
         "NM-OS Setup": "Configuración de NM-OS",
@@ -60,6 +101,21 @@ TRANSLATIONS = {
         "Compact": "Compacto",
         "Full motion": "Movimiento completo",
         "Reduced motion": "Movimiento reducido",
+        "Standard": "Estándar",
+        "Focused": "Enfocado",
+        "Strict": "Estricto",
+        "Shared devices": "Dispositivos compartidos",
+        "Prompt first": "Primero preguntar",
+        "Locked down": "Bloqueado",
+        "Enabled": "Activado",
+        "Disabled": "Desactivado",
+        "Manual lock": "Bloqueo manual",
+        "{minutes} min auto-lock": "Bloqueo automático de {minutes} min",
+        "Unlock on login: enabled": "Desbloqueo al iniciar sesión: activado",
+        "Unlock on login: disabled": "Desbloqueo al iniciar sesión: desactivado",
+        "Change details (now):": "Detalles de cambio (ahora):",
+        "Change details (after reboot):": "Detalles de cambio (tras reinicio):",
+        "{setting}: {before} -> {after}": "{setting}: {before} -> {after}",
         "Encrypted Vault": "Bóveda cifrada",
         "Create or unlock an encrypted vault for sensitive files.": "Crea o desbloquea una bóveda cifrada para archivos sensibles.",
         "Review": "Resumen",
@@ -214,6 +270,73 @@ def display_network_policy_name(policy: str | None, locale: str | None = None) -
     normalized = str(policy or "").strip().lower()
     title = NETWORK_POLICY_TITLES.get(normalized, NETWORK_POLICY_TITLES["tor"])
     return translate(locale, title)
+
+
+def display_setting_value(locale: str | None, key: str, value: object) -> str:
+    if key == "locale":
+        return display_language_name(str(value or DEFAULT_UI_LOCALE))
+    if key == "keyboard":
+        text = str(value or "").strip().lower()
+        return text or "us"
+    if key == "network_policy":
+        return display_network_policy_name(str(value or "tor"), locale=locale)
+    if key == "allow_brave_browser":
+        return translate(locale, "Enabled" if bool(value) else "Disabled")
+    if key == "sandbox_default":
+        title = SANDBOX_TITLES.get(str(value or "").strip().lower(), SANDBOX_TITLES["focused"])
+        return translate(locale, title)
+    if key == "device_policy":
+        title = DEVICE_POLICY_TITLES.get(str(value or "").strip().lower(), DEVICE_POLICY_TITLES["prompt"])
+        return translate(locale, title)
+    if key == "logging_policy":
+        title = LOGGING_POLICY_TITLES.get(str(value or "").strip().lower(), LOGGING_POLICY_TITLES["minimal"])
+        return translate(locale, title)
+    if key == "ui_theme_profile":
+        title = THEME_PROFILE_TITLES.get(str(value or "").strip().lower(), THEME_PROFILE_TITLES["nmos-classic"])
+        return translate(locale, title)
+    if key == "ui_accent":
+        title = ACCENT_TITLES.get(str(value or "").strip().lower(), ACCENT_TITLES["amber"])
+        return translate(locale, title)
+    if key == "ui_density":
+        title = DENSITY_TITLES.get(str(value or "").strip().lower(), DENSITY_TITLES["comfortable"])
+        return translate(locale, title)
+    if key == "ui_motion":
+        title = MOTION_TITLES.get(str(value or "").strip().lower(), MOTION_TITLES["full"])
+        return translate(locale, title)
+    if key == "vault":
+        raw = value if isinstance(value, dict) else {}
+        try:
+            auto_lock_minutes = int(raw.get("auto_lock_minutes", 15))
+        except (TypeError, ValueError):
+            auto_lock_minutes = 15
+        auto_lock_minutes = max(0, auto_lock_minutes)
+        lock_text = (
+            translate(locale, "Manual lock")
+            if auto_lock_minutes == 0
+            else translate(locale, "{minutes} min auto-lock", minutes=auto_lock_minutes)
+        )
+        login_text = translate(
+            locale,
+            "Unlock on login: enabled" if bool(raw.get("unlock_on_login", False)) else "Unlock on login: disabled",
+        )
+        return f"{lock_text}, {login_text}"
+    return str(value)
+
+
+def format_change_detail(
+    locale: str | None,
+    setting_name: str,
+    key: str,
+    before: object,
+    after: object,
+) -> str:
+    return translate(
+        locale,
+        "{setting}: {before} -> {after}",
+        setting=setting_name,
+        before=display_setting_value(locale, key, before),
+        after=display_setting_value(locale, key, after),
+    )
 
 
 def translate_message(locale: str | None, text: str) -> str:
