@@ -79,6 +79,21 @@ MOTION_LABELS = {
     "reduced": "Reduced motion",
 }
 
+SETTING_DISPLAY_LABELS = {
+    "locale": "Language",
+    "keyboard": "Keyboard",
+    "network_policy": "Network policy",
+    "allow_brave_browser": "Brave visibility",
+    "sandbox_default": "Default app isolation",
+    "vault": "Vault behavior",
+    "device_policy": "Device policy",
+    "logging_policy": "Logging policy",
+    "ui_theme_profile": "Theme profile",
+    "ui_accent": "Accent",
+    "ui_density": "Density",
+    "ui_motion": "Motion",
+}
+
 PROFILE_DEFAULTS = {
     "relaxed": {
         "locale": DEFAULT_UI_LOCALE,
@@ -342,6 +357,39 @@ def describe_posture_preview(profile: str, values: object | None = None) -> dict
         "ideal_for": metadata["ideal_for"],
         "tradeoff": metadata["tradeoff"],
         "effective": {key: copy.deepcopy(effective[key]) for key in POSTURE_PREVIEW_KEYS},
+    }
+
+
+def setting_display_name(key: str) -> str:
+    if key in SETTING_DISPLAY_LABELS:
+        return SETTING_DISPLAY_LABELS[key]
+    return key.replace("_", " ").strip().title()
+
+
+def classify_effective_changes(
+    settings: object,
+    applied_settings: object | None = None,
+    *,
+    applied_path: Path = APPLIED_SETTINGS_FILE,
+) -> dict[str, list[str]]:
+    effective = extract_effective_settings(settings)
+    applied = (
+        extract_effective_settings(applied_settings)
+        if isinstance(applied_settings, dict)
+        else load_applied_system_settings(applied_path)
+    )
+    immediate: list[str] = []
+    reboot: list[str] = []
+    for key in EFFECTIVE_SETTING_KEYS:
+        if effective.get(key) == applied.get(key):
+            continue
+        if key in REBOOT_REQUIRED_FIELDS:
+            reboot.append(key)
+        else:
+            immediate.append(key)
+    return {
+        "immediate": immediate,
+        "reboot": reboot,
     }
 
 

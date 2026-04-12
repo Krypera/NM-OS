@@ -43,6 +43,7 @@ from nmos_common.system_settings import (
     SUPPORTED_UI_MOTION,
     THEME_PROFILE_LABELS,
     apply_system_profile,
+    classify_effective_changes,
     commit_system_settings,
     compute_pending_reboot,
     derive_overrides_for_profile,
@@ -63,6 +64,7 @@ from nmos_common.system_settings import (
     profile_defaults,
     reset_to_preset,
     save_system_settings,
+    setting_display_name,
     update_system_overrides,
 )
 
@@ -94,6 +96,7 @@ __all__ = [
     "SUPPORTED_UI_MOTION",
     "THEME_PROFILE_LABELS",
     "apply_system_profile",
+    "classify_effective_changes",
     "commit_system_settings",
     "compute_pending_reboot",
     "describe_posture_preview",
@@ -124,6 +127,7 @@ __all__ = [
     "read_runtime_text",
     "reset_to_preset",
     "save_system_settings",
+    "setting_display_name",
     "update_system_overrides",
     "write_runtime_json",
     "write_runtime_text",

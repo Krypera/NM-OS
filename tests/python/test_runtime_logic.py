@@ -24,6 +24,7 @@ from nmos_common.platform_adapter import load_platform_adapter
 from nmos_common.system_settings import (
     DEFAULT_SYSTEM_SETTINGS,
     apply_system_profile,
+    classify_effective_changes,
     derive_overrides_for_profile,
     describe_posture_preview,
     extract_effective_settings,
@@ -31,6 +32,7 @@ from nmos_common.system_settings import (
     load_system_settings,
     normalize_system_settings,
     save_system_settings,
+    setting_display_name,
     update_system_overrides,
 )
 
@@ -177,6 +179,38 @@ def test_setting_specific_explanations_are_stable() -> None:
 
     assert "Brave can appear" in explain_brave_visibility("en_US.UTF-8", True, "direct")
     assert "Brave stays hidden" in explain_brave_visibility("en_US.UTF-8", True, "offline")
+
+
+def test_change_classification_groups_now_and_reboot() -> None:
+    draft = {
+        "active_profile": "balanced",
+        "overrides": {
+            "network_policy": "direct",
+            "ui_accent": "mint",
+            "allow_brave_browser": True,
+        },
+    }
+    applied = {
+        "active_profile": "balanced",
+        "locale": "en_US.UTF-8",
+        "keyboard": "us",
+        "network_policy": "tor",
+        "allow_brave_browser": False,
+        "sandbox_default": "focused",
+        "vault": {"enabled": True, "auto_lock_minutes": 15, "unlock_on_login": False},
+        "device_policy": "prompt",
+        "logging_policy": "minimal",
+        "ui_theme_profile": "nmos-classic",
+        "ui_accent": "amber",
+        "ui_density": "comfortable",
+        "ui_motion": "full",
+    }
+    grouped = classify_effective_changes(draft, applied_settings=applied)
+    assert "network_policy" in grouped["reboot"]
+    assert "allow_brave_browser" in grouped["immediate"]
+    assert "ui_accent" in grouped["immediate"]
+    assert setting_display_name("network_policy") == "Network policy"
+    assert setting_display_name("unknown_field") == "Unknown Field"
 
 
 def test_tor_status_respects_settings(repo_root: Path, workspace_tmp_path: Path) -> None:
@@ -503,3 +537,5 @@ def test_i18n_supports_spanish_without_extra_locales(repo_root: Path) -> None:
     assert display_language_name("es_ES.UTF-8") == "Español"
     assert translate("es_ES.UTF-8", "Security profile") == "Perfil de seguridad"
     assert translate("es_ES.UTF-8", "Theme: {theme}", theme="Señal clásica") == "Tema: Señal clásica"
+    assert translate("es_ES.UTF-8", "Applies now: {changes}", changes="Idioma") == "Se aplica ahora: Idioma"
+    assert translate("es_ES.UTF-8", "None") == "Ninguno"

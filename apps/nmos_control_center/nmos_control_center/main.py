@@ -25,9 +25,11 @@ from nmos_common.system_settings import (
     MOTION_LABELS,
     PROFILE_METADATA,
     THEME_PROFILE_LABELS,
+    classify_effective_changes,
     derive_overrides_for_profile,
     describe_posture_preview,
     normalize_system_settings,
+    setting_display_name,
 )
 from nmos_common.ui_theme import apply_window_theme, load_css
 
@@ -179,6 +181,8 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.profile_tradeoff.add_css_class("dim-label")
         self.profile_details = Gtk.Label(xalign=0)
         self.profile_details.set_wrap(True)
+        self.change_timing_label = Gtk.Label(xalign=0)
+        self.change_timing_label.set_wrap(True)
         self.pending_reboot_label = Gtk.Label(xalign=0)
         self.pending_reboot_label.set_wrap(True)
 
@@ -238,6 +242,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                 self.profile_guidance,
                 self.profile_tradeoff,
                 self.profile_details,
+                self.change_timing_label,
                 self.pending_reboot_label,
             ],
         )
@@ -441,6 +446,30 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.profile_details.set_text(
             "\n".join(f"- {line}" for line in posture_explanation_lines(self.ui_locale, posture))
         )
+        effective_payload = {
+            "active_profile": profile,
+            "overrides": derive_overrides_for_profile(profile, draft_values),
+        }
+        change_groups = classify_effective_changes(effective_payload)
+        immediate_labels = [self.tr(setting_display_name(key)) for key in change_groups["immediate"]]
+        reboot_labels = [self.tr(setting_display_name(key)) for key in change_groups["reboot"]]
+        if immediate_labels or reboot_labels:
+            self.change_timing_label.set_text(
+                "\n".join(
+                    [
+                        self.tr(
+                            "Applies now: {changes}",
+                            changes=", ".join(immediate_labels) if immediate_labels else self.tr("None"),
+                        ),
+                        self.tr(
+                            "Applies after reboot: {changes}",
+                            changes=", ".join(reboot_labels) if reboot_labels else self.tr("None"),
+                        ),
+                    ]
+                )
+            )
+        else:
+            self.change_timing_label.set_text(self.tr("No changed settings in the current draft."))
         self.privacy_explanation.set_text(
             "\n".join(
                 [

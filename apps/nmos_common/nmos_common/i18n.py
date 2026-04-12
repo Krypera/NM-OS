@@ -141,6 +141,15 @@ TRANSLATIONS = {
         "Vault stays locked until you explicitly unlock it.": "La bóveda permanece bloqueada hasta que la desbloquees explícitamente.",
         "Brave can appear when it is installed and the selected network policy allows it.": "Brave puede mostrarse cuando está instalado y la política de red seleccionada lo permite.",
         "Brave stays hidden unless you explicitly allow it.": "Brave permanece oculto salvo que lo permitas explícitamente.",
+        "Applies now: {changes}": "Se aplica ahora: {changes}",
+        "Applies after reboot: {changes}": "Se aplica después de reiniciar: {changes}",
+        "No changed settings in the current draft.": "No hay cambios en la configuración actual.",
+        "None": "Ninguno",
+        "Brave visibility": "Visibilidad de Brave",
+        "Default app isolation": "Aislamiento por defecto de apps",
+        "Vault behavior": "Comportamiento de la bóveda",
+        "Theme profile": "Perfil de tema",
+        "Motion": "Movimiento",
     }
 }
 

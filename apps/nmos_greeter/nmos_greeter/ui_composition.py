@@ -18,9 +18,11 @@ from nmos_common.system_settings import (
     MOTION_LABELS,
     PROFILE_METADATA,
     THEME_PROFILE_LABELS,
+    classify_effective_changes,
     derive_overrides_for_profile,
     describe_posture_preview,
     normalize_system_settings,
+    setting_display_name,
 )
 from nmos_common.ui_theme import apply_window_theme
 
@@ -131,6 +133,7 @@ def _summary_page(window) -> Gtk.Widget:
         [
             window.summary_label,
             window.summary_posture_label,
+            window.summary_timing_label,
             window.summary_reboot_label,
         ],
     )
@@ -214,6 +217,8 @@ def build_ui(window) -> None:
     window.summary_label.set_wrap(True)
     window.summary_posture_label = Gtk.Label(xalign=0)
     window.summary_posture_label.set_wrap(True)
+    window.summary_timing_label = Gtk.Label(xalign=0)
+    window.summary_timing_label.set_wrap(True)
     window.summary_reboot_label = Gtk.Label(xalign=0)
     window.summary_reboot_label.set_wrap(True)
     window.summary_reboot_label.add_css_class("dim-label")
@@ -546,6 +551,13 @@ def refresh_profile_explanation(window) -> None:
 def refresh_summary(window) -> None:
     draft_state = collect_state(window)
     posture = describe_posture_preview(draft_state["active_profile"], draft_state)
+    effective_payload = {
+        "active_profile": draft_state["active_profile"],
+        "overrides": derive_overrides_for_profile(draft_state["active_profile"], draft_state),
+    }
+    change_groups = classify_effective_changes(effective_payload)
+    immediate_labels = [window.tr(setting_display_name(key)) for key in change_groups["immediate"]]
+    reboot_labels = [window.tr(setting_display_name(key)) for key in change_groups["reboot"]]
     draft_settings = normalize_system_settings(
         {
             "active_profile": draft_state["active_profile"],
@@ -568,6 +580,23 @@ def refresh_summary(window) -> None:
     window.summary_posture_label.set_text(
         "\n".join(f"- {line}" for line in posture_explanation_lines(window.ui_locale, posture))
     )
+    if immediate_labels or reboot_labels:
+        window.summary_timing_label.set_text(
+            "\n".join(
+                [
+                    window.tr(
+                        "Applies now: {changes}",
+                        changes=", ".join(immediate_labels) if immediate_labels else window.tr("None"),
+                    ),
+                    window.tr(
+                        "Applies after reboot: {changes}",
+                        changes=", ".join(reboot_labels) if reboot_labels else window.tr("None"),
+                    ),
+                ]
+            )
+        )
+    else:
+        window.summary_timing_label.set_text(window.tr("No changed settings in the current draft."))
     if draft_settings.get("pending_reboot"):
         pending = ", ".join(str(item).replace("_", " ") for item in draft_settings["pending_reboot"])
         window.summary_reboot_label.set_text(window.tr("Restart required for: {pending}", pending=pending))
