@@ -21,9 +21,10 @@ from nmos_common.i18n import (
     resolve_supported_locale,
     translate,
 )
-from nmos_common.settings_client import SettingsClient
+from nmos_common.settings_client import SettingsClient, SettingsClientError
 from nmos_common.system_settings import (
     ACCENT_LABELS,
+    DEFAULT_SYSTEM_SETTINGS,
     DENSITY_LABELS,
     MOTION_LABELS,
     PROFILE_METADATA,
@@ -119,7 +120,12 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         super().__init__(application=app, title="NM-OS Control Center")
         self.set_default_size(1080, 720)
         self.client = SettingsClient(allow_local_fallback=False)
-        self.settings = self.client.get_settings()
+        self.backend_ready = True
+        try:
+            self.settings = self.client.get_settings()
+        except SettingsClientError:
+            self.settings = dict(DEFAULT_SYSTEM_SETTINGS)
+            self.backend_ready = False
         self.profile_values = list(PROFILE_METADATA)
         self.language_values = [locale for locale, _label in LANGUAGE_OPTIONS]
         self.ui_locale = resolve_supported_locale(self.settings.get("locale", "en_US.UTF-8"))
@@ -131,6 +137,10 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.build_ui()
         self.restore_settings()
         self.refresh_summary()
+        if not self.backend_ready:
+            self.apply_button.set_sensitive(False)
+            self.reset_button.set_sensitive(False)
+            self.status_label.set_text("Settings backend unavailable. Review mode only until service is reachable.")
         self.set_content(self.root)
 
     def _selected_value(self, dropdown: Gtk.DropDown, values: list[str]) -> str:
@@ -556,14 +566,28 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.refresh_summary()
 
     def on_refresh(self, _button: Gtk.Button) -> None:
-        self.settings = self.client.get_settings()
+        try:
+            self.settings = self.client.get_settings()
+            self.backend_ready = True
+            self.apply_button.set_sensitive(True)
+            self.reset_button.set_sensitive(True)
+        except SettingsClientError:
+            self.backend_ready = False
+            self.apply_button.set_sensitive(False)
+            self.reset_button.set_sensitive(False)
+            self.status_label.set_text("Settings backend unavailable. Review mode only until service is reachable.")
+            return
         self.restore_settings()
         self.refresh_summary()
         self.status_label.set_text("Settings refreshed.")
 
     def on_reset_to_profile(self, _button: Gtk.Button) -> None:
-        self.client.apply_preset(self._selected_value(self.profile_combo, self.profile_values))
-        self.settings = self.client.commit()
+        try:
+            self.client.apply_preset(self._selected_value(self.profile_combo, self.profile_values))
+            self.settings = self.client.commit()
+        except SettingsClientError:
+            self.status_label.set_text("Cannot apply changes while settings backend is unavailable.")
+            return
         self.restore_settings()
         self.refresh_summary()
         self.status_label.set_text("Overrides removed. The selected profile is active again.")
@@ -572,10 +596,14 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         profile = self._selected_value(self.profile_combo, self.profile_values)
         values = self.collect_values()
         overrides = derive_overrides_for_profile(profile, values)
-        self.client.apply_preset(profile)
-        if overrides:
-            self.client.set_overrides(overrides)
-        self.settings = self.client.commit()
+        try:
+            self.client.apply_preset(profile)
+            if overrides:
+                self.client.set_overrides(overrides)
+            self.settings = self.client.commit()
+        except SettingsClientError:
+            self.status_label.set_text("Cannot apply changes while settings backend is unavailable.")
+            return
         self.restore_settings()
         self.refresh_summary()
         if self.settings.get("pending_reboot"):

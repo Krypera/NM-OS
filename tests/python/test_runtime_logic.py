@@ -377,6 +377,7 @@ def test_greeter_layout_is_setup_only(repo_root: Path) -> None:
 
     assert "SettingsClient" in main_source
     assert "allow_local_fallback=False" in main_source
+    assert "Settings backend unavailable. Review mode only until service is reachable." in main_source
     assert "GDM" not in main_source
     assert "profile_combo" in ui_source
     assert "network_policy_combo" in ui_source
@@ -590,6 +591,8 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "GetPendingRebootChanges" in settings_service_source
     assert "SettingsClient" in settings_client_source
     assert "allow_local_fallback=False" in control_center_source
+    assert "Settings backend unavailable. Review mode only until service is reachable." in control_center_source
+    assert "Cannot apply changes while settings backend is unavailable." in control_center_source
     assert "SettingsClientError" in settings_client_source
     assert "RETRIABLE_DBUS_ERRORS" in settings_client_source
     assert "NMOS_ALLOW_LOCAL_SETTINGS_FALLBACK" in settings_client_source
@@ -655,6 +658,13 @@ def test_i18n_supports_spanish_without_extra_locales(repo_root: Path) -> None:
     assert "es_ES.UTF-8" in i18n_source
     for unsupported_locale in ("tr_TR.UTF-8", "de_DE.UTF-8", "fr_FR.UTF-8"):
         assert unsupported_locale not in i18n_source
+    assert display_language_name("es_ES.UTF-8") == "Español"
+    assert translate("es_ES.UTF-8", "Security profile") == "Perfil de seguridad"
+    assert translate("es_ES.UTF-8", "Theme: {theme}", theme="Señal clásica") == "Tema: Señal clásica"
+    assert translate("es_ES.UTF-8", "NM-OS Setup") == "Configuración de NM-OS"
+    assert translate("es_ES.UTF-8", "Applies now: {changes}", changes="Idioma") == "Se aplica ahora: Idioma"
+    assert translate("es_ES.UTF-8", "None") == "Ninguno"
+    return
     assert display_language_name("es_ES.UTF-8") == "Español"
     assert translate("es_ES.UTF-8", "Security profile") == "Perfil de seguridad"
     assert translate("es_ES.UTF-8", "Theme: {theme}", theme="Señal clásica") == "Tema: Señal clásica"

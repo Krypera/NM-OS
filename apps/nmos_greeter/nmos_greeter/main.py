@@ -10,9 +10,10 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, GLib, Gio, Gtk
 
 from nmos_common.i18n import LANGUAGE_OPTIONS, resolve_supported_locale, translate, translate_message
-from nmos_common.settings_client import SettingsClient
+from nmos_common.settings_client import SettingsClient, SettingsClientError
 from nmos_common.system_settings import (
     ACCENT_LABELS,
+    DEFAULT_SYSTEM_SETTINGS,
     DEFAULT_UI_LOCALE,
     DENSITY_LABELS,
     MOTION_LABELS,
@@ -33,7 +34,12 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.logger = logging.getLogger("nmos.greeter")
 
         self.settings_client_factory = lambda: SettingsClient(allow_local_fallback=False)
-        persisted_settings = self.settings_client_factory().get_settings()
+        self.settings_backend_ready = True
+        try:
+            persisted_settings = self.settings_client_factory().get_settings()
+        except SettingsClientError:
+            persisted_settings = dict(DEFAULT_SYSTEM_SETTINGS)
+            self.settings_backend_ready = False
         self.state = {**persisted_settings, **load_state()}
         self.system_settings = dict(persisted_settings)
         self.save_state = save_state
@@ -70,6 +76,8 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.refresh_network(force_status=True)
         self.setup_network_watchers()
         self.update_navigation()
+        if not self.settings_backend_ready:
+            self.set_status("Settings backend unavailable. Review mode only until service is reachable.")
         GLib.timeout_add_seconds(10, self.poll_runtime)
 
     def tr(self, source_text: str, **kwargs) -> str:
@@ -274,7 +282,7 @@ class GreeterWindow(Adw.ApplicationWindow):
                 client.set_overrides(overrides)
             self.system_settings = client.commit()
             self.state = dict(self.system_settings)
-        except (OSError, ValueError, RuntimeError) as exc:
+        except (OSError, ValueError, RuntimeError, SettingsClientError) as exc:
             self.logger.error("failed to save system settings: %s", exc)
             self.set_status(self.tr("Failed to save system settings: {error}", error=self.tr("internal error")))
             return
