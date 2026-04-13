@@ -1,78 +1,102 @@
 # NM-OS
 
-NM-OS is a configurable desktop operating system experience for Debian-based systems.
+NM-OS is a desktop operating system designed for everyone — not just technical users.
 
-The project is built around one idea: the system should start clear, calm, and accessible, then become stricter only when the user asks for stronger boundaries.
+It works out of the box, gets out of your way, and lets you go as deep as you want when you're ready.
+Whether you want a quiet daily computer or a hardened private workspace, NM-OS grows with you.
 
-This is not meant to be a themed Linux install with security branding on top. NM-OS aims to grow into a platform with its own policy model, installer flow, security posture, and user experience.
+## What Can I Do With NM-OS?
 
-## What NM-OS Tries To Do
+- Write documents, spreadsheets, and presentations (LibreOffice included)
+- Browse the web, check email, watch videos
+- Organize your photos and listen to music
+- Keep your files safe with an encrypted vault
+- Switch to a more private or focused mode in seconds — and switch back just as easily
+- Customize everything: colors, fonts, wallpaper, layout, animations
 
-- stay understandable for new users
-- let advanced users harden the same system without switching products
-- make security choices visible instead of magical
-- explain the tradeoff behind each stronger restriction
-- give the user real control over comfort versus containment
+## Who Is NM-OS For?
 
-## Current Product Shape
+Anyone. There is no "correct" type of user.
+
+A student can use it for homework and switch to a distraction-free mode during exams.
+A small business owner can use it for everyday office tasks.
+A journalist or researcher can activate stronger privacy when it matters.
+A developer can go deep into system settings and security policies.
+
+None of these people need to be different kinds of users. They are all the same person
+at different moments — and NM-OS lets them switch modes without switching computers.
+
+## How NM-OS Works
+
+NM-OS gives you four protection levels, which you can switch between at any time:
+
+| Level | What it means |
+|---|---|
+| **Relaxed** | Easiest to use. Great for trusted home networks. |
+| **Balanced** | Recommended default. Private and practical. |
+| **Hardened** | Stronger daily protection with a little less convenience. |
+| **Maximum** | Highest practical restriction. For sensitive situations. |
+
+Every setting inside each level can also be turned on or off individually.
+Profiles are a starting point, not a lock.
+
+## What Is Included
 
 Today the repository builds:
 
+- a bootable installer ISO
 - an installed-system overlay archive
 - installer assets
-- a bootable installer ISO
 
-Today the product slice includes:
+The installed system includes:
 
-- security profiles with explainable tradeoffs
-- a pre-login setup assistant
+- a setup assistant that runs before login
 - a desktop control center
-- Tor-first, direct, or offline networking modes
-- an encrypted vault backend for sensitive files
-- shared NM-OS theme and branding assets
+- productivity apps (office, browser, media, photos)
+- an encrypted vault for sensitive files
+- network modes: direct, Tor-first, or offline
+- a rich personalization system: themes, fonts, wallpaper, density, motion
 - Debian-installer-based media for VM and hardware testing
 
 The default profile is `Balanced`.
 
 ## Design Principles
 
-### Explainable Security
+### Human-first computing
 
-Users should be able to see:
+The computer works for the user, not the other way around.
+Every feature must be understandable, reachable, and reversible.
 
-- what a profile changes
-- which restrictions come with it
-- what convenience is lost or preserved
-- which changes apply now and which wait until reboot
+### Fluid modes, not fixed personas
 
-### Choice Without Chaos
+Users are not categorized. Anyone can switch from a comfortable desktop to maximum
+security and back again — quickly, visibly, and without losing their previous state.
 
-NM-OS should not force one correct workflow.
+### Everything is accessible, nothing is forced
 
-It should offer:
+No feature is hidden. Security controls are always reachable.
+But nothing is mandatory beyond choosing a language and a starting profile.
 
-- clear defaults
-- a small number of readable profiles
-- stronger overrides for advanced users
-- language that describes consequences plainly
+### Explainable choices
 
-### Progressive Hardening
+When NM-OS restricts something, it says so clearly.
+Users see what changed, why it changed, and what they give up or gain.
 
-The same platform should be able to serve:
+### Progressive depth
 
-- someone who wants a comfortable daily desktop
-- someone who wants tighter network and device policy
-- someone who wants stronger isolation with less convenience
+Start with zero configuration. Go as deep as you want.
+The same platform serves a first-time Linux user and an experienced system administrator.
 
 ## What Exists In The Repo
 
-- `apps/` Python applications and services
-- `build/` build entry points and artifact verification helpers
-- `config/system-overlay/` runtime overlay content for the installed system
-- `config/installer/` installer scaffolding
-- `config/system-packages/` target runtime package manifests
-- `config/installer-packages/` installer-side package manifests
-- `tests/` smoke and Python validation
+- `apps/` — Python applications and services
+- `build/` — build entry points and artifact verification helpers
+- `config/system-overlay/` — runtime overlay content for the installed system
+- `config/installer/` — installer scaffolding
+- `config/system-packages/` — target runtime package manifests
+- `config/installer-packages/` — installer-side package manifests
+- `tests/` — smoke and Python validation
+- `docs/` — product direction, security model, build and install guides
 
 ## Quick Start
 
@@ -81,12 +105,6 @@ The same platform should be able to serve:
 ```powershell
 .\build\install-deps.ps1
 .\build\build.ps1
-```
-
-Optional Brave-aware overlay:
-
-```powershell
-.\build\build.ps1 -EnableBrave
 ```
 
 ### Linux / WSL2 Direct
@@ -105,21 +123,21 @@ NMOS_ENABLE_BRAVE=1 ./build/build.sh
 
 The safest way to evaluate NM-OS is inside a virtual machine.
 
-Recommended flow:
-
 1. Build the installer ISO from this repo.
 2. Boot the ISO in VirtualBox, QEMU, VMware, or another VM.
 3. Choose `Install NM-OS`.
-4. Finish the Debian-based install flow.
-5. Reboot into the installed system and test the setup assistant, profiles, vault, and control center.
+4. Finish the install flow.
+5. Reboot and test the setup assistant, apps, vault, and control center.
 
-Install details live in [docs/installation.md](docs/installation.md).
+Install details: [docs/installation.md](docs/installation.md)
 
 ## Useful Docs
 
+- [User experience guide](docs/user-experience.md)
 - [Product direction](docs/vision.md)
+- [Implementation plan additions](docs/implementation-plan-additions.md)
 - [Security model](docs/security-model.md)
-- [Security settings](docs/security-profiles.md)
+- [Security profiles](docs/security-profiles.md)
 - [Runtime notes](docs/runtime.md)
 - [Build notes](docs/build.md)
 - [Installation notes](docs/installation.md)
@@ -129,9 +147,7 @@ Install details live in [docs/installation.md](docs/installation.md).
 
 ## Current Limits
 
-This is still alpha software.
-
-Not finished yet:
+This is still alpha software. Not finished yet:
 
 - a release-grade update flow
 - full per-app permission editing

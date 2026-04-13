@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "apps" / "nmos_common"))
 sys.path.insert(0, str(ROOT / "apps" / "nmos_greeter"))
 sys.path.insert(0, str(ROOT / "apps" / "nmos_persistent_storage"))
+sys.path.insert(0, str(ROOT / "apps" / "nmos_settings"))
 
 from nmos_common.i18n import (
     TRANSLATIONS,
@@ -45,6 +46,7 @@ from nmos_common.system_settings import (
     setting_display_name,
     update_system_overrides,
 )
+from nmos_settings.authorization import build_write_uid_allowlist, is_write_authorized
 
 
 def load_module(name: str, path: Path):
@@ -235,6 +237,25 @@ def test_settings_client_uses_read_write_interfaces() -> None:
     assert called_interfaces[0] == "org.nmos.Settings1.Read"
     assert called_interfaces[1] == "org.nmos.Settings1.Read"
     assert called_interfaces[2] == "org.nmos.Settings1.Write"
+
+
+def test_settings_write_allowlist_always_includes_root(monkeypatch) -> None:
+    monkeypatch.setattr("nmos_settings.authorization.resolve_unix_uid", lambda _name: None)
+    allowlist = build_write_uid_allowlist("Debian-gdm")
+    assert allowlist == {0}
+
+
+def test_settings_write_allowlist_includes_gdm_uid_when_resolved(monkeypatch) -> None:
+    monkeypatch.setattr("nmos_settings.authorization.resolve_unix_uid", lambda _name: 120)
+    allowlist = build_write_uid_allowlist("Debian-gdm")
+    assert allowlist == {0, 120}
+
+
+def test_settings_write_authorization_requires_uid_match() -> None:
+    allowlist = {0, 120}
+    assert is_write_authorized(0, allowlist) is True
+    assert is_write_authorized(120, allowlist) is True
+    assert is_write_authorized(1000, allowlist) is False
 
 
 def test_posture_preview_is_explainable() -> None:
@@ -541,6 +562,7 @@ def test_overlay_build_uses_installed_python_packages(repo_root: Path) -> None:
     assert "/usr/lib/python3/dist-packages" in common_source
     assert "nmos_settings/nmos_settings" in common_source
     assert "nmos_control_center/nmos_control_center" in common_source
+    assert "nmos_help/nmos_help" in common_source
     platform_adapter_source = (repo_root / "apps" / "nmos_common" / "nmos_common" / "platform_adapter.py").read_text(
         encoding="utf-8"
     )
@@ -666,6 +688,12 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     control_center_source = (
         repo_root / "apps" / "nmos_control_center" / "nmos_control_center" / "main.py"
     ).read_text(encoding="utf-8")
+    help_launcher_source = (
+        repo_root / "config" / "system-overlay" / "usr" / "local" / "bin" / "nmos-help"
+    ).read_text(encoding="utf-8")
+    help_desktop_source = (
+        repo_root / "config" / "system-overlay" / "usr" / "share" / "applications" / "nmos-help.desktop"
+    ).read_text(encoding="utf-8")
     css_source = (
         repo_root / "config" / "system-overlay" / "usr" / "share" / "nmos" / "theme" / "nmos.css"
     ).read_text(encoding="utf-8")
@@ -675,6 +703,9 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "DBUS_NAME" in settings_service_source
     assert "DBUS_READ_INTERFACE" in settings_service_source
     assert "DBUS_WRITE_INTERFACE" in settings_service_source
+    assert "sender_keyword=\"sender\"" in settings_service_source
+    assert "_assert_write_authorized" in settings_service_source
+    assert "get_unix_user" in settings_service_source
     assert "ApplyPreset" in settings_service_source
     assert "SetOverrides" in settings_service_source
     assert "GetPendingRebootChanges" in settings_service_source
@@ -701,6 +732,8 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "NM-OS Control Center" in control_center_source
     assert "Profiles" in control_center_source
     assert "Appearance" in control_center_source
+    assert "python3 -m nmos_help.main" in help_launcher_source
+    assert "Exec=/usr/local/bin/nmos-help" in help_desktop_source
     assert ".nmos-root" in css_source
     assert "theme-nmos-classic" in css_source
     assert wallpaper_night.exists()

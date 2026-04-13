@@ -1,3 +1,3 @@
-from nmos_common.settings_client import DBUS_INTERFACE, DBUS_NAME, DBUS_PATH
+from nmos_common.settings_client import DBUS_NAME, DBUS_PATH, DBUS_READ_INTERFACE, DBUS_WRITE_INTERFACE
 
-__all__ = ["DBUS_INTERFACE", "DBUS_NAME", "DBUS_PATH"]
+__all__ = ["DBUS_NAME", "DBUS_PATH", "DBUS_READ_INTERFACE", "DBUS_WRITE_INTERFACE"]

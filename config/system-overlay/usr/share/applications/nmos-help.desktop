@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=NM-OS Help
+Name[es]=Ayuda de NM-OS
+Exec=/usr/local/bin/nmos-help
+Terminal=false
+Categories=GNOME;GTK;Documentation;Utility;

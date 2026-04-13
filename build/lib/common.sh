@@ -189,6 +189,7 @@ stage_system_overlay_tree() {
     install_python_package_dir "${APPS_SOURCE}/nmos_persistent_storage/nmos_persistent_storage"
     install_python_package_dir "${APPS_SOURCE}/nmos_settings/nmos_settings"
     install_python_package_dir "${APPS_SOURCE}/nmos_control_center/nmos_control_center"
+    install_python_package_dir "${APPS_SOURCE}/nmos_help/nmos_help"
     mkdir -p "${ROOTFS_DIR}/usr/share/nmos"
     cat > "${ROOTFS_DIR}/usr/share/nmos/build-info" <<EOF
 NMOS_VERSION=${VERSION}

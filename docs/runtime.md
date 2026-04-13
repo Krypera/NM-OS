@@ -55,7 +55,9 @@ Important top-level fields:
 
 - service: `org.nmos.Settings1`
 - path: `/org/nmos/Settings1`
-- interface: `org.nmos.Settings1`
+- interfaces:
+- `org.nmos.Settings1.Read`
+- `org.nmos.Settings1.Write`
 
 Methods:
 
@@ -112,7 +114,7 @@ Methods:
 
 Greeter:
 
-- onboarding for language, keyboard, profile, network, appearance, and vault
+- onboarding for language, keyboard, profile, network, browser, and appearance
 - greeter state and network watcher paths resolve from platform adapter runtime directory
 
 Control Center:

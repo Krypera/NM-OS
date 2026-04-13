@@ -33,6 +33,14 @@ Method boundary:
 
 This keeps desktop visibility available while reducing the default mutation surface for arbitrary console sessions.
 
+The settings service also enforces a runtime write boundary:
+
+- mutating calls are validated against the D-Bus sender Unix UID
+- only explicit write-authorized UIDs are accepted
+- rejected callers receive `org.freedesktop.DBus.Error.AccessDenied`
+
+This is a second-layer guard in addition to static D-Bus policy.
+
 ### Security profiles
 
 Profiles are the top-level entry point for most people.
