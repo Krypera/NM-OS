@@ -888,6 +888,10 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "app-isolation-status.json" in control_center_source
     assert "device-policy-status.json" in control_center_source
     assert "logging-policy-status.json" in control_center_source
+    assert "nmos-app-isolation-policy.service" in control_center_source
+    assert "nmos-device-policy.service" in control_center_source
+    assert "nmos-logging-policy.service" in control_center_source
+    assert "Action: review nmos-app-isolation-policy.service diagnostics." in control_center_source
     assert "authorized session" in control_center_source
     assert "service health" in control_center_source
     assert "Review mode only until service is reachable. Use Diagnostics for details." in control_center_source

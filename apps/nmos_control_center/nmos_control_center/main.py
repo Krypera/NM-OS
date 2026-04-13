@@ -178,31 +178,42 @@ class ControlCenterWindow(Adw.ApplicationWindow):
 
         lines = []
         if app_status:
+            apply_ok = bool(app_status.get("apply_ok", False))
             lines.append(
                 "App isolation: "
                 f"profile={app_status.get('sandbox_default', 'unknown')} "
-                f"applied={bool(app_status.get('apply_ok', False))}"
+                f"applied={apply_ok}"
             )
+            if not apply_ok:
+                lines.append("Action: review nmos-app-isolation-policy.service diagnostics.")
         else:
             lines.append("App isolation: status unavailable")
 
         if device_status:
+            write_ok = bool(device_status.get("write_ok", False))
+            reload_ok = bool(device_status.get("reload_ok", False))
             lines.append(
                 "Device policy: "
                 f"profile={device_status.get('device_policy', 'unknown')} "
-                f"write={bool(device_status.get('write_ok', False))} "
-                f"reload={bool(device_status.get('reload_ok', False))}"
+                f"write={write_ok} "
+                f"reload={reload_ok}"
             )
+            if not write_ok or not reload_ok:
+                lines.append("Action: review nmos-device-policy.service diagnostics.")
         else:
             lines.append("Device policy: status unavailable")
 
         if logging_status:
+            reload_ok = bool(logging_status.get("reload_ok", False))
+            vacuum_ok = bool(logging_status.get("vacuum_ok", False))
             lines.append(
                 "Logging policy: "
                 f"profile={logging_status.get('logging_policy', 'unknown')} "
-                f"reload={bool(logging_status.get('reload_ok', False))} "
-                f"vacuum={bool(logging_status.get('vacuum_ok', False))}"
+                f"reload={reload_ok} "
+                f"vacuum={vacuum_ok}"
             )
+            if not reload_ok or not vacuum_ok:
+                lines.append("Action: review nmos-logging-policy.service diagnostics.")
         else:
             lines.append("Logging policy: status unavailable")
         return "\n".join(lines)
@@ -500,7 +511,10 @@ class ControlCenterWindow(Adw.ApplicationWindow):
 
     def on_diagnostics(self, _button: Gtk.Button) -> None:
         self.status_label.set_text(
-            "Diagnostics: systemctl status nmos-settings.service; journalctl -u nmos-settings.service -n 50"
+            "Diagnostics: systemctl status nmos-settings.service nmos-app-isolation-policy.service "
+            "nmos-device-policy.service nmos-logging-policy.service; "
+            "journalctl -u nmos-settings.service -u nmos-app-isolation-policy.service "
+            "-u nmos-device-policy.service -u nmos-logging-policy.service -n 50"
         )
 
 
