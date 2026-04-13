@@ -14,6 +14,7 @@ from nmos_common.i18n import (
     posture_meter_lines,
     resolve_supported_locale,
 )
+from nmos_common.passphrase_policy import passphrase_feedback_text
 from nmos_common.system_settings import (
     ACCENT_LABELS,
     DENSITY_LABELS,
@@ -115,6 +116,8 @@ def _appearance_page(window) -> Gtk.Widget:
 
 
 def _summary_page(window) -> Gtk.Widget:
+    passphrase_hint_label = Gtk.Label(label="Vault passphrase check (optional)", xalign=0)
+    passphrase_hint_label.add_css_class("dim-label")
     return _page(
         window,
         "summary",
@@ -125,6 +128,9 @@ def _summary_page(window) -> Gtk.Widget:
             window.summary_meter_label,
             window.summary_shift_label,
             window.summary_posture_label,
+            passphrase_hint_label,
+            window.vault_passphrase_entry,
+            window.vault_passphrase_strength,
         ],
     )
 
@@ -204,6 +210,13 @@ def build_ui(window) -> None:
     window.summary_shift_label.add_css_class("dim-label")
     window.summary_posture_label = Gtk.Label(xalign=0)
     window.summary_posture_label.set_wrap(True)
+    window.vault_passphrase_entry = Gtk.Entry()
+    window.vault_passphrase_entry.set_visibility(False)
+    window.vault_passphrase_entry.set_placeholder_text("Enter a vault passphrase to check strength")
+    window.vault_passphrase_entry.connect("changed", window.on_vault_passphrase_changed)
+    window.vault_passphrase_strength = Gtk.Label(xalign=0)
+    window.vault_passphrase_strength.set_wrap(True)
+    window.vault_passphrase_strength.add_css_class("dim-label")
 
     window.page_widgets = {
         "language": _page(window, "language", "Language", "Choose the interface language.", [window.language_combo, window.keyboard_combo]),
@@ -499,6 +512,8 @@ def restore_state(window) -> None:
     _select_string(window.accent_combo, window.accent_values, str(window.state.get("ui_accent", "amber")))
     _select_string(window.density_combo, window.density_values, str(window.state.get("ui_density", "comfortable")))
     _select_string(window.motion_combo, window.motion_values, str(window.state.get("ui_motion", "full")))
+    window.vault_passphrase_entry.set_text("")
+    refresh_passphrase_strength(window)
     refresh_profile_explanation(window)
     refresh_network_explanation(window)
     refresh_browser_explanation(window)
@@ -563,6 +578,11 @@ def refresh_summary(window) -> None:
     window.summary_posture_label.set_text(
         "\n".join(f"- {line}" for line in posture_explanation_lines(window.ui_locale, posture))
     )
+    refresh_passphrase_strength(window)
+
+
+def refresh_passphrase_strength(window) -> None:
+    window.vault_passphrase_strength.set_text(passphrase_feedback_text(window.vault_passphrase_entry.get_text()))
 
 
 def set_status(window, text: str, *, source: str = "event", force: bool = True) -> None:

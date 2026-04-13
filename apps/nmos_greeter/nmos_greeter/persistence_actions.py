@@ -6,6 +6,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 from gi.repository import GLib
+from nmos_common.passphrase_policy import evaluate_passphrase
 
 
 def refresh_persistence(window) -> None:
@@ -93,6 +94,11 @@ def update_persistence_actions(window, state: dict) -> None:
 def on_create_persistence(window, _button) -> None:
     passphrase = window.persistence_password.get_text()
     window.persistence_password.set_text("")
+    evaluation = evaluate_passphrase(passphrase)
+    if not evaluation["valid_for_creation"]:
+        issues = ", ".join(str(item) for item in evaluation["issues"])
+        window.set_status(f"Vault passphrase is too weak. Missing: {issues}")
+        return
     window.start_persistence_action("create", passphrase)
 
 

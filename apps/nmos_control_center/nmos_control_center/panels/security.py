@@ -38,6 +38,13 @@ def build(window) -> Gtk.Widget:
     window.vault_explanation = Gtk.Label(xalign=0)
     window.vault_explanation.set_wrap(True)
     window.vault_explanation.add_css_class("dim-label")
+    window.vault_passphrase_entry = Gtk.Entry()
+    window.vault_passphrase_entry.set_visibility(False)
+    window.vault_passphrase_entry.set_placeholder_text("Enter a vault passphrase to check strength")
+    window.vault_passphrase_entry.connect("changed", window.on_vault_passphrase_changed)
+    window.vault_passphrase_strength = Gtk.Label(xalign=0)
+    window.vault_passphrase_strength.set_wrap(True)
+    window.vault_passphrase_strength.add_css_class("dim-label")
     
     window.brave_switch = Gtk.Switch()
     window.brave_switch.connect("notify::active", window.on_draft_settings_changed)
@@ -79,6 +86,12 @@ def build(window) -> Gtk.Widget:
                 "Keep this off unless you explicitly want convenience ahead of stronger separation.",
                 window.vault_unlock_on_login,
             ),
+            labelled_control(
+                "Vault passphrase check",
+                "Use at least 12 chars with upper/lowercase, number, and special character.",
+                window.vault_passphrase_entry,
+            ),
+            window.vault_passphrase_strength,
             window.vault_explanation,
         ],
     )

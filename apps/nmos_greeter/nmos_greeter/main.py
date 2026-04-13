@@ -191,6 +191,10 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.apply_settings_ui_policy()
         self.update_navigation()
 
+    def on_vault_passphrase_changed(self, *_args) -> None:
+        ui_composition.refresh_passphrase_strength(self)
+        self.update_navigation()
+
     def on_back(self, _button: Gtk.Button) -> None:
         if self.page_index > 0:
             self.page_index -= 1

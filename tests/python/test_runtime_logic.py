@@ -27,6 +27,7 @@ from nmos_common.i18n import (
     posture_meter_lines,
     translate,
 )
+from nmos_common.passphrase_policy import evaluate_passphrase, passphrase_feedback_text
 from nmos_common.platform_adapter import load_platform_adapter
 from nmos_common.runtime_state import read_runtime_json, write_runtime_json
 from nmos_common.settings_client import SettingsClient, SettingsClientError
@@ -261,6 +262,22 @@ def test_settings_client_uses_read_write_interfaces() -> None:
     assert called_interfaces[2] == "org.nmos.Settings1.Write"
 
 
+def test_passphrase_policy_rejects_weak_and_accepts_strong_inputs() -> None:
+    weak = evaluate_passphrase("123")
+    assert weak["valid_for_creation"] is False
+    assert weak["strength"] == "weak"
+    assert any("minimum length" in item for item in weak["issues"])
+
+    common = evaluate_passphrase("password123")
+    assert common["valid_for_creation"] is False
+    assert any("common weak passphrases" in item for item in common["issues"])
+
+    strong = evaluate_passphrase("Nm0s!Vault#2026")
+    assert strong["valid_for_creation"] is True
+    assert strong["strength"] == "strong"
+    assert passphrase_feedback_text("Nm0s!Vault#2026").endswith("strong.")
+
+
 def test_settings_write_allowlist_always_includes_root(monkeypatch) -> None:
     monkeypatch.setattr("nmos_settings.authorization.resolve_unix_uid", lambda _name: None)
     monkeypatch.setattr("nmos_settings.authorization.resolve_group_member_uids", lambda _group: set())
@@ -487,14 +504,20 @@ def test_greeter_layout_is_setup_only(repo_root: Path) -> None:
     assert "theme_profile_combo" in ui_source
     assert "allow_brave_browser" in ui_source
     assert "default_browser" in ui_source
+    assert "vault_passphrase_entry" in ui_source
+    assert "passphrase_feedback_text" in ui_source
     state_source = (repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "state.py").read_text(encoding="utf-8")
     client_source = (repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "client.py").read_text(encoding="utf-8")
     network_model_source = (
         repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "network_model.py"
     ).read_text(encoding="utf-8")
+    persistence_actions_source = (
+        repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "persistence_actions.py"
+    ).read_text(encoding="utf-8")
     assert "get_runtime_dir" in state_source
     assert "get_runtime_dir" in client_source
     assert "get_runtime_dir" in network_model_source
+    assert "evaluate_passphrase" in persistence_actions_source
     assert 'Path("/run/nmos' not in state_source
     assert 'Path("/run/nmos' not in client_source
     assert not (repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "gdmclient.py").exists()
@@ -527,8 +550,19 @@ def test_vault_storage_is_file_based(repo_root: Path, workspace_tmp_path: Path) 
     source = (repo_root / "apps" / "nmos_persistent_storage" / "nmos_persistent_storage" / "storage.py").read_text(
         encoding="utf-8"
     )
+    mount_crypto_source = (
+        repo_root / "apps" / "nmos_persistent_storage" / "nmos_persistent_storage" / "mount_crypto_ops.py"
+    ).read_text(encoding="utf-8")
     assert "/run/live/medium" not in source
     assert "/live/persistence" not in source
+    assert "evaluate_passphrase" in source
+    assert "LUKS_PBKDF" in source
+    assert "LUKS_ITER_TIME_MS" in source
+    assert "--pbkdf" in mount_crypto_source
+    assert "argon2id" not in mount_crypto_source
+    assert "--iter-time" in mount_crypto_source
+    assert "--pbkdf-memory" in mount_crypto_source
+    assert "--pbkdf-parallel" in mount_crypto_source
 
 
 def test_brave_visibility_and_runtime_share_settings_helper(repo_root: Path) -> None:
@@ -912,6 +946,8 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "Profiles" in control_center_source
     assert "Appearance" in control_center_source
     assert "default_browser" in control_center_source
+    assert "vault_passphrase_entry" in control_center_source
+    assert "passphrase_feedback_text" in control_center_source
     assert "python3 -m nmos_help.main" in help_launcher_source
     assert "Exec=/usr/local/bin/nmos-help" in help_desktop_source
     assert ".nmos-root" in css_source

@@ -20,6 +20,7 @@ from nmos_common.i18n import (
     resolve_supported_locale,
     translate,
 )
+from nmos_common.passphrase_policy import passphrase_feedback_text
 from nmos_common.platform_adapter import get_runtime_dir
 from nmos_common.runtime_state import read_runtime_json
 from nmos_common.settings_client import SettingsClient, SettingsClientError
@@ -171,6 +172,10 @@ class ControlCenterWindow(Adw.ApplicationWindow):
     def tr(self, source_text: str, **kwargs) -> str:
         return translate(self.ui_locale, source_text, **kwargs)
 
+    def on_vault_passphrase_changed(self, *_args) -> None:
+        text = self.vault_passphrase_entry.get_text()
+        self.vault_passphrase_strength.set_text(passphrase_feedback_text(text))
+
     def format_policy_runtime_status(self) -> str:
         app_status = read_runtime_json(self.app_isolation_status_file, default={})
         logging_status = read_runtime_json(self.logging_status_file, default={})
@@ -313,6 +318,8 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self._set_dropdown_value(self.vault_auto_lock_combo, [value for value, _label in VAULT_AUTO_LOCK_OPTIONS], auto_lock)
         self.brave_switch.set_active(bool(settings.get("allow_brave_browser", False)))
         self.vault_unlock_on_login.set_active(bool(vault.get("unlock_on_login", False)))
+        self.vault_passphrase_entry.set_text("")
+        self.vault_passphrase_strength.set_text(passphrase_feedback_text(""))
         self.ui_locale = locale
         self.preview_theme()
 
@@ -433,6 +440,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.vault_explanation.set_text(
             "\n".join(explain_vault_behavior(self.ui_locale, draft_values["vault"]))
         )
+        self.vault_passphrase_strength.set_text(passphrase_feedback_text(self.vault_passphrase_entry.get_text()))
         self.system_explanation.set_text(
             "\n".join(
                 [

@@ -103,6 +103,13 @@ Methods:
 - `Repair()`
 - `GetState()`
 
+Passphrase + KDF baseline:
+
+- vault creation enforces a minimum 12-character passphrase with mixed character classes
+- common weak passphrases are rejected
+- LUKS2 formatting is explicitly configured with `argon2id`
+- current defaults: `--iter-time 2000`, `--pbkdf-memory 262144`, `--pbkdf-parallel 4`
+
 ## Network policy
 
 ### `tor`

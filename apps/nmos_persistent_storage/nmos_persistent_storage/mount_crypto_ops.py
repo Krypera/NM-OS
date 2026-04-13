@@ -19,6 +19,10 @@ class CryptoMountOps:
         fsck_check_timeout_seconds: int,
         fsck_repair_timeout_seconds: int,
         mount_timeout_seconds: int,
+        luks_pbkdf: str,
+        luks_iter_time_ms: int,
+        luks_memory_kib: int,
+        luks_parallel: int,
     ) -> None:
         self.run = run_command
         self.storage_error = storage_error
@@ -31,6 +35,10 @@ class CryptoMountOps:
         self.fsck_check_timeout_seconds = fsck_check_timeout_seconds
         self.fsck_repair_timeout_seconds = fsck_repair_timeout_seconds
         self.mount_timeout_seconds = mount_timeout_seconds
+        self.luks_pbkdf = luks_pbkdf
+        self.luks_iter_time_ms = max(500, int(luks_iter_time_ms))
+        self.luks_memory_kib = max(65536, int(luks_memory_kib))
+        self.luks_parallel = max(1, int(luks_parallel))
 
     def is_mount_active(self, path: Path) -> bool:
         try:
@@ -57,6 +65,14 @@ class CryptoMountOps:
             "luksFormat",
             "--type",
             "luks2",
+            "--pbkdf",
+            self.luks_pbkdf,
+            "--iter-time",
+            str(self.luks_iter_time_ms),
+            "--pbkdf-memory",
+            str(self.luks_memory_kib),
+            "--pbkdf-parallel",
+            str(self.luks_parallel),
             "--batch-mode",
             str(self.image_path),
             "-",

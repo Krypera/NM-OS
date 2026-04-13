@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from nmos_common.passphrase_policy import evaluate_passphrase
 from nmos_common.platform_adapter import get_runtime_dir, get_state_dir
 
 from nmos_persistent_storage.mount_crypto_ops import CryptoMountOps
@@ -23,6 +24,10 @@ FSCK_CHECK_TIMEOUT_SECONDS = 180
 FSCK_REPAIR_TIMEOUT_SECONDS = 600
 MOUNT_COMMAND_TIMEOUT_SECONDS = 30
 DEFAULT_VAULT_SIZE_BYTES = 8 * 1024 * 1024 * 1024
+LUKS_PBKDF = "argon2id"
+LUKS_ITER_TIME_MS = 2000
+LUKS_MEMORY_KIB = 262144
+LUKS_PARALLEL = 4
 
 REASON_BACKEND_ERROR = "backend_error"
 REASON_INVALID_REQUEST = "invalid_request"
@@ -72,6 +77,10 @@ class PersistentStorageManager:
             fsck_check_timeout_seconds=FSCK_CHECK_TIMEOUT_SECONDS,
             fsck_repair_timeout_seconds=FSCK_REPAIR_TIMEOUT_SECONDS,
             mount_timeout_seconds=MOUNT_COMMAND_TIMEOUT_SECONDS,
+            luks_pbkdf=LUKS_PBKDF,
+            luks_iter_time_ms=LUKS_ITER_TIME_MS,
+            luks_memory_kib=LUKS_MEMORY_KIB,
+            luks_parallel=LUKS_PARALLEL,
         )
 
     def set_last_error(self, message: str, *, reason: str = REASON_BACKEND_ERROR) -> None:
@@ -187,8 +196,13 @@ class PersistentStorageManager:
         mount_active = False
         include_cached_error = False
         try:
-            if not passphrase:
-                raise StorageError("passphrase is required", reason=REASON_INVALID_REQUEST)
+            evaluation = evaluate_passphrase(passphrase)
+            if not evaluation["valid_for_creation"]:
+                issue_summary = ", ".join(str(item) for item in evaluation["issues"])
+                raise StorageError(
+                    f"passphrase does not meet NM-OS requirements: {issue_summary}",
+                    reason=REASON_INVALID_REQUEST,
+                )
             if VAULT_IMAGE_PATH.exists():
                 raise StorageError("encrypted vault already exists", reason=REASON_ALREADY_EXISTS)
             details = self.describe_vault()
