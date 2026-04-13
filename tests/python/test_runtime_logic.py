@@ -528,6 +528,8 @@ def test_brave_visibility_and_runtime_share_settings_helper(repo_root: Path) -> 
     assert 'allow_brave_browser' in brave_policy_source
     assert 'default_browser' in desktop_mode_source
     assert "default-web-browser" in desktop_mode_source
+    assert "x-scheme-handler/http" in desktop_mode_source
+    assert "x-scheme-handler/https" in desktop_mode_source
     assert "session-appearance.json" in desktop_mode_source
     assert "gsettings" in desktop_mode_source
     assert "picture-uri" in desktop_mode_source
@@ -535,6 +537,34 @@ def test_brave_visibility_and_runtime_share_settings_helper(repo_root: Path) -> 
     assert "text-scaling-factor" in desktop_mode_source
     assert "wallpaper-night.svg" in desktop_mode_source
     assert "wallpaper-light.svg" in desktop_mode_source
+
+
+def test_default_browser_enforcement_composes_expected_commands(repo_root: Path) -> None:
+    desktop_mode = load_module(
+        "desktop_mode",
+        repo_root / "config" / "system-overlay" / "usr" / "local" / "lib" / "nmos" / "desktop_mode.py",
+    )
+    commands: list[list[str]] = []
+
+    class _Completed:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def _fake_run(command, **_kwargs):
+        commands.append(list(command))
+        return _Completed()
+
+    desktop_mode.subprocess.run = _fake_run
+    desktop_mode.apply_default_browser({"default_browser": "chromium"})
+
+    assert commands[0] == ["xdg-settings", "set", "default-web-browser", "chromium.desktop"]
+    assert commands[1] == ["gio", "mime", "x-scheme-handler/http", "chromium.desktop"]
+    assert commands[2] == ["gio", "mime", "x-scheme-handler/https", "chromium.desktop"]
+
+    commands.clear()
+    desktop_mode.apply_default_browser({"default_browser": "none"})
+    assert commands == []
 
 
 def test_logging_policy_enforcement_assets_exist(repo_root: Path) -> None:

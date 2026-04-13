@@ -152,20 +152,25 @@ def apply_default_browser(settings: dict) -> None:
     desktop_file = DEFAULT_BROWSER_DESKTOP_FILES.get(default_browser)
     if not desktop_file:
         return
-    try:
-        run_gsettings("set", "org.gnome.desktop.default-applications.browser", "exec", desktop_file)
-    except Exception as exc:
-        log_policy_message(f"default browser sync skipped: {exc}")
-    try:
-        subprocess.run(
-            ["xdg-settings", "set", "default-web-browser", desktop_file],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except Exception as exc:
-        log_policy_message(f"default browser xdg-settings failed: {exc}")
+    for command in (
+        ["xdg-settings", "set", "default-web-browser", desktop_file],
+        ["gio", "mime", "x-scheme-handler/http", desktop_file],
+        ["gio", "mime", "x-scheme-handler/https", desktop_file],
+    ):
+        try:
+            completed = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except Exception as exc:
+            log_policy_message(f"default browser command failed ({' '.join(command)}): {exc}")
+            continue
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout or f"exit={completed.returncode}").strip()
+            log_policy_message(f"default browser command failed ({' '.join(command)}): {detail}")
 
 
 def main() -> None:
