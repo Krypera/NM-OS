@@ -221,6 +221,44 @@ POSTURE_PREVIEW_KEYS = (
     "app_overrides",
 )
 
+SCORE_WEIGHTS = {
+    "network_policy": {
+        "direct": {"protection": -2, "convenience": 2},
+        "tor": {"protection": 1, "convenience": 0},
+        "offline": {"protection": 3, "convenience": -4},
+    },
+    "sandbox_default": {
+        "standard": {"protection": -1, "convenience": 2},
+        "focused": {"protection": 1, "convenience": 0},
+        "strict": {"protection": 3, "convenience": -2},
+    },
+    "device_policy": {
+        "shared": {"protection": -1, "convenience": 1},
+        "prompt": {"protection": 1, "convenience": 0},
+        "locked": {"protection": 2, "convenience": -1},
+    },
+    "logging_policy": {
+        "balanced": {"protection": -1, "convenience": 1},
+        "minimal": {"protection": 1, "convenience": 0},
+        "sealed": {"protection": 2, "convenience": -2},
+    },
+    "allow_brave_browser": {
+        True: {"protection": -1, "convenience": 1},
+        False: {"protection": 0, "convenience": 0},
+    },
+    "vault_auto_lock": {
+        "manual": {"protection": -1, "convenience": 1},
+        "very_fast": {"protection": 2, "convenience": -2},
+        "fast": {"protection": 1, "convenience": -1},
+        "default": {"protection": 1, "convenience": 0},
+        "relaxed": {"protection": 0, "convenience": 0},
+    },
+    "vault_unlock_on_login": {
+        True: {"protection": -1, "convenience": 1},
+        False: {"protection": 0, "convenience": 0},
+    },
+}
+
 
 def _normalize_choice(value: object, supported: tuple[str, ...] | set[str], default: str) -> str:
     text = str(value or "").strip().lower()
@@ -410,49 +448,24 @@ def compute_posture_scores(effective: object) -> dict[str, int]:
     protection = 5
     convenience = 5
 
+    def apply_weight(bucket: str, key: object) -> None:
+        nonlocal protection, convenience
+        pair = SCORE_WEIGHTS[bucket].get(key, {"protection": 0, "convenience": 0})
+        protection += int(pair["protection"])
+        convenience += int(pair["convenience"])
+
     network_policy = str(raw.get("network_policy", "tor")).strip().lower()
-    if network_policy == "direct":
-        protection -= 2
-        convenience += 2
-    elif network_policy == "offline":
-        protection += 3
-        convenience -= 4
-    else:
-        protection += 1
+    apply_weight("network_policy", network_policy)
 
     sandbox_default = str(raw.get("sandbox_default", "focused")).strip().lower()
-    if sandbox_default == "standard":
-        protection -= 1
-        convenience += 2
-    elif sandbox_default == "strict":
-        protection += 3
-        convenience -= 2
-    else:
-        protection += 1
+    apply_weight("sandbox_default", sandbox_default)
 
     device_policy = str(raw.get("device_policy", "prompt")).strip().lower()
-    if device_policy == "shared":
-        protection -= 1
-        convenience += 1
-    elif device_policy == "locked":
-        protection += 2
-        convenience -= 1
-    else:
-        protection += 1
+    apply_weight("device_policy", device_policy)
 
     logging_policy = str(raw.get("logging_policy", "minimal")).strip().lower()
-    if logging_policy == "balanced":
-        protection -= 1
-        convenience += 1
-    elif logging_policy == "sealed":
-        protection += 2
-        convenience -= 2
-    else:
-        protection += 1
-
-    if bool(raw.get("allow_brave_browser", False)):
-        protection -= 1
-        convenience += 1
+    apply_weight("logging_policy", logging_policy)
+    apply_weight("allow_brave_browser", bool(raw.get("allow_brave_browser", False)))
 
     vault = raw.get("vault", {}) if isinstance(raw.get("vault", {}), dict) else {}
     try:
@@ -461,19 +474,16 @@ def compute_posture_scores(effective: object) -> dict[str, int]:
         auto_lock_minutes = 15
     auto_lock_minutes = max(0, auto_lock_minutes)
     if auto_lock_minutes == 0:
-        protection -= 1
-        convenience += 1
+        apply_weight("vault_auto_lock", "manual")
     elif auto_lock_minutes <= 1:
-        protection += 2
-        convenience -= 2
+        apply_weight("vault_auto_lock", "very_fast")
     elif auto_lock_minutes <= 5:
-        protection += 1
-        convenience -= 1
+        apply_weight("vault_auto_lock", "fast")
     elif auto_lock_minutes <= 15:
-        protection += 1
-    if bool(vault.get("unlock_on_login", False)):
-        protection -= 1
-        convenience += 1
+        apply_weight("vault_auto_lock", "default")
+    else:
+        apply_weight("vault_auto_lock", "relaxed")
+    apply_weight("vault_unlock_on_login", bool(vault.get("unlock_on_login", False)))
 
     return {
         "protection": _clamp_score(protection),

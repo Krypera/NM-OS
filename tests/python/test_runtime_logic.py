@@ -33,6 +33,7 @@ from nmos_common.runtime_state import read_runtime_json, write_runtime_json
 from nmos_common.settings_client import SettingsClient, SettingsClientError
 from nmos_common.system_settings import (
     DEFAULT_SYSTEM_SETTINGS,
+    SCORE_WEIGHTS,
     apply_system_profile,
     classify_effective_changes,
     compute_posture_score_shift,
@@ -365,6 +366,15 @@ def test_posture_scores_reflect_stricter_defaults() -> None:
     shift_text = format_posture_shift("en_US.UTF-8", shift)
     assert "protection +" in shift_text
     assert "convenience -" in shift_text
+
+
+def test_posture_score_weights_are_table_driven() -> None:
+    assert SCORE_WEIGHTS["network_policy"]["direct"] == {"protection": -2, "convenience": 2}
+    assert SCORE_WEIGHTS["network_policy"]["offline"] == {"protection": 3, "convenience": -4}
+    assert SCORE_WEIGHTS["sandbox_default"]["strict"] == {"protection": 3, "convenience": -2}
+    assert SCORE_WEIGHTS["allow_brave_browser"][True] == {"protection": -1, "convenience": 1}
+    assert SCORE_WEIGHTS["vault_auto_lock"]["very_fast"] == {"protection": 2, "convenience": -2}
+    assert SCORE_WEIGHTS["vault_unlock_on_login"][True] == {"protection": -1, "convenience": 1}
 
 
 def test_setting_specific_explanations_are_stable() -> None:
