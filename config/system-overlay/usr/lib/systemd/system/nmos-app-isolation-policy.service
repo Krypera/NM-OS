@@ -1,0 +1,21 @@
+[Unit]
+Description=NM-OS app isolation baseline enforcement
+After=nmos-settings-bootstrap.service
+Wants=nmos-settings-bootstrap.service
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/nmos/app_isolation_policy.py
+StandardOutput=journal+console
+StandardError=journal+console
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/flatpak/overrides @NMOS_RUNTIME_DIR@
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

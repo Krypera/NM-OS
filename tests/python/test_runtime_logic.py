@@ -591,6 +591,46 @@ def test_logging_policy_enforcement_assets_exist(repo_root: Path) -> None:
     assert "ExecStart=/usr/local/lib/nmos/logging_policy.py" in logging_service_source
 
 
+def test_app_isolation_enforcement_assets_exist(repo_root: Path) -> None:
+    app_isolation_source = (
+        repo_root / "config" / "system-overlay" / "usr" / "local" / "lib" / "nmos" / "app_isolation_policy.py"
+    ).read_text(encoding="utf-8")
+    app_isolation_service_source = (
+        repo_root
+        / "config"
+        / "system-overlay"
+        / "usr"
+        / "lib"
+        / "systemd"
+        / "system"
+        / "nmos-app-isolation-policy.service"
+    ).read_text(encoding="utf-8")
+    assert "load_effective_system_settings" in app_isolation_source
+    assert "flatpak" in app_isolation_source
+    assert "policy_commands" in app_isolation_source
+    assert "app-isolation-status.json" in app_isolation_source
+    assert "ExecStart=/usr/local/lib/nmos/app_isolation_policy.py" in app_isolation_service_source
+
+
+def test_app_isolation_policy_composes_expected_flatpak_commands(repo_root: Path) -> None:
+    app_isolation = load_module(
+        "app_isolation_policy",
+        repo_root / "config" / "system-overlay" / "usr" / "local" / "lib" / "nmos" / "app_isolation_policy.py",
+    )
+    assert app_isolation.policy_commands("standard") == [
+        ["flatpak", "override", "--system", "--reset"],
+        ["flatpak", "override", "--system", "--filesystem=home"],
+    ]
+    assert app_isolation.policy_commands("focused") == [
+        ["flatpak", "override", "--system", "--reset"],
+        ["flatpak", "override", "--system", "--nofilesystem=host"],
+    ]
+    assert app_isolation.policy_commands("strict") == [
+        ["flatpak", "override", "--system", "--reset"],
+        ["flatpak", "override", "--system", "--nofilesystem=home", "--nofilesystem=host"],
+    ]
+
+
 def test_overlay_build_uses_installed_python_packages(repo_root: Path) -> None:
     common_source = (repo_root / "build" / "lib" / "common.sh").read_text(encoding="utf-8")
     greeter_launcher_source = (
@@ -649,6 +689,16 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
         / "system"
         / "nmos-logging-policy.service"
     ).read_text(encoding="utf-8")
+    app_isolation_service = (
+        repo_root
+        / "config"
+        / "system-overlay"
+        / "usr"
+        / "lib"
+        / "systemd"
+        / "system"
+        / "nmos-app-isolation-policy.service"
+    ).read_text(encoding="utf-8")
     persistent_service = (
         repo_root
         / "config"
@@ -670,7 +720,7 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
         / "nmos-network-bootstrap.service"
     ).read_text(encoding="utf-8")
 
-    for service_source in (settings_service, logging_service, persistent_service, network_service):
+    for service_source in (settings_service, logging_service, app_isolation_service, persistent_service, network_service):
         for value in ("NoNewPrivileges=yes", "ProtectSystem=strict", "ProtectHome=yes", "PrivateTmp=yes"):
             assert value in service_source
 
@@ -679,11 +729,14 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
     assert "RestrictAddressFamilies=AF_UNIX" in settings_service
     assert "ReadWritePaths=/etc/systemd/journald.conf.d @NMOS_RUNTIME_DIR@" in logging_service
     assert "RestrictAddressFamilies=AF_UNIX" in logging_service
+    assert "ReadWritePaths=/var/lib/flatpak/overrides @NMOS_RUNTIME_DIR@" in app_isolation_service
+    assert "RestrictAddressFamilies=AF_UNIX" in app_isolation_service
 
     for value in ("NoNewPrivileges=yes", "ProtectSystem=strict", "ProtectHome=yes", "PrivateTmp=yes"):
         assert value in persistent_service
         assert value in network_service
 
+    assert "CapabilityBoundingSet=" in app_isolation_service
     assert "CapabilityBoundingSet=" in persistent_service
     assert "CapabilityBoundingSet=" in network_service
     assert "ReadWritePaths=@NMOS_RUNTIME_DIR@ @NMOS_STATE_DIR@" in persistent_service
@@ -692,6 +745,7 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
     assert "render_platform_overlay_templates" in common_source
     assert "nmos-settings.service" in common_source
     assert "nmos-logging-policy.service" in common_source
+    assert "nmos-app-isolation-policy.service" in common_source
     assert "nmos-persistent-storage.service" in common_source
     assert "nmos-network-bootstrap.service" in common_source
 
