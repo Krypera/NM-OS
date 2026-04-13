@@ -2,20 +2,23 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 from pathlib import Path
 
 from nmos_common.config_helpers import load_feature_flag
-from nmos_common.runtime_state import write_runtime_json
+from nmos_common.platform_adapter import get_runtime_dir
+from nmos_common.runtime_state import read_runtime_text, write_runtime_json, write_runtime_text
 from nmos_common.system_settings import load_effective_system_settings
 
 BRAVE_FEATURE_FILE = Path("/etc/nmos/features/brave")
 BRAVE_DESKTOP_SOURCE = Path("/usr/share/applications/brave-browser.desktop")
-BRAVE_DESKTOP_OVERRIDE = Path.home() / ".local/share/applications/brave-browser.desktop"
+BRAVE_DESKTOP_OVERRIDE = Path("/usr/local/share/applications/brave-browser.desktop")
 SESSION_APPEARANCE_FILE = Path.home() / ".config/nmos/session-appearance.json"
 THEME_DIR = Path("/usr/share/nmos/theme")
 MANAGED_MARKER = "X-NMOS-Managed=true"
+BRAVE_OVERRIDE_SIGNATURE_FILE = get_runtime_dir() / "brave-desktop.override.sha256"
 WALLPAPER_BY_PROFILE = {
     "nmos-classic": THEME_DIR / "wallpaper.svg",
     "nmos-night": THEME_DIR / "wallpaper-night.svg",
@@ -41,13 +44,24 @@ def log_policy_message(message: str) -> None:
 
 
 def remove_override() -> None:
-    if BRAVE_DESKTOP_OVERRIDE.exists():
-        try:
-            text = BRAVE_DESKTOP_OVERRIDE.read_text(encoding="utf-8")
-        except OSError:
-            return
-        if MANAGED_MARKER in text:
-            BRAVE_DESKTOP_OVERRIDE.unlink(missing_ok=True)
+    if not BRAVE_DESKTOP_OVERRIDE.exists():
+        BRAVE_OVERRIDE_SIGNATURE_FILE.unlink(missing_ok=True)
+        return
+    try:
+        text = BRAVE_DESKTOP_OVERRIDE.read_text(encoding="utf-8")
+    except OSError:
+        return
+    if MANAGED_MARKER not in text:
+        return
+    expected = ""
+    try:
+        expected = read_runtime_text(BRAVE_OVERRIDE_SIGNATURE_FILE).strip()
+    except OSError:
+        expected = ""
+    observed = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    if expected and observed == expected:
+        BRAVE_DESKTOP_OVERRIDE.unlink(missing_ok=True)
+        BRAVE_OVERRIDE_SIGNATURE_FILE.unlink(missing_ok=True)
 
 
 def write_hidden_override() -> None:
@@ -63,7 +77,13 @@ def write_hidden_override() -> None:
     filtered.append("NoDisplay=true")
     filtered.append("Hidden=true")
     filtered.append(MANAGED_MARKER)
-    BRAVE_DESKTOP_OVERRIDE.write_text("\n".join(filtered) + "\n", encoding="utf-8")
+    content = "\n".join(filtered) + "\n"
+    BRAVE_DESKTOP_OVERRIDE.write_text(content, encoding="utf-8")
+    write_runtime_text(
+        BRAVE_OVERRIDE_SIGNATURE_FILE,
+        hashlib.sha256(content.encode("utf-8")).hexdigest() + "\n",
+        mode=0o600,
+    )
 
 
 def apply_brave_visibility(settings: dict) -> None:

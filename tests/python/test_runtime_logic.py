@@ -633,6 +633,8 @@ def test_brave_visibility_and_runtime_share_settings_helper(repo_root: Path) -> 
     assert 'allow_brave_browser' in desktop_mode_source
     assert 'allow_brave_browser' in brave_policy_source
     assert "is_symlink" in brave_policy_source
+    assert "/usr/local/share/applications/brave-browser.desktop" in desktop_mode_source
+    assert "brave-desktop.override.sha256" in desktop_mode_source
     assert 'default_browser' in desktop_mode_source
     assert "default-web-browser" in desktop_mode_source
     assert "x-scheme-handler/http" in desktop_mode_source
@@ -737,6 +739,7 @@ def test_ram_wipe_shutdown_hook_assets_exist(repo_root: Path) -> None:
     assert "swapoff" in ram_wipe_shutdown_source
     assert "vm.drop_caches=3" in ram_wipe_shutdown_source
     assert "vm.compact_memory=1" in ram_wipe_shutdown_source
+    assert "run_checked" in ram_wipe_shutdown_source
     assert "ExecStart=/usr/local/lib/nmos/ram_wipe_shutdown.py" in ram_wipe_shutdown_service_source
     assert "WantedBy=poweroff.target" in ram_wipe_shutdown_service_source
     assert "WantedBy=reboot.target" in ram_wipe_shutdown_service_source
@@ -1076,6 +1079,8 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "DBUS_WRITE_INTERFACE" in settings_service_source
     assert "sender_keyword=\"sender\"" in settings_service_source
     assert "_assert_write_authorized" in settings_service_source
+    assert "POLKIT_ACTION_ID" in settings_service_source
+    assert "pkcheck" in settings_service_source
     assert "get_unix_user" in settings_service_source
     assert "get_settings_admin_group" in settings_service_source
     assert "ApplyPreset" in settings_service_source

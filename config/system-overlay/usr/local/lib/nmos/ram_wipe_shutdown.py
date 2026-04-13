@@ -24,6 +24,23 @@ def run_best_effort(*args: str, timeout: int = 20) -> tuple[bool, str]:
     return completed.returncode == 0, detail
 
 
+def run_checked(*args: str, timeout: int = 20) -> str:
+    try:
+        completed = subprocess.run(
+            args,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or exc.stdout or str(exc)).strip()
+        raise RuntimeError(detail) from exc
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(str(exc)) from exc
+    return (completed.stderr or completed.stdout or "").strip()
+
+
 def ram_wipe_mode() -> str:
     settings = load_effective_system_settings()
     return str(settings.get("ram_wipe_mode", "balanced")).strip().lower()
@@ -37,8 +54,25 @@ def main() -> None:
 
     sync_ok, sync_detail = run_best_effort("sync", timeout=10)
     drop_ok, drop_detail = run_best_effort("sysctl", "-w", "vm.drop_caches=3", timeout=10)
-    compact_ok, compact_detail = run_best_effort("sysctl", "-w", "vm.compact_memory=1", timeout=10)
-    swapoff_ok, swapoff_detail = run_best_effort("swapoff", "-a", timeout=20)
+    compact_ok = False
+    compact_detail = ""
+    try:
+        compact_detail = run_checked("sysctl", "-w", "vm.compact_memory=1", timeout=10)
+        compact_ok = True
+    except RuntimeError as exc:
+        message = str(exc).lower()
+        if (
+            "unknown key" in message
+            or "cannot stat" in message
+            or "invalid argument" in message
+            or "no such file" in message
+        ):
+            compact_ok = True
+            compact_detail = f"unsupported kernel knob: {exc}"
+        else:
+            compact_ok = False
+            compact_detail = str(exc)
+    swapoff_ok, swapoff_detail = run_best_effort("swapoff", "-a", timeout=120)
 
     print(
         "NMOS_RAM_WIPE_SHUTDOWN "
