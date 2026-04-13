@@ -503,6 +503,10 @@ def test_greeter_layout_is_setup_only(repo_root: Path) -> None:
     assert "service health" in main_source
     assert "Action: sign in with an admin-authorized session and retry." in main_source
     assert "Review mode only until service is reachable." in main_source
+    assert "read_network_status()" in main_source
+    assert "persistent-storage.json" in main_source
+    assert "Settings backend: reachable." in main_source
+    assert 'self.set_status(combined, source="runtime", force=False)' in main_source
     assert "GDM" not in main_source
     assert "profile_combo" in ui_source
     assert "network_policy_combo" in ui_source

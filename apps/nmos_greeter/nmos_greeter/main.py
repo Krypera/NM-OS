@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 
 import gi
 
@@ -10,6 +11,8 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, GLib, Gtk
 
 from nmos_common.i18n import LANGUAGE_OPTIONS, resolve_supported_locale, translate, translate_message
+from nmos_common.platform_adapter import get_runtime_dir
+from nmos_common.runtime_state import read_runtime_json
 from nmos_common.settings_client import SettingsClient, SettingsClientError
 from nmos_common.system_settings import (
     ACCENT_LABELS,
@@ -24,6 +27,7 @@ from nmos_common.system_settings import (
 from nmos_common.ui_theme import load_css
 from nmos_greeter import ui_composition
 from nmos_greeter.browser_model import BROWSER_OPTIONS
+from nmos_greeter.client import read_network_status
 from nmos_greeter.state import load_state, save_state
 
 
@@ -57,6 +61,10 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.page_index = 0
         self.status_source = ""
         self.page_widgets: dict[str, Gtk.Widget] = {}
+        self.runtime_dir = get_runtime_dir()
+        self.network_status_file: Path = self.runtime_dir / "network-status.json"
+        self.vault_status_file: Path = self.runtime_dir / "persistent-storage.json"
+        self.last_runtime_status = ""
 
         ui_composition.build_ui(self)
         self.apply_translations()
@@ -261,6 +269,54 @@ class GreeterWindow(Adw.ApplicationWindow):
         return ui_composition.can_finish(self)
 
     def poll_runtime(self) -> bool:
+        network_status = read_network_status()
+        vault_status = read_runtime_json(self.vault_status_file, default={})
+        runtime_messages: list[str] = []
+
+        phase = str(network_status.get("phase", "")).strip().lower()
+        progress = int(network_status.get("progress", 0))
+        if phase == "disabled":
+            runtime_messages.append("Network: disabled by current policy.")
+        elif phase == "open":
+            runtime_messages.append("Network: direct access is active.")
+        elif bool(network_status.get("ready", False)):
+            runtime_messages.append("Network: Tor bootstrap is ready.")
+        else:
+            runtime_messages.append(f"Network: waiting for Tor ({progress}%).")
+
+        last_error = str(network_status.get("last_error", "")).strip()
+        if last_error:
+            runtime_messages.append(f"Network error: {self.translate_message(last_error)}")
+
+        if vault_status:
+            if bool(vault_status.get("busy", False)):
+                runtime_messages.append("Vault: action in progress.")
+            elif bool(vault_status.get("unlocked", False)):
+                runtime_messages.append("Vault: unlocked.")
+            elif bool(vault_status.get("created", False)):
+                runtime_messages.append("Vault: locked and available.")
+            elif bool(vault_status.get("can_create", False)):
+                runtime_messages.append("Vault: ready to create.")
+            else:
+                runtime_messages.append("Vault: unavailable.")
+            vault_error = str(vault_status.get("last_error", "")).strip()
+            if vault_error:
+                runtime_messages.append(f"Vault error: {self.translate_message(vault_error)}")
+        else:
+            runtime_messages.append("Vault: status unavailable.")
+
+        try:
+            self.settings_client_factory().get_settings()
+            self.settings_backend_ready = True
+            runtime_messages.append("Settings backend: reachable.")
+        except SettingsClientError as error:
+            self.settings_backend_ready = False
+            runtime_messages.append(self.format_backend_guidance(error))
+
+        combined = " | ".join(runtime_messages)
+        if combined != self.last_runtime_status:
+            self.last_runtime_status = combined
+            self.set_status(combined, source="runtime", force=False)
         return True
 
 
