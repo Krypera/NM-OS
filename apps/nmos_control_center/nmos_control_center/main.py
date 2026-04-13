@@ -20,6 +20,8 @@ from nmos_common.i18n import (
     resolve_supported_locale,
     translate,
 )
+from nmos_common.platform_adapter import get_runtime_dir
+from nmos_common.runtime_state import read_runtime_json
 from nmos_common.settings_client import SettingsClient, SettingsClientError
 from nmos_common.system_settings import (
     ACCENT_LABELS,
@@ -95,6 +97,10 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.startup_error_message = self.format_backend_guidance(error)
         self.profile_values = list(PROFILE_METADATA)
         self.language_values = [locale for locale, _label in LANGUAGE_OPTIONS]
+        runtime_dir = get_runtime_dir()
+        self.logging_status_file = runtime_dir / "logging-policy-status.json"
+        self.app_isolation_status_file = runtime_dir / "app-isolation-status.json"
+        self.device_policy_status_file = runtime_dir / "device-policy-status.json"
         
         self.KEYBOARD_OPTIONS = KEYBOARD_OPTIONS
         self.NETWORK_OPTIONS = NETWORK_OPTIONS
@@ -164,6 +170,42 @@ class ControlCenterWindow(Adw.ApplicationWindow):
 
     def tr(self, source_text: str, **kwargs) -> str:
         return translate(self.ui_locale, source_text, **kwargs)
+
+    def format_policy_runtime_status(self) -> str:
+        app_status = read_runtime_json(self.app_isolation_status_file, default={})
+        logging_status = read_runtime_json(self.logging_status_file, default={})
+        device_status = read_runtime_json(self.device_policy_status_file, default={})
+
+        lines = []
+        if app_status:
+            lines.append(
+                "App isolation: "
+                f"profile={app_status.get('sandbox_default', 'unknown')} "
+                f"applied={bool(app_status.get('apply_ok', False))}"
+            )
+        else:
+            lines.append("App isolation: status unavailable")
+
+        if device_status:
+            lines.append(
+                "Device policy: "
+                f"profile={device_status.get('device_policy', 'unknown')} "
+                f"write={bool(device_status.get('write_ok', False))} "
+                f"reload={bool(device_status.get('reload_ok', False))}"
+            )
+        else:
+            lines.append("Device policy: status unavailable")
+
+        if logging_status:
+            lines.append(
+                "Logging policy: "
+                f"profile={logging_status.get('logging_policy', 'unknown')} "
+                f"reload={bool(logging_status.get('reload_ok', False))} "
+                f"vacuum={bool(logging_status.get('vacuum_ok', False))}"
+            )
+        else:
+            lines.append("Logging policy: status unavailable")
+        return "\n".join(lines)
 
     def build_ui(self) -> None:
         header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -388,6 +430,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                 ]
             )
         )
+        self.enforcement_status_label.set_text(self.format_policy_runtime_status())
         pending = draft_settings.get("pending_reboot", [])
         if pending:
             self.pending_reboot_label.set_text(

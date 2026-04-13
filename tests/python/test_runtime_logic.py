@@ -28,6 +28,7 @@ from nmos_common.i18n import (
     translate,
 )
 from nmos_common.platform_adapter import load_platform_adapter
+from nmos_common.runtime_state import read_runtime_json, write_runtime_json
 from nmos_common.settings_client import SettingsClient, SettingsClientError
 from nmos_common.system_settings import (
     DEFAULT_SYSTEM_SETTINGS,
@@ -160,6 +161,19 @@ def test_platform_adapter_override_loading(workspace_tmp_path: Path) -> None:
         else:
             os.environ["NMOS_RUNTIME_DIR"] = original_runtime
     assert env_loaded["runtime_dir"] == "/tmp/env-run"
+
+
+def test_read_runtime_json_returns_default_for_missing_or_invalid(workspace_tmp_path: Path) -> None:
+    missing = workspace_tmp_path / "missing-status.json"
+    assert read_runtime_json(missing, default={"ok": False}) == {"ok": False}
+
+    invalid = workspace_tmp_path / "invalid-status.json"
+    invalid.write_text("{invalid", encoding="utf-8")
+    assert read_runtime_json(invalid, default={"ok": False}) == {"ok": False}
+
+    valid = workspace_tmp_path / "valid-status.json"
+    write_runtime_json(valid, {"ok": True}, mode=0o644)
+    assert read_runtime_json(valid, default={"ok": False}) == {"ok": True}
 
 
 class _MockBackendUnavailableDBusError(Exception):
@@ -438,6 +452,7 @@ def test_runtime_state_and_overlay_bootstrap_use_hardened_writes(repo_root: Path
     assert "mkstemp" in runtime_state_source
     assert "os.fsync" in runtime_state_source
     assert "os.replace" in runtime_state_source
+    assert "read_runtime_json" in runtime_state_source
     assert "save_system_settings" in settings_bootstrap_source
     assert "APPLIED_SETTINGS_FILE" in settings_bootstrap_source
     assert "load_system_settings" in settings_bootstrap_source
@@ -837,6 +852,9 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     control_center_source = (
         repo_root / "apps" / "nmos_control_center" / "nmos_control_center" / "main.py"
     ).read_text(encoding="utf-8")
+    system_panel_source = (
+        repo_root / "apps" / "nmos_control_center" / "nmos_control_center" / "panels" / "system.py"
+    ).read_text(encoding="utf-8")
     help_launcher_source = (
         repo_root / "config" / "system-overlay" / "usr" / "local" / "bin" / "nmos-help"
     ).read_text(encoding="utf-8")
@@ -866,6 +884,10 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "describe_backend_issue" in control_center_source
     assert "backend_recovery_hint" in control_center_source
     assert "Diagnostics" in control_center_source
+    assert "Enforcement status" in system_panel_source
+    assert "app-isolation-status.json" in control_center_source
+    assert "device-policy-status.json" in control_center_source
+    assert "logging-policy-status.json" in control_center_source
     assert "authorized session" in control_center_source
     assert "service health" in control_center_source
     assert "Review mode only until service is reachable. Use Diagnostics for details." in control_center_source

@@ -36,6 +36,12 @@ Boot-applied snapshot:
 
 - `<runtime_dir>/applied-system-settings.json` (default `/run/nmos/applied-system-settings.json`)
 
+Policy runtime status snapshots:
+
+- `<runtime_dir>/logging-policy-status.json`
+- `<runtime_dir>/app-isolation-status.json`
+- `<runtime_dir>/device-policy-status.json`
+
 Important top-level fields:
 
 - `schema_version`

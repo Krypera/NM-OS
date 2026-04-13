@@ -107,6 +107,21 @@ def read_runtime_text(path: Path) -> str:
         return handle.read()
 
 
+def read_runtime_json(path: Path, default: dict | None = None) -> dict:
+    fallback = dict(default or {})
+    try:
+        raw = read_runtime_text(path)
+    except OSError:
+        return fallback
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return fallback
+    if isinstance(payload, dict):
+        return payload
+    return fallback
+
+
 def write_runtime_json(
     path: Path,
     payload: dict,

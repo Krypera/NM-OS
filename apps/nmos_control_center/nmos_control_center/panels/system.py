@@ -13,6 +13,10 @@ def build(window) -> Gtk.Widget:
     window.system_explanation.set_wrap(True)
     window.system_explanation.add_css_class("dim-label")
 
+    window.enforcement_status_label = Gtk.Label(xalign=0)
+    window.enforcement_status_label.set_wrap(True)
+    window.enforcement_status_label.add_css_class("dim-label")
+
     return page(
         "System & Recovery",
         "Control removable-media behavior, logging posture, and how quickly you can get back to a clean profile.",
@@ -28,5 +32,7 @@ def build(window) -> Gtk.Widget:
                 window.logging_combo,
             ),
             window.system_explanation,
+            Gtk.Label(label="Enforcement status", xalign=0),
+            window.enforcement_status_label,
         ],
     )
