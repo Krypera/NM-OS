@@ -1,0 +1,21 @@
+[Unit]
+Description=NM-OS device trust policy enforcement
+After=nmos-settings-bootstrap.service systemd-udevd.service
+Wants=nmos-settings-bootstrap.service
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/nmos/device_policy.py
+StandardOutput=journal+console
+StandardError=journal+console
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/etc/udev/rules.d @NMOS_RUNTIME_DIR@
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+
+[Install]
+WantedBy=multi-user.target

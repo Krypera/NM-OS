@@ -121,7 +121,7 @@ The encrypted vault is a concrete example of explainable security:
 | --- | --- | --- | --- |
 | `network_policy` | Direct / Tor-first / Offline network posture | `config/system-overlay/usr/local/lib/nmos/network_bootstrap.py` + nftables bootstrap rules + Tor bootstrap state | Enforced |
 | `sandbox_default` | Standard / Focused / Strict default app isolation intent | `config/system-overlay/usr/local/lib/nmos/app_isolation_policy.py` + `nmos-app-isolation-policy.service` global Flatpak override baseline | Enforced baseline (global defaults), per-app overrides roadmap |
-| `device_policy` | Shared / Prompt / Locked external device trust posture | Settings model + UI explanation | Partial (udev/polkit/udisks enforcement roadmap) |
+| `device_policy` | Shared / Prompt / Locked external device trust posture | `config/system-overlay/usr/local/lib/nmos/device_policy.py` + `nmos-device-policy.service` udev baseline for removable USB storage trust | Enforced baseline (removable storage posture), HID/USB networking roadmap |
 | `logging_policy` | Balanced / Minimal / Sealed retained trace posture | `config/system-overlay/usr/local/lib/nmos/logging_policy.py` + journald drop-in (`/etc/systemd/journald.conf.d/90-nmos-logging-policy.conf`) + startup vacuum policy | Enforced (boot-time policy application) |
 | `allow_brave_browser` | Whether Brave can appear when allowed by build/network posture | `config/system-overlay/usr/local/lib/nmos/desktop_mode.py` and `brave_policy.py` runtime gating | Enforced (feature-gated + policy-aware) |
 | `default_browser` | Which browser is used as the desktop default for web links | `config/system-overlay/usr/local/lib/nmos/desktop_mode.py` (`xdg-settings` + desktop defaults sync) | Enforced (post-login session policy) |

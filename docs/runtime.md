@@ -13,12 +13,14 @@
    exposes the encrypted vault backend
 5. `nmos-app-isolation-policy.service`
    enforces the selected `sandbox_default` as a global Flatpak baseline override
-6. the GDM greeter session launches `nmos-greeter`
-7. after login, the desktop can use `nmos-control-center`
-8. the desktop autostart helper applies the selected wallpaper, color scheme, motion, density, and Brave visibility policy
-9. optional platform adapter overrides can be declared in `/etc/nmos/platform-adapter.env`
-10. runtime values are resolved from process env first (`NMOS_TOR_USER`, `NMOS_GDM_USER`, `NMOS_SETTINGS_ADMIN_GROUP`, `NMOS_RUNTIME_DIR`, `NMOS_STATE_DIR`) and then from `/etc/nmos/platform-adapter.env`
-11. static D-Bus, tmpfiles, and systemd write-path entries are rendered during build from platform adapter values
+6. `nmos-device-policy.service`
+   enforces the selected `device_policy` baseline for removable USB storage trust
+7. the GDM greeter session launches `nmos-greeter`
+8. after login, the desktop can use `nmos-control-center`
+9. the desktop autostart helper applies the selected wallpaper, color scheme, motion, density, and Brave visibility policy
+10. optional platform adapter overrides can be declared in `/etc/nmos/platform-adapter.env`
+11. runtime values are resolved from process env first (`NMOS_TOR_USER`, `NMOS_GDM_USER`, `NMOS_SETTINGS_ADMIN_GROUP`, `NMOS_RUNTIME_DIR`, `NMOS_STATE_DIR`) and then from `/etc/nmos/platform-adapter.env`
+12. static D-Bus, tmpfiles, and systemd write-path entries are rendered during build from platform adapter values
 
 ## Settings model
 
