@@ -215,12 +215,12 @@ TRANSLATIONS = {
         "Motion": "Movimiento",
         "Default browser": "Navegador predeterminado",
         "No default browser": "Sin navegador predeterminado",
-        "Protection level: {level}/10": "Nivel de proteccion: {level}/10",
+        "Protection level: {level}/10": "Nivel de protección: {level}/10",
         "Convenience level: {level}/10": "Nivel de comodidad: {level}/10",
-        "Current balance favors stronger protection.": "El balance actual favorece una proteccion mas fuerte.",
+        "Current balance favors stronger protection.": "El balance actual favorece una protección más fuerte.",
         "Current balance favors convenience.": "El balance actual favorece la comodidad.",
-        "Current balance is relatively even.": "El balance actual esta relativamente equilibrado.",
-        "Shift vs current system: protection {protection}, convenience {convenience}": "Cambio respecto al sistema actual: proteccion {protection}, comodidad {convenience}",
+        "Current balance is relatively even.": "El balance actual está relativamente equilibrado.",
+        "Shift vs current system: protection {protection}, convenience {convenience}": "Cambio respecto al sistema actual: protección {protection}, comodidad {convenience}",
     }
 }
 

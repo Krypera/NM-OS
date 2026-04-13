@@ -92,7 +92,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         except SettingsClientError as error:
             self.settings = dict(DEFAULT_SYSTEM_SETTINGS)
             self.backend_ready = False
-            self.startup_error_message = self.describe_backend_issue(error)
+            self.startup_error_message = self.format_backend_guidance(error)
         self.profile_values = list(PROFILE_METADATA)
         self.language_values = [locale for locale, _label in LANGUAGE_OPTIONS]
         
@@ -121,7 +121,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.apply_button.set_sensitive(False)
             self.reset_button.set_sensitive(False)
             prefix = f"{self.startup_error_message} " if self.startup_error_message else ""
-            self.status_label.set_text(f"{prefix}Review mode only until service is reachable.")
+            self.status_label.set_text(f"{prefix}Review mode only until service is reachable. Use Diagnostics for details.")
         self.set_content(self.root)
 
     def describe_backend_issue(self, error: SettingsClientError) -> str:
@@ -134,6 +134,20 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         if error.reason == "dbus_import_error":
             return "D-Bus runtime is unavailable on this system."
         return error.user_message()
+
+    def backend_recovery_hint(self, error: SettingsClientError) -> str:
+        if error.reason == "access_denied":
+            return "Action: sign in with an admin-authorized session, then click Refresh."
+        if error.reason == "backend_unavailable":
+            return "Action: click Refresh. If it persists, run: systemctl status nmos-settings.service"
+        if error.reason == "transport_error":
+            return "Action: verify D-Bus and service health, then retry. Diagnostics can help."
+        if error.reason == "dbus_import_error":
+            return "Action: use review mode or safe mode until D-Bus is available."
+        return "Action: retry, then open diagnostics if the problem continues."
+
+    def format_backend_guidance(self, error: SettingsClientError) -> str:
+        return f"{self.describe_backend_issue(error)} {self.backend_recovery_hint(error)}"
 
     def _selected_value(self, dropdown: Gtk.DropDown, values: list[str]) -> str:
         selected = dropdown.get_selected()
@@ -196,6 +210,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
 
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.refresh_button = Gtk.Button(label="Refresh")
+        self.diagnostics_button = Gtk.Button(label="Diagnostics")
         self.reset_button = Gtk.Button(label="Reset To Profile")
         self.apply_button = Gtk.Button(label="Apply Changes")
         self.status_label = Gtk.Label(xalign=0)
@@ -203,10 +218,12 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.status_label.set_wrap(True)
         self.status_label.add_css_class("dim-label")
         self.refresh_button.connect("clicked", self.on_refresh)
+        self.diagnostics_button.connect("clicked", self.on_diagnostics)
         self.reset_button.connect("clicked", self.on_reset_to_profile)
         self.apply_button.connect("clicked", self.on_apply)
         actions.append(self.status_label)
         actions.append(self.refresh_button)
+        actions.append(self.diagnostics_button)
         actions.append(self.reset_button)
         actions.append(self.apply_button)
         self.root.append(actions)
@@ -402,7 +419,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.backend_ready = False
             self.apply_button.set_sensitive(False)
             self.reset_button.set_sensitive(False)
-            self.status_label.set_text(f"{self.describe_backend_issue(error)} Review mode only until service is reachable.")
+            self.status_label.set_text(f"{self.format_backend_guidance(error)} Review mode only until service is reachable.")
             return
         self.restore_settings()
         self.refresh_summary()
@@ -413,7 +430,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.client.apply_preset(self._selected_value(self.profile_combo, self.profile_values))
             self.settings = self.client.commit()
         except SettingsClientError as error:
-            self.status_label.set_text(self.describe_backend_issue(error))
+            self.status_label.set_text(self.format_backend_guidance(error))
             return
         self.restore_settings()
         self.refresh_summary()
@@ -429,7 +446,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                 self.client.set_overrides(overrides)
             self.settings = self.client.commit()
         except SettingsClientError as error:
-            self.status_label.set_text(self.describe_backend_issue(error))
+            self.status_label.set_text(self.format_backend_guidance(error))
             return
         self.restore_settings()
         self.refresh_summary()
@@ -437,6 +454,11 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.status_label.set_text("Changes saved. Some protections apply after the next reboot.")
         else:
             self.status_label.set_text("Changes saved.")
+
+    def on_diagnostics(self, _button: Gtk.Button) -> None:
+        self.status_label.set_text(
+            "Diagnostics: systemctl status nmos-settings.service; journalctl -u nmos-settings.service -n 50"
+        )
 
 
 class ControlCenterApplication(Adw.Application):

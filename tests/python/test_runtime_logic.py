@@ -300,7 +300,7 @@ def test_posture_preview_is_explainable() -> None:
     assert any("red directa" in line.lower() for line in spanish_lines)
     assert any("5 minutos" in line for line in spanish_lines)
     meter_lines = posture_meter_lines("es_ES.UTF-8", posture)
-    assert any("Nivel de proteccion" in line for line in meter_lines)
+    assert any("Nivel de protección" in line for line in meter_lines)
 
 
 def test_posture_scores_reflect_stricter_defaults() -> None:
@@ -461,8 +461,10 @@ def test_greeter_layout_is_setup_only(repo_root: Path) -> None:
     assert "SettingsClient" in main_source
     assert "allow_local_fallback=False" in main_source
     assert "describe_backend_issue" in main_source
+    assert "backend_recovery_hint" in main_source
     assert "authorized session" in main_source
     assert "service health" in main_source
+    assert "Action: sign in with an admin-authorized session and retry." in main_source
     assert "Review mode only until service is reachable." in main_source
     assert "GDM" not in main_source
     assert "profile_combo" in ui_source
@@ -765,9 +767,11 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "DBUS_WRITE_INTERFACE" in settings_client_source
     assert "allow_local_fallback=False" in control_center_source
     assert "describe_backend_issue" in control_center_source
+    assert "backend_recovery_hint" in control_center_source
+    assert "Diagnostics" in control_center_source
     assert "authorized session" in control_center_source
     assert "service health" in control_center_source
-    assert "Review mode only until service is reachable." in control_center_source
+    assert "Review mode only until service is reachable. Use Diagnostics for details." in control_center_source
     assert "error.user_message()" in control_center_source
     assert "SettingsClientError" in settings_client_source
     assert "RETRIABLE_DBUS_ERRORS" in settings_client_source
