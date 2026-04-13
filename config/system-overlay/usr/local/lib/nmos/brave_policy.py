@@ -50,6 +50,8 @@ def main() -> int:
     if not target.exists():
         print(f"Brave binary not found: {target}", file=sys.stderr)
         return 127
+    if target.is_symlink():
+        return deny("Brave binary path is a symlink - execution blocked.")
 
     os.execv(str(target), args)
     return 0

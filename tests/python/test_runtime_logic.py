@@ -447,6 +447,24 @@ def test_change_detail_formatting_is_human_readable() -> None:
     assert "Network policy: Tor-first -> Offline" == detail
 
 
+def test_brave_policy_blocks_symlink_target(repo_root: Path, monkeypatch) -> None:
+    brave_policy = load_module(
+        "brave_policy",
+        repo_root / "config" / "system-overlay" / "usr" / "local" / "lib" / "nmos" / "brave_policy.py",
+    )
+    monkeypatch.setattr(brave_policy, "load_feature_flag", lambda _path: True)
+    monkeypatch.setattr(
+        brave_policy,
+        "load_effective_system_settings",
+        lambda: {"allow_brave_browser": True, "network_policy": "tor"},
+    )
+    monkeypatch.setattr(brave_policy.Path, "exists", lambda _self: True)
+    monkeypatch.setattr(brave_policy.Path, "is_symlink", lambda _self: True)
+    monkeypatch.setattr(brave_policy, "log_policy_message", lambda _message: None)
+    monkeypatch.setattr(brave_policy.sys, "argv", ["brave_policy.py", "/usr/bin/brave"])
+    assert brave_policy.main() == 126
+
+
 def test_tor_status_respects_settings(repo_root: Path, workspace_tmp_path: Path) -> None:
     tor_status = load_module(
         "tor_bootstrap_status",
@@ -612,6 +630,7 @@ def test_brave_visibility_and_runtime_share_settings_helper(repo_root: Path) -> 
     assert "load_effective_system_settings" in brave_policy_source
     assert 'allow_brave_browser' in desktop_mode_source
     assert 'allow_brave_browser' in brave_policy_source
+    assert "is_symlink" in brave_policy_source
     assert 'default_browser' in desktop_mode_source
     assert "default-web-browser" in desktop_mode_source
     assert "x-scheme-handler/http" in desktop_mode_source
