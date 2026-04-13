@@ -612,6 +612,8 @@ def test_vault_storage_is_file_based(repo_root: Path, workspace_tmp_path: Path) 
     assert "LUKS_PBKDF" in source
     assert "LUKS_ITER_TIME_MS" in source
     assert "--pbkdf" in mount_crypto_source
+    assert "fallocate" in mount_crypto_source
+    assert "dd" in mount_crypto_source
     assert "argon2id" not in mount_crypto_source
     assert "--iter-time" in mount_crypto_source
     assert "--pbkdf-memory" in mount_crypto_source

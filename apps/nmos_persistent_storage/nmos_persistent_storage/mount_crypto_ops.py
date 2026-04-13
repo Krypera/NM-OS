@@ -53,8 +53,54 @@ class CryptoMountOps:
 
     def create_image_file(self, size_bytes: int) -> None:
         self.image_path.parent.mkdir(parents=True, exist_ok=True)
-        with self.image_path.open("wb") as handle:
-            handle.truncate(size_bytes)
+        allocation_timeout = max(self.filesystem_timeout_seconds, 900)
+        try:
+            self.run(
+                "fallocate",
+                "-l",
+                str(size_bytes),
+                str(self.image_path),
+                timeout_seconds=allocation_timeout,
+                reason="backend_error",
+            )
+            return
+        except (self.storage_error, OSError):
+            pass
+
+        mb = 1024 * 1024
+        whole_megabytes = size_bytes // mb
+        remainder = size_bytes % mb
+        try:
+            self.run(
+                "dd",
+                "if=/dev/zero",
+                f"of={self.image_path}",
+                "bs=1M",
+                f"count={whole_megabytes}",
+                "conv=fsync",
+                "status=none",
+                timeout_seconds=allocation_timeout,
+                reason="backend_error",
+            )
+            if remainder:
+                self.run(
+                    "dd",
+                    "if=/dev/zero",
+                    f"of={self.image_path}",
+                    "bs=1",
+                    f"count={remainder}",
+                    f"seek={whole_megabytes * mb}",
+                    "conv=notrunc",
+                    "status=none",
+                    timeout_seconds=allocation_timeout,
+                    reason="backend_error",
+                )
+        except (self.storage_error, OSError) as exc:
+            self.image_path.unlink(missing_ok=True)
+            raise self.storage_error(f"failed to allocate vault image file: {exc}", reason="backend_error") from exc
+
+        if not self.image_path.exists():
+            raise self.storage_error("failed to create vault image file", reason="backend_error")
 
     def remove_image_file(self) -> None:
         self.image_path.unlink(missing_ok=True)
