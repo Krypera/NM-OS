@@ -25,6 +25,7 @@ DEBIAN_NETINST_BASE_URL="${NMOS_DEBIAN_NETINST_BASE_URL:-https://cdimage.debian.
 VERSION_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$'
 
 PLATFORM_GDM_USER="Debian-gdm"
+PLATFORM_SETTINGS_ADMIN_GROUP="sudo"
 PLATFORM_RUNTIME_DIR="/run/nmos"
 PLATFORM_STATE_DIR="/var/lib/nmos"
 
@@ -135,6 +136,10 @@ resolve_platform_values() {
     if [ -n "${value}" ]; then
         PLATFORM_RUNTIME_DIR="${value}"
     fi
+    value="${NMOS_SETTINGS_ADMIN_GROUP:-$(read_platform_adapter_value NMOS_SETTINGS_ADMIN_GROUP)}"
+    if [ -n "${value}" ]; then
+        PLATFORM_SETTINGS_ADMIN_GROUP="${value}"
+    fi
     value="${NMOS_STATE_DIR:-$(read_platform_adapter_value NMOS_STATE_DIR)}"
     if [ -n "${value}" ]; then
         PLATFORM_STATE_DIR="${value}"
@@ -154,9 +159,11 @@ render_platform_overlay_templates() {
     local persistent_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-persistent-storage.service"
     local network_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-network-bootstrap.service"
     local escaped_gdm_user
+    local escaped_settings_admin_group
     local escaped_runtime_dir
     local escaped_state_dir
     escaped_gdm_user="$(escape_for_sed "${PLATFORM_GDM_USER}")"
+    escaped_settings_admin_group="$(escape_for_sed "${PLATFORM_SETTINGS_ADMIN_GROUP}")"
     escaped_runtime_dir="$(escape_for_sed "${PLATFORM_RUNTIME_DIR}")"
     escaped_state_dir="$(escape_for_sed "${PLATFORM_STATE_DIR}")"
     for path in \
@@ -170,6 +177,7 @@ render_platform_overlay_templates() {
         [ -f "${path}" ] || continue
         sed -i \
             -e "s/@NMOS_GDM_USER@/${escaped_gdm_user}/g" \
+            -e "s/@NMOS_SETTINGS_ADMIN_GROUP@/${escaped_settings_admin_group}/g" \
             -e "s|@NMOS_RUNTIME_DIR@|${escaped_runtime_dir}|g" \
             -e "s|@NMOS_STATE_DIR@|${escaped_state_dir}|g" \
             "${path}"
@@ -190,6 +198,10 @@ stage_system_overlay_tree() {
     install_python_package_dir "${APPS_SOURCE}/nmos_settings/nmos_settings"
     install_python_package_dir "${APPS_SOURCE}/nmos_control_center/nmos_control_center"
     install_python_package_dir "${APPS_SOURCE}/nmos_help/nmos_help"
+    mkdir -p "${ROOTFS_DIR}/usr/share/doc/nmos"
+    if [ -d "${ROOT_DIR}/docs/user-guides" ]; then
+        rsync -a "${ROOT_DIR}/docs/user-guides/" "${ROOTFS_DIR}/usr/share/doc/nmos/user-guides/"
+    fi
     mkdir -p "${ROOTFS_DIR}/usr/share/nmos"
     cat > "${ROOTFS_DIR}/usr/share/nmos/build-info" <<EOF
 NMOS_VERSION=${VERSION}

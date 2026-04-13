@@ -17,6 +17,7 @@ Current caller boundary:
 
 - `root`: read and write
 - `@NMOS_GDM_USER@`: read and write
+- `@NMOS_SETTINGS_ADMIN_GROUP@`: read and write
 - `at_console=true`: read-only
 
 Method boundary:

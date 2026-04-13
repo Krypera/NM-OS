@@ -135,6 +135,7 @@ def test_platform_adapter_override_loading(workspace_tmp_path: Path) -> None:
             [
                 "NMOS_TOR_USER=test-tor",
                 "NMOS_GDM_USER=test-gdm",
+                "NMOS_SETTINGS_ADMIN_GROUP=wheel",
                 "NMOS_RUNTIME_DIR=/tmp/nmos-run",
                 "NMOS_STATE_DIR=/tmp/nmos-state",
             ]
@@ -145,6 +146,7 @@ def test_platform_adapter_override_loading(workspace_tmp_path: Path) -> None:
     loaded = load_platform_adapter(adapter_file)
     assert loaded["tor_user"] == "test-tor"
     assert loaded["gdm_user"] == "test-gdm"
+    assert loaded["settings_admin_group"] == "wheel"
     assert loaded["runtime_dir"] == "/tmp/nmos-run"
     assert loaded["state_dir"] == "/tmp/nmos-state"
 
@@ -247,14 +249,16 @@ def test_settings_client_uses_read_write_interfaces() -> None:
 
 def test_settings_write_allowlist_always_includes_root(monkeypatch) -> None:
     monkeypatch.setattr("nmos_settings.authorization.resolve_unix_uid", lambda _name: None)
-    allowlist = build_write_uid_allowlist("Debian-gdm")
+    monkeypatch.setattr("nmos_settings.authorization.resolve_group_member_uids", lambda _group: set())
+    allowlist = build_write_uid_allowlist("Debian-gdm", "sudo")
     assert allowlist == {0}
 
 
 def test_settings_write_allowlist_includes_gdm_uid_when_resolved(monkeypatch) -> None:
     monkeypatch.setattr("nmos_settings.authorization.resolve_unix_uid", lambda _name: 120)
-    allowlist = build_write_uid_allowlist("Debian-gdm")
-    assert allowlist == {0, 120}
+    monkeypatch.setattr("nmos_settings.authorization.resolve_group_member_uids", lambda _group: {1000, 1001})
+    allowlist = build_write_uid_allowlist("Debian-gdm", "sudo")
+    assert allowlist == {0, 120, 1000, 1001}
 
 
 def test_settings_write_authorization_requires_uid_match() -> None:
@@ -575,11 +579,14 @@ def test_overlay_build_uses_installed_python_packages(repo_root: Path) -> None:
     assert "nmos_settings/nmos_settings" in common_source
     assert "nmos_control_center/nmos_control_center" in common_source
     assert "nmos_help/nmos_help" in common_source
+    assert "docs/user-guides" in common_source
+    assert "/usr/share/doc/nmos/user-guides/" in common_source
     platform_adapter_source = (repo_root / "apps" / "nmos_common" / "nmos_common" / "platform_adapter.py").read_text(
         encoding="utf-8"
     )
     assert "NMOS_TOR_USER" in platform_adapter_source
     assert "NMOS_GDM_USER" in platform_adapter_source
+    assert "NMOS_SETTINGS_ADMIN_GROUP" in platform_adapter_source
     assert "NMOS_RUNTIME_DIR" in platform_adapter_source
     assert "NMOS_STATE_DIR" in platform_adapter_source
     assert "PYTHONPATH" not in greeter_launcher_source
@@ -672,6 +679,7 @@ def test_platform_adapter_templates_rendered_by_build_helpers(repo_root: Path) -
     assert "render_platform_overlay_templates" in common_source
     assert "resolve_platform_values" in common_source
     assert "@NMOS_GDM_USER@" in settings_policy_source
+    assert "@NMOS_SETTINGS_ADMIN_GROUP@" in settings_policy_source
     assert "@NMOS_GDM_USER@" in persistent_policy_source
     assert "@NMOS_RUNTIME_DIR@" in tmpfiles_source
     assert "@NMOS_STATE_DIR@" in tmpfiles_source
@@ -718,6 +726,7 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "sender_keyword=\"sender\"" in settings_service_source
     assert "_assert_write_authorized" in settings_service_source
     assert "get_unix_user" in settings_service_source
+    assert "get_settings_admin_group" in settings_service_source
     assert "ApplyPreset" in settings_service_source
     assert "SetOverrides" in settings_service_source
     assert "GetPendingRebootChanges" in settings_service_source
@@ -741,6 +750,7 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert '<policy at_console="true">' in settings_policy_source
     assert 'send_interface="org.nmos.Settings1.Read"' in settings_policy_source
     assert 'send_interface="org.nmos.Settings1.Write"' in settings_policy_source
+    assert '@NMOS_SETTINGS_ADMIN_GROUP@' in settings_policy_source
     assert "NM-OS Control Center" in control_center_source
     assert "Profiles" in control_center_source
     assert "Appearance" in control_center_source

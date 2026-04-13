@@ -10,6 +10,7 @@ DEFAULT_PLATFORM_ADAPTER_FILE = Path("/etc/nmos/platform-adapter.env")
 DEFAULT_PLATFORM_VALUES = {
     "tor_user": "debian-tor",
     "gdm_user": "Debian-gdm",
+    "settings_admin_group": "sudo",
     "runtime_dir": "/run/nmos",
     "state_dir": "/var/lib/nmos",
 }
@@ -17,6 +18,7 @@ DEFAULT_PLATFORM_VALUES = {
 ENV_KEY_MAP = {
     "NMOS_TOR_USER": "tor_user",
     "NMOS_GDM_USER": "gdm_user",
+    "NMOS_SETTINGS_ADMIN_GROUP": "settings_admin_group",
     "NMOS_RUNTIME_DIR": "runtime_dir",
     "NMOS_STATE_DIR": "state_dir",
 }
@@ -57,3 +59,7 @@ def get_runtime_dir() -> Path:
 
 def get_state_dir() -> Path:
     return Path(platform_value("state_dir", DEFAULT_PLATFORM_VALUES["state_dir"]))
+
+
+def get_settings_admin_group() -> str:
+    return platform_value("settings_admin_group", DEFAULT_PLATFORM_VALUES["settings_admin_group"])

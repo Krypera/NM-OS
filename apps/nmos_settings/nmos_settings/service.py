@@ -6,7 +6,7 @@ import dbus
 import dbus.mainloop.glib
 import dbus.service
 from gi.repository import GLib
-from nmos_common.platform_adapter import get_gdm_user
+from nmos_common.platform_adapter import get_gdm_user, get_settings_admin_group
 from nmos_common.settings_client import (
     DBUS_NAME,
     DBUS_PATH,
@@ -30,7 +30,7 @@ LOGGER = logging.getLogger("nmos.settings.service")
 class SettingsService(dbus.service.Object):
     def __init__(self, bus: dbus.SystemBus) -> None:
         self._bus = bus
-        self._write_allowed_uids = build_write_uid_allowlist(get_gdm_user())
+        self._write_allowed_uids = build_write_uid_allowlist(get_gdm_user(), get_settings_admin_group())
         name = dbus.service.BusName(DBUS_NAME, bus)
         super().__init__(name, DBUS_PATH)
 
