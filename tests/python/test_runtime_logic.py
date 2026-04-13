@@ -724,7 +724,34 @@ def test_device_policy_enforcement_assets_exist(repo_root: Path) -> None:
     assert "device-policy-status.json" in device_policy_source
     assert "UDISKS_AUTO" in device_policy_source
     assert "UDISKS_IGNORE" in device_policy_source
+    assert "NM_UNMANAGED" in device_policy_source
+    assert "ID_USB_INTERFACES" in device_policy_source
+    assert "authorized" in device_policy_source
+    assert "thunderbolt" in device_policy_source
+    assert "boltctl" in device_policy_source
     assert "ExecStart=/usr/local/lib/nmos/device_policy.py" in device_policy_service_source
+
+
+def test_device_policy_rules_cover_usb_net_and_thunderbolt(repo_root: Path, monkeypatch) -> None:
+    device_policy = load_module(
+        "device_policy",
+        repo_root / "config" / "system-overlay" / "usr" / "local" / "lib" / "nmos" / "device_policy.py",
+    )
+    prompt_rules = device_policy.RULES["prompt"]
+    locked_rules = device_policy.RULES["locked"]
+    assert 'SUBSYSTEM=="net", ENV{ID_BUS}=="usb", ENV{NM_UNMANAGED}="1"' in prompt_rules
+    assert 'SUBSYSTEM=="thunderbolt", ENV{NMOS_PROMPT_REQUIRED}="1"' in prompt_rules
+    assert 'SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="*:03*", GOTO="nmos_device_allow_hid"' in locked_rules
+    assert 'SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{authorized}="0"' in locked_rules
+    assert 'SUBSYSTEM=="thunderbolt", ATTR{authorized}="0"' in locked_rules
+
+    assert device_policy.thunderbolt_commands("shared")[0] == ["boltctl", "config", "--set", "auth-mode=enabled"]
+    assert ["boltctl", "forget", "--all"] in device_policy.thunderbolt_commands("locked")
+
+    monkeypatch.setattr(device_policy.shutil, "which", lambda command: "x" if command == "pkexec" else None)
+    supported, detail = device_policy.prompt_authorization_state("prompt")
+    assert supported is True
+    assert "pkexec" in detail
 
 
 def test_overlay_build_uses_installed_python_packages(repo_root: Path) -> None:
