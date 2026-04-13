@@ -158,6 +158,7 @@ render_platform_overlay_templates() {
     local logging_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-logging-policy.service"
     local app_isolation_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-app-isolation-policy.service"
     local device_policy_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-device-policy.service"
+    local ram_wipe_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-ram-wipe-policy.service"
     local persistent_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-persistent-storage.service"
     local network_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-network-bootstrap.service"
     local escaped_gdm_user
@@ -176,6 +177,7 @@ render_platform_overlay_templates() {
         "${logging_service_file}" \
         "${app_isolation_service_file}" \
         "${device_policy_service_file}" \
+        "${ram_wipe_service_file}" \
         "${persistent_service_file}" \
         "${network_service_file}"; do
         [ -f "${path}" ] || continue
@@ -216,6 +218,7 @@ EOF
     enable_system_service "nmos-logging-policy.service"
     enable_system_service "nmos-app-isolation-policy.service"
     enable_system_service "nmos-device-policy.service"
+    enable_system_service "nmos-ram-wipe-policy.service"
     enable_system_service "nmos-boot-marker.service"
     enable_system_service "nmos-network-bootstrap.service"
     enable_system_service "nmos-persistent-storage.service"

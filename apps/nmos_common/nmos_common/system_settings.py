@@ -20,6 +20,7 @@ SUPPORTED_SECURITY_PROFILES = ("relaxed", "balanced", "hardened", "maximum")
 SUPPORTED_SANDBOX_DEFAULTS = ("standard", "focused", "strict")
 SUPPORTED_DEVICE_POLICIES = ("shared", "prompt", "locked")
 SUPPORTED_LOGGING_POLICIES = ("balanced", "minimal", "sealed")
+SUPPORTED_RAM_WIPE_MODES = ("off", "balanced", "strict")
 SUPPORTED_THEME_PROFILES = ("nmos-classic", "nmos-night", "nmos-light")
 SUPPORTED_UI_ACCENTS = ("amber", "cyan", "mint", "rose")
 SUPPORTED_UI_DENSITIES = ("comfortable", "compact")
@@ -90,6 +91,7 @@ SETTING_DISPLAY_LABELS = {
     "vault": "Vault behavior",
     "device_policy": "Device policy",
     "logging_policy": "Logging policy",
+    "ram_wipe_mode": "RAM wipe mode",
     "ui_theme_profile": "Theme profile",
     "ui_accent": "Accent",
     "ui_density": "Density",
@@ -112,6 +114,7 @@ PROFILE_DEFAULTS = {
         },
         "device_policy": "shared",
         "logging_policy": "balanced",
+        "ram_wipe_mode": "off",
         "ui_theme_profile": "nmos-classic",
         "ui_accent": "amber",
         "ui_density": "comfortable",
@@ -132,6 +135,7 @@ PROFILE_DEFAULTS = {
         },
         "device_policy": "prompt",
         "logging_policy": "minimal",
+        "ram_wipe_mode": "balanced",
         "ui_theme_profile": "nmos-classic",
         "ui_accent": "amber",
         "ui_density": "comfortable",
@@ -152,6 +156,7 @@ PROFILE_DEFAULTS = {
         },
         "device_policy": "locked",
         "logging_policy": "minimal",
+        "ram_wipe_mode": "balanced",
         "ui_theme_profile": "nmos-night",
         "ui_accent": "cyan",
         "ui_density": "compact",
@@ -172,6 +177,7 @@ PROFILE_DEFAULTS = {
         },
         "device_policy": "locked",
         "logging_policy": "sealed",
+        "ram_wipe_mode": "strict",
         "ui_theme_profile": "nmos-night",
         "ui_accent": "mint",
         "ui_density": "compact",
@@ -190,6 +196,7 @@ EFFECTIVE_SETTING_KEYS = (
     "vault",
     "device_policy",
     "logging_policy",
+    "ram_wipe_mode",
     "ui_theme_profile",
     "ui_accent",
     "ui_density",
@@ -203,6 +210,7 @@ REBOOT_REQUIRED_FIELDS = {
     "sandbox_default",
     "device_policy",
     "logging_policy",
+    "ram_wipe_mode",
     "app_overrides",
 }
 
@@ -213,6 +221,7 @@ POSTURE_PREVIEW_KEYS = (
     "vault",
     "device_policy",
     "logging_policy",
+    "ram_wipe_mode",
     "ui_theme_profile",
     "ui_accent",
     "ui_density",
@@ -241,6 +250,11 @@ SCORE_WEIGHTS = {
         "balanced": {"protection": -1, "convenience": 1},
         "minimal": {"protection": 1, "convenience": 0},
         "sealed": {"protection": 2, "convenience": -2},
+    },
+    "ram_wipe_mode": {
+        "off": {"protection": -1, "convenience": 1},
+        "balanced": {"protection": 1, "convenience": 0},
+        "strict": {"protection": 2, "convenience": -1},
     },
     "allow_brave_browser": {
         True: {"protection": -1, "convenience": 1},
@@ -283,6 +297,10 @@ def normalize_device_policy(value: object, default: str = "prompt") -> str:
 
 def normalize_logging_policy(value: object, default: str = "minimal") -> str:
     return _normalize_choice(value, SUPPORTED_LOGGING_POLICIES, default)
+
+
+def normalize_ram_wipe_mode(value: object, default: str = "balanced") -> str:
+    return _normalize_choice(value, SUPPORTED_RAM_WIPE_MODES, default)
 
 
 def normalize_theme_profile(value: object, default: str = "nmos-classic") -> str:
@@ -385,6 +403,8 @@ def _normalize_effective_value(key: str, value: object, default: object) -> obje
         return normalize_device_policy(value, default=str(default))
     if key == "logging_policy":
         return normalize_logging_policy(value, default=str(default))
+    if key == "ram_wipe_mode":
+        return normalize_ram_wipe_mode(value, default=str(default))
     if key == "ui_theme_profile":
         return normalize_theme_profile(value, default=str(default))
     if key == "ui_accent":
@@ -465,6 +485,8 @@ def compute_posture_scores(effective: object) -> dict[str, int]:
 
     logging_policy = str(raw.get("logging_policy", "minimal")).strip().lower()
     apply_weight("logging_policy", logging_policy)
+    ram_wipe_mode = str(raw.get("ram_wipe_mode", "balanced")).strip().lower()
+    apply_weight("ram_wipe_mode", ram_wipe_mode)
     apply_weight("allow_brave_browser", bool(raw.get("allow_brave_browser", False)))
 
     vault = raw.get("vault", {}) if isinstance(raw.get("vault", {}), dict) else {}

@@ -375,6 +375,7 @@ def test_posture_score_weights_are_table_driven() -> None:
     assert SCORE_WEIGHTS["allow_brave_browser"][True] == {"protection": -1, "convenience": 1}
     assert SCORE_WEIGHTS["vault_auto_lock"]["very_fast"] == {"protection": 2, "convenience": -2}
     assert SCORE_WEIGHTS["vault_unlock_on_login"][True] == {"protection": -1, "convenience": 1}
+    assert SCORE_WEIGHTS["ram_wipe_mode"]["strict"] == {"protection": 2, "convenience": -1}
 
 
 def test_setting_specific_explanations_are_stable() -> None:
@@ -659,6 +660,29 @@ def test_logging_policy_enforcement_assets_exist(repo_root: Path) -> None:
     assert "ExecStart=/usr/local/lib/nmos/logging_policy.py" in logging_service_source
 
 
+def test_ram_wipe_policy_enforcement_assets_exist(repo_root: Path) -> None:
+    ram_wipe_source = (
+        repo_root / "config" / "system-overlay" / "usr" / "local" / "lib" / "nmos" / "ram_wipe_policy.py"
+    ).read_text(encoding="utf-8")
+    ram_wipe_service_source = (
+        repo_root
+        / "config"
+        / "system-overlay"
+        / "usr"
+        / "lib"
+        / "systemd"
+        / "system"
+        / "nmos-ram-wipe-policy.service"
+    ).read_text(encoding="utf-8")
+    assert "load_effective_system_settings" in ram_wipe_source
+    assert "ram_wipe_mode" in ram_wipe_source
+    assert "init_on_free=1" in ram_wipe_source
+    assert "page_poison=1" in ram_wipe_source
+    assert "update-grub" in ram_wipe_source
+    assert "ram-wipe-status.json" in ram_wipe_source
+    assert "ExecStart=/usr/local/lib/nmos/ram_wipe_policy.py" in ram_wipe_service_source
+
+
 def test_app_isolation_enforcement_assets_exist(repo_root: Path) -> None:
     app_isolation_source = (
         repo_root / "config" / "system-overlay" / "usr" / "local" / "lib" / "nmos" / "app_isolation_policy.py"
@@ -788,6 +812,7 @@ def test_overlay_build_uses_installed_python_packages(repo_root: Path) -> None:
     assert "NMOS_RUNTIME_DIR" in platform_adapter_source
     assert "NMOS_STATE_DIR" in platform_adapter_source
     assert "app_overrides" in system_settings_source
+    assert "ram_wipe_mode" in system_settings_source
     assert "normalize_app_overrides" in system_settings_source
     assert "PYTHONPATH" not in greeter_launcher_source
     assert "PYTHONPATH" not in settings_launcher_source
@@ -857,6 +882,16 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
         / "system"
         / "nmos-network-bootstrap.service"
     ).read_text(encoding="utf-8")
+    ram_wipe_service = (
+        repo_root
+        / "config"
+        / "system-overlay"
+        / "usr"
+        / "lib"
+        / "systemd"
+        / "system"
+        / "nmos-ram-wipe-policy.service"
+    ).read_text(encoding="utf-8")
 
     for service_source in (
         settings_service,
@@ -865,6 +900,7 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
         device_policy_service,
         persistent_service,
         network_service,
+        ram_wipe_service,
     ):
         for value in ("NoNewPrivileges=yes", "ProtectSystem=strict", "ProtectHome=yes", "PrivateTmp=yes"):
             assert value in service_source
@@ -887,14 +923,17 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
     assert "CapabilityBoundingSet=" in device_policy_service
     assert "CapabilityBoundingSet=" in persistent_service
     assert "CapabilityBoundingSet=" in network_service
+    assert "CapabilityBoundingSet=" in ram_wipe_service
     assert "ReadWritePaths=@NMOS_RUNTIME_DIR@ @NMOS_STATE_DIR@" in persistent_service
     assert "ReadWritePaths=@NMOS_RUNTIME_DIR@" in network_service
+    assert "ReadWritePaths=/etc/default/grub.d @NMOS_RUNTIME_DIR@" in ram_wipe_service
     assert "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK" in network_service
     assert "render_platform_overlay_templates" in common_source
     assert "nmos-settings.service" in common_source
     assert "nmos-logging-policy.service" in common_source
     assert "nmos-app-isolation-policy.service" in common_source
     assert "nmos-device-policy.service" in common_source
+    assert "nmos-ram-wipe-policy.service" in common_source
     assert "nmos-persistent-storage.service" in common_source
     assert "nmos-network-bootstrap.service" in common_source
 

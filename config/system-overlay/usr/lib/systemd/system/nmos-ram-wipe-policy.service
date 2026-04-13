@@ -1,0 +1,21 @@
+[Unit]
+Description=NM-OS RAM wipe policy enforcement
+After=nmos-settings-bootstrap.service
+Wants=nmos-settings-bootstrap.service
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/nmos/ram_wipe_policy.py
+StandardOutput=journal+console
+StandardError=journal+console
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/etc/default/grub.d @NMOS_RUNTIME_DIR@
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
