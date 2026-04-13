@@ -17,6 +17,14 @@ POLICY_ARGS = {
     "strict": ["--nofilesystem=home", "--nofilesystem=host"],
 }
 
+APP_FILESYSTEM_ARGS = {
+    "inherit": [],
+    "home": ["--filesystem=home"],
+    "documents": ["--filesystem=xdg-documents"],
+    "host": ["--filesystem=host"],
+    "none": ["--nofilesystem=home", "--nofilesystem=host", "--nofilesystem=xdg-documents"],
+}
+
 
 def policy_name(settings: dict) -> str:
     value = str(settings.get("sandbox_default", "focused")).strip().lower()
@@ -25,11 +33,28 @@ def policy_name(settings: dict) -> str:
     return "focused"
 
 
-def policy_commands(profile: str) -> list[list[str]]:
+def app_overrides(settings: dict) -> dict[str, dict[str, str]]:
+    raw = settings.get("app_overrides", {})
+    if isinstance(raw, dict):
+        return {
+            str(app_id): config
+            for app_id, config in raw.items()
+            if isinstance(config, dict) and str(app_id).strip()
+        }
+    return {}
+
+
+def policy_commands(profile: str, overrides: dict[str, dict[str, str]]) -> list[list[str]]:
     commands: list[list[str]] = [["flatpak", "override", "--system", "--reset"]]
     args = POLICY_ARGS.get(profile, POLICY_ARGS["focused"])
     if args:
         commands.append(["flatpak", "override", "--system", *args])
+    for app_id, config in sorted(overrides.items()):
+        filesystem_profile = str(config.get("filesystem", "inherit")).strip().lower()
+        commands.append(["flatpak", "override", "--system", "--reset", app_id])
+        app_args = APP_FILESYSTEM_ARGS.get(filesystem_profile, APP_FILESYSTEM_ARGS["inherit"])
+        if app_args:
+            commands.append(["flatpak", "override", "--system", *app_args, app_id])
     return commands
 
 
@@ -51,11 +76,13 @@ def run_command(command: list[str], timeout: int = 15) -> tuple[bool, str]:
 def main() -> None:
     settings = load_effective_system_settings()
     profile = policy_name(settings)
-    commands = policy_commands(profile)
+    overrides = app_overrides(settings)
+    commands = policy_commands(profile, overrides)
 
     if shutil.which("flatpak") is None:
         status = {
             "sandbox_default": profile,
+            "app_overrides": overrides,
             "apply_ok": False,
             "error": "flatpak binary not found",
             "commands": commands,
@@ -75,6 +102,7 @@ def main() -> None:
 
     status = {
         "sandbox_default": profile,
+        "app_overrides": overrides,
         "apply_ok": apply_ok,
         "results": command_results,
     }

@@ -10,6 +10,7 @@ def test_security_model_maps_settings_to_enforcement(repo_root: Path) -> None:
     assert "network_bootstrap.py" in security_model_source
     assert "`sandbox_default`" in security_model_source
     assert "app_isolation_policy.py" in security_model_source
+    assert "`app_overrides`" in security_model_source
     assert "`device_policy`" in security_model_source
     assert "device_policy.py" in security_model_source
     assert "`logging_policy`" in security_model_source

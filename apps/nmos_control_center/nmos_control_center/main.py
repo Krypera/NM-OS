@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+
 import gi
 
 gi.require_version("Adw", "1")
@@ -71,6 +73,13 @@ DEFAULT_BROWSER_OPTIONS = (
     ("chromium", "Chromium"),
     ("none", "No default browser"),
 )
+APP_FILESYSTEM_OPTIONS = (
+    ("inherit", "Inherit default"),
+    ("home", "Home access"),
+    ("documents", "Documents only"),
+    ("host", "Host filesystem"),
+    ("none", "No filesystem access"),
+)
 VAULT_AUTO_LOCK_OPTIONS = (
     ("0", "Manual lock"),
     ("5", "5 minutes"),
@@ -113,7 +122,9 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.DENSITY_OPTIONS = DENSITY_OPTIONS
         self.MOTION_OPTIONS = MOTION_OPTIONS
         self.DEFAULT_BROWSER_OPTIONS = DEFAULT_BROWSER_OPTIONS
+        self.APP_FILESYSTEM_OPTIONS = APP_FILESYSTEM_OPTIONS
         self.VAULT_AUTO_LOCK_OPTIONS = VAULT_AUTO_LOCK_OPTIONS
+        self.app_override_dropdowns: dict[str, Gtk.DropDown] = {}
 
         self.ui_locale = resolve_supported_locale(self.settings.get("locale", "en_US.UTF-8"))
         self.root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
@@ -172,9 +183,78 @@ class ControlCenterWindow(Adw.ApplicationWindow):
     def tr(self, source_text: str, **kwargs) -> str:
         return translate(self.ui_locale, source_text, **kwargs)
 
+    def discover_flatpak_apps(self) -> list[str]:
+        try:
+            completed = subprocess.run(
+                ["flatpak", "list", "--app", "--columns=application"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return []
+        if completed.returncode != 0:
+            return []
+        apps = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+        return sorted(set(apps))
+
+    def _selected_filesystem_profile(self, dropdown: Gtk.DropDown) -> str:
+        values = [value for value, _label in self.APP_FILESYSTEM_OPTIONS]
+        selected = dropdown.get_selected()
+        if selected == Gtk.INVALID_LIST_POSITION or selected >= len(values):
+            return "inherit"
+        return values[selected]
+
+    def collect_app_overrides(self) -> dict[str, dict[str, str]]:
+        overrides: dict[str, dict[str, str]] = {}
+        for app_id, dropdown in self.app_override_dropdowns.items():
+            filesystem = self._selected_filesystem_profile(dropdown)
+            if filesystem != "inherit":
+                overrides[app_id] = {"filesystem": filesystem}
+        return overrides
+
+    def rebuild_app_overrides_editor(self, settings: dict) -> None:
+        model = settings.get("app_overrides", {}) if isinstance(settings.get("app_overrides", {}), dict) else {}
+        known_apps = self.discover_flatpak_apps()
+        all_apps = sorted(set(known_apps) | {str(app_id) for app_id in model.keys()})
+        self.app_override_dropdowns = {}
+        while True:
+            child = self.app_overrides_list.get_first_child()
+            if child is None:
+                break
+            self.app_overrides_list.remove(child)
+        if not all_apps:
+            self.app_overrides_empty.set_text("No Flatpak apps detected. Install apps, then click Refresh.")
+            self.app_overrides_empty.set_visible(True)
+            return
+        self.app_overrides_empty.set_visible(False)
+        option_labels = [label for _value, label in self.APP_FILESYSTEM_OPTIONS]
+        option_values = [value for value, _label in self.APP_FILESYSTEM_OPTIONS]
+        for app_id in all_apps:
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            row_label = Gtk.Label(label=app_id, xalign=0)
+            row_label.set_hexpand(True)
+            dropdown = Gtk.DropDown(model=Gtk.StringList.new(option_labels))
+            selected = str(model.get(app_id, {}).get("filesystem", "inherit")).strip().lower()
+            try:
+                dropdown.set_selected(option_values.index(selected))
+            except ValueError:
+                dropdown.set_selected(0)
+            dropdown.connect("notify::selected", self.on_draft_settings_changed)
+            row.append(row_label)
+            row.append(dropdown)
+            self.app_overrides_list.append(row)
+            self.app_override_dropdowns[app_id] = dropdown
+
     def on_vault_passphrase_changed(self, *_args) -> None:
         text = self.vault_passphrase_entry.get_text()
         self.vault_passphrase_strength.set_text(passphrase_feedback_text(text))
+
+    def on_refresh_app_list(self, _button: Gtk.Button) -> None:
+        draft = self.collect_values()
+        self.rebuild_app_overrides_editor({"app_overrides": draft.get("app_overrides", {})})
+        self.status_label.set_text("Flatpak app list refreshed.")
 
     def format_policy_runtime_status(self) -> str:
         app_status = read_runtime_json(self.app_isolation_status_file, default={})
@@ -320,6 +400,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.vault_unlock_on_login.set_active(bool(vault.get("unlock_on_login", False)))
         self.vault_passphrase_entry.set_text("")
         self.vault_passphrase_strength.set_text(passphrase_feedback_text(""))
+        self.rebuild_app_overrides_editor(settings)
         self.ui_locale = locale
         self.preview_theme()
 
@@ -358,6 +439,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             "ui_accent": self._selected_value(self.accent_combo, [value for value, _label in ACCENT_OPTIONS]),
             "ui_density": self._selected_value(self.density_combo, [value for value, _label in DENSITY_OPTIONS]),
             "ui_motion": self._selected_value(self.motion_combo, [value for value, _label in MOTION_OPTIONS]),
+            "app_overrides": self.collect_app_overrides(),
         }
 
     def refresh_summary(self) -> None:

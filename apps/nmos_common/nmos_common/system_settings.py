@@ -25,6 +25,7 @@ SUPPORTED_UI_ACCENTS = ("amber", "cyan", "mint", "rose")
 SUPPORTED_UI_DENSITIES = ("comfortable", "compact")
 SUPPORTED_UI_MOTION = ("full", "reduced")
 SUPPORTED_DEFAULT_BROWSERS = ("firefox-esr", "chromium", "none")
+SUPPORTED_APP_FILESYSTEM_PROFILES = ("inherit", "home", "documents", "host", "none")
 
 PERSISTENT_SETTINGS_FILE = get_state_dir() / "system-settings.json"
 RUNTIME_SETTINGS_FILE = get_runtime_dir() / "system-settings.json"
@@ -94,6 +95,7 @@ SETTING_DISPLAY_LABELS = {
     "ui_density": "Density",
     "ui_motion": "Motion",
     "default_browser": "Default browser",
+    "app_overrides": "App overrides",
 }
 
 PROFILE_DEFAULTS = {
@@ -115,6 +117,7 @@ PROFILE_DEFAULTS = {
         "ui_density": "comfortable",
         "ui_motion": "full",
         "default_browser": "firefox-esr",
+        "app_overrides": {},
     },
     "balanced": {
         "locale": DEFAULT_UI_LOCALE,
@@ -134,6 +137,7 @@ PROFILE_DEFAULTS = {
         "ui_density": "comfortable",
         "ui_motion": "full",
         "default_browser": "firefox-esr",
+        "app_overrides": {},
     },
     "hardened": {
         "locale": DEFAULT_UI_LOCALE,
@@ -153,6 +157,7 @@ PROFILE_DEFAULTS = {
         "ui_density": "compact",
         "ui_motion": "reduced",
         "default_browser": "firefox-esr",
+        "app_overrides": {},
     },
     "maximum": {
         "locale": DEFAULT_UI_LOCALE,
@@ -172,6 +177,7 @@ PROFILE_DEFAULTS = {
         "ui_density": "compact",
         "ui_motion": "reduced",
         "default_browser": "none",
+        "app_overrides": {},
     },
 }
 
@@ -189,6 +195,7 @@ EFFECTIVE_SETTING_KEYS = (
     "ui_density",
     "ui_motion",
     "default_browser",
+    "app_overrides",
 )
 
 REBOOT_REQUIRED_FIELDS = {
@@ -196,6 +203,7 @@ REBOOT_REQUIRED_FIELDS = {
     "sandbox_default",
     "device_policy",
     "logging_policy",
+    "app_overrides",
 }
 
 POSTURE_PREVIEW_KEYS = (
@@ -210,6 +218,7 @@ POSTURE_PREVIEW_KEYS = (
     "ui_density",
     "ui_motion",
     "default_browser",
+    "app_overrides",
 )
 
 
@@ -256,6 +265,26 @@ def normalize_ui_motion(value: object, default: str = "full") -> str:
 
 def normalize_default_browser(value: object, default: str = "firefox-esr") -> str:
     return _normalize_choice(value, SUPPORTED_DEFAULT_BROWSERS, default)
+
+
+def normalize_app_overrides(value: object, default: dict | None = None) -> dict:
+    base = copy.deepcopy(default if isinstance(default, dict) else {})
+    raw = value if isinstance(value, dict) else {}
+    normalized: dict[str, dict[str, str]] = {}
+    for app_id, raw_config in {**base, **raw}.items():
+        app_text = str(app_id or "").strip()
+        if not app_text:
+            continue
+        config = raw_config if isinstance(raw_config, dict) else {}
+        filesystem = _normalize_choice(
+            config.get("filesystem", "inherit"),
+            SUPPORTED_APP_FILESYSTEM_PROFILES,
+            "inherit",
+        )
+        if filesystem == "inherit":
+            continue
+        normalized[app_text] = {"filesystem": filesystem}
+    return normalized
 
 
 def profile_defaults(profile: str = DEFAULT_SECURITY_PROFILE) -> dict:
@@ -328,6 +357,8 @@ def _normalize_effective_value(key: str, value: object, default: object) -> obje
         return normalize_ui_motion(value, default=str(default))
     if key == "default_browser":
         return normalize_default_browser(value, default=str(default))
+    if key == "app_overrides":
+        return normalize_app_overrides(value, default=default if isinstance(default, dict) else None)
     raise KeyError(f"unsupported setting key: {key}")
 
 

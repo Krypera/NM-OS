@@ -75,6 +75,7 @@ def test_system_settings_round_trip(workspace_tmp_path: Path) -> None:
                 "allow_brave_browser": True,
                 "ui_theme_profile": "nmos-light",
                 "default_browser": "chromium",
+                "app_overrides": {"org.mozilla.firefox": {"filesystem": "home"}},
             },
         },
         persistent_path=persistent,
@@ -96,6 +97,7 @@ def test_system_settings_round_trip(workspace_tmp_path: Path) -> None:
     assert loaded["allow_brave_browser"] is True
     assert loaded["ui_theme_profile"] == "nmos-light"
     assert loaded["default_browser"] == "chromium"
+    assert loaded["app_overrides"] == {"org.mozilla.firefox": {"filesystem": "home"}}
     assert extract_effective_settings(loaded)["active_profile"] == "hardened"
     assert load_effective_system_settings(persistent_path=persistent, runtime_path=runtime, applied_path=applied)[
         "sandbox_default"
@@ -393,6 +395,7 @@ def test_change_classification_groups_now_and_reboot() -> None:
             "ui_accent": "mint",
             "allow_brave_browser": True,
             "default_browser": "chromium",
+            "app_overrides": {"org.mozilla.firefox": {"filesystem": "documents"}},
         },
     }
     applied = {
@@ -410,6 +413,7 @@ def test_change_classification_groups_now_and_reboot() -> None:
         "ui_density": "comfortable",
         "ui_motion": "full",
         "default_browser": "firefox-esr",
+        "app_overrides": {},
     }
     grouped = classify_effective_changes(draft, applied_settings=applied)
     detailed = describe_effective_change_details(draft, applied_settings=applied)
@@ -417,6 +421,7 @@ def test_change_classification_groups_now_and_reboot() -> None:
     assert "allow_brave_browser" in grouped["immediate"]
     assert "ui_accent" in grouped["immediate"]
     assert "default_browser" in grouped["immediate"]
+    assert "app_overrides" in grouped["reboot"]
     assert any(item["key"] == "network_policy" and item["from"] == "tor" and item["to"] == "direct" for item in detailed["reboot"])
     assert any(item["key"] == "ui_accent" and item["from"] == "amber" and item["to"] == "mint" for item in detailed["immediate"])
     assert setting_display_name("network_policy") == "Network policy"
@@ -666,18 +671,24 @@ def test_app_isolation_policy_composes_expected_flatpak_commands(repo_root: Path
         "app_isolation_policy",
         repo_root / "config" / "system-overlay" / "usr" / "local" / "lib" / "nmos" / "app_isolation_policy.py",
     )
-    assert app_isolation.policy_commands("standard") == [
+    assert app_isolation.policy_commands("standard", {}) == [
         ["flatpak", "override", "--system", "--reset"],
         ["flatpak", "override", "--system", "--filesystem=home"],
     ]
-    assert app_isolation.policy_commands("focused") == [
+    assert app_isolation.policy_commands("focused", {}) == [
         ["flatpak", "override", "--system", "--reset"],
         ["flatpak", "override", "--system", "--nofilesystem=host"],
     ]
-    assert app_isolation.policy_commands("strict") == [
+    assert app_isolation.policy_commands("strict", {}) == [
         ["flatpak", "override", "--system", "--reset"],
         ["flatpak", "override", "--system", "--nofilesystem=home", "--nofilesystem=host"],
     ]
+    with_override = app_isolation.policy_commands(
+        "focused",
+        {"org.mozilla.firefox": {"filesystem": "home"}},
+    )
+    assert ["flatpak", "override", "--system", "--reset", "org.mozilla.firefox"] in with_override
+    assert ["flatpak", "override", "--system", "--filesystem=home", "org.mozilla.firefox"] in with_override
 
 
 def test_device_policy_enforcement_assets_exist(repo_root: Path) -> None:
@@ -727,11 +738,16 @@ def test_overlay_build_uses_installed_python_packages(repo_root: Path) -> None:
     platform_adapter_source = (repo_root / "apps" / "nmos_common" / "nmos_common" / "platform_adapter.py").read_text(
         encoding="utf-8"
     )
+    system_settings_source = (repo_root / "apps" / "nmos_common" / "nmos_common" / "system_settings.py").read_text(
+        encoding="utf-8"
+    )
     assert "NMOS_TOR_USER" in platform_adapter_source
     assert "NMOS_GDM_USER" in platform_adapter_source
     assert "NMOS_SETTINGS_ADMIN_GROUP" in platform_adapter_source
     assert "NMOS_RUNTIME_DIR" in platform_adapter_source
     assert "NMOS_STATE_DIR" in platform_adapter_source
+    assert "app_overrides" in system_settings_source
+    assert "normalize_app_overrides" in system_settings_source
     assert "PYTHONPATH" not in greeter_launcher_source
     assert "PYTHONPATH" not in settings_launcher_source
     assert "PYTHONPATH" not in control_center_launcher_source
@@ -946,6 +962,7 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "Profiles" in control_center_source
     assert "Appearance" in control_center_source
     assert "default_browser" in control_center_source
+    assert "app_overrides" in control_center_source
     assert "vault_passphrase_entry" in control_center_source
     assert "passphrase_feedback_text" in control_center_source
     assert "python3 -m nmos_help.main" in help_launcher_source

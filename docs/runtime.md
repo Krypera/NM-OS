@@ -58,6 +58,7 @@ Important top-level fields:
 - `ui_density`
 - `ui_motion`
 - `default_browser`
+- `app_overrides`
 - `pending_reboot`
 
 ## D-Bus services
