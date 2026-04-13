@@ -80,6 +80,16 @@ enable_system_service() {
     ln -sf "/usr/lib/systemd/system/${unit_name}" "${wants_dir}/${unit_name}"
 }
 
+enable_shutdown_service() {
+    local unit_name="$1"
+    local target_name
+    for target_name in poweroff.target reboot.target halt.target; do
+        local wants_dir="${ROOTFS_DIR}/etc/systemd/system/${target_name}.wants"
+        mkdir -p "${wants_dir}"
+        ln -sf "/usr/lib/systemd/system/${unit_name}" "${wants_dir}/${unit_name}"
+    done
+}
+
 read_platform_adapter_value() {
     local key="$1"
     if [ ! -f "${PLATFORM_ADAPTER_SOURCE}" ]; then
@@ -159,6 +169,7 @@ render_platform_overlay_templates() {
     local app_isolation_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-app-isolation-policy.service"
     local device_policy_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-device-policy.service"
     local ram_wipe_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-ram-wipe-policy.service"
+    local ram_wipe_shutdown_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-ram-wipe-shutdown.service"
     local persistent_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-persistent-storage.service"
     local network_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-network-bootstrap.service"
     local escaped_gdm_user
@@ -178,6 +189,7 @@ render_platform_overlay_templates() {
         "${app_isolation_service_file}" \
         "${device_policy_service_file}" \
         "${ram_wipe_service_file}" \
+        "${ram_wipe_shutdown_service_file}" \
         "${persistent_service_file}" \
         "${network_service_file}"; do
         [ -f "${path}" ] || continue
@@ -219,6 +231,7 @@ EOF
     enable_system_service "nmos-app-isolation-policy.service"
     enable_system_service "nmos-device-policy.service"
     enable_system_service "nmos-ram-wipe-policy.service"
+    enable_shutdown_service "nmos-ram-wipe-shutdown.service"
     enable_system_service "nmos-boot-marker.service"
     enable_system_service "nmos-network-bootstrap.service"
     enable_system_service "nmos-persistent-storage.service"

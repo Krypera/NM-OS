@@ -1,0 +1,24 @@
+[Unit]
+Description=NM-OS shutdown RAM wipe hook
+DefaultDependencies=no
+Before=shutdown.target umount.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/nmos/ram_wipe_shutdown.py
+TimeoutSec=35
+StandardOutput=journal+console
+StandardError=journal+console
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=@NMOS_RUNTIME_DIR@
+CapabilityBoundingSet=CAP_SYS_ADMIN
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=poweroff.target
+WantedBy=reboot.target
+WantedBy=halt.target

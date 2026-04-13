@@ -683,6 +683,30 @@ def test_ram_wipe_policy_enforcement_assets_exist(repo_root: Path) -> None:
     assert "ExecStart=/usr/local/lib/nmos/ram_wipe_policy.py" in ram_wipe_service_source
 
 
+def test_ram_wipe_shutdown_hook_assets_exist(repo_root: Path) -> None:
+    ram_wipe_shutdown_source = (
+        repo_root / "config" / "system-overlay" / "usr" / "local" / "lib" / "nmos" / "ram_wipe_shutdown.py"
+    ).read_text(encoding="utf-8")
+    ram_wipe_shutdown_service_source = (
+        repo_root
+        / "config"
+        / "system-overlay"
+        / "usr"
+        / "lib"
+        / "systemd"
+        / "system"
+        / "nmos-ram-wipe-shutdown.service"
+    ).read_text(encoding="utf-8")
+    assert "ram_wipe_mode" in ram_wipe_shutdown_source
+    assert "swapoff" in ram_wipe_shutdown_source
+    assert "vm.drop_caches=3" in ram_wipe_shutdown_source
+    assert "vm.compact_memory=1" in ram_wipe_shutdown_source
+    assert "ExecStart=/usr/local/lib/nmos/ram_wipe_shutdown.py" in ram_wipe_shutdown_service_source
+    assert "WantedBy=poweroff.target" in ram_wipe_shutdown_service_source
+    assert "WantedBy=reboot.target" in ram_wipe_shutdown_service_source
+    assert "WantedBy=halt.target" in ram_wipe_shutdown_service_source
+
+
 def test_app_isolation_enforcement_assets_exist(repo_root: Path) -> None:
     app_isolation_source = (
         repo_root / "config" / "system-overlay" / "usr" / "local" / "lib" / "nmos" / "app_isolation_policy.py"
@@ -892,6 +916,16 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
         / "system"
         / "nmos-ram-wipe-policy.service"
     ).read_text(encoding="utf-8")
+    ram_wipe_shutdown_service = (
+        repo_root
+        / "config"
+        / "system-overlay"
+        / "usr"
+        / "lib"
+        / "systemd"
+        / "system"
+        / "nmos-ram-wipe-shutdown.service"
+    ).read_text(encoding="utf-8")
 
     for service_source in (
         settings_service,
@@ -901,6 +935,7 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
         persistent_service,
         network_service,
         ram_wipe_service,
+        ram_wipe_shutdown_service,
     ):
         for value in ("NoNewPrivileges=yes", "ProtectSystem=strict", "ProtectHome=yes", "PrivateTmp=yes"):
             assert value in service_source
@@ -924,9 +959,11 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
     assert "CapabilityBoundingSet=" in persistent_service
     assert "CapabilityBoundingSet=" in network_service
     assert "CapabilityBoundingSet=" in ram_wipe_service
+    assert "CapabilityBoundingSet=" in ram_wipe_shutdown_service
     assert "ReadWritePaths=@NMOS_RUNTIME_DIR@ @NMOS_STATE_DIR@" in persistent_service
     assert "ReadWritePaths=@NMOS_RUNTIME_DIR@" in network_service
     assert "ReadWritePaths=/etc/default/grub.d @NMOS_RUNTIME_DIR@" in ram_wipe_service
+    assert "ReadWritePaths=@NMOS_RUNTIME_DIR@" in ram_wipe_shutdown_service
     assert "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK" in network_service
     assert "render_platform_overlay_templates" in common_source
     assert "nmos-settings.service" in common_source
@@ -934,6 +971,7 @@ def test_service_units_include_requested_hardening(repo_root: Path) -> None:
     assert "nmos-app-isolation-policy.service" in common_source
     assert "nmos-device-policy.service" in common_source
     assert "nmos-ram-wipe-policy.service" in common_source
+    assert "nmos-ram-wipe-shutdown.service" in common_source
     assert "nmos-persistent-storage.service" in common_source
     assert "nmos-network-bootstrap.service" in common_source
 
