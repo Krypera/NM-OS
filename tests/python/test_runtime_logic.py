@@ -470,6 +470,19 @@ def test_tor_status_respects_settings(repo_root: Path, workspace_tmp_path: Path)
     assert ready_state["summary"] == "Tor is ready"
 
 
+def test_network_bootstrap_fails_closed_when_nft_is_missing(repo_root: Path, monkeypatch) -> None:
+    network_bootstrap = load_module(
+        "network_bootstrap",
+        repo_root / "config" / "system-overlay" / "usr" / "local" / "lib" / "nmos" / "network_bootstrap.py",
+    )
+    monkeypatch.setattr(network_bootstrap.shutil, "which", lambda _binary: None)
+    try:
+        network_bootstrap.write_offline_firewall_rules()
+        assert False, "Expected RuntimeError when nft is missing"
+    except RuntimeError as error:
+        assert "nft binary not found" in str(error)
+
+
 def test_runtime_state_and_overlay_bootstrap_use_hardened_writes(repo_root: Path) -> None:
     runtime_state_source = (repo_root / "apps" / "nmos_common" / "nmos_common" / "runtime_state.py").read_text(
         encoding="utf-8"
@@ -496,6 +509,8 @@ def test_runtime_state_and_overlay_bootstrap_use_hardened_writes(repo_root: Path
     assert "get_state_dir" in system_settings_source
     assert "write_runtime_json" in network_bootstrap_source
     assert "write_runtime_text" in network_bootstrap_source
+    assert "ensure_nft_available" in network_bootstrap_source
+    assert 'shutil.which("nft")' in network_bootstrap_source
     assert "get_tor_user" in network_bootstrap_source
     assert '"debian-tor"' not in network_bootstrap_source
 

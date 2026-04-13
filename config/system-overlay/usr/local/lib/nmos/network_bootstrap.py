@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import time
 from datetime import UTC, datetime
@@ -34,6 +35,11 @@ def run(*args: str) -> None:
     subprocess.run(args, check=True)
 
 
+def ensure_nft_available() -> None:
+    if shutil.which("nft") is None:
+        raise RuntimeError("nft binary not found - cannot enforce network policy")
+
+
 def now_utc_timestamp() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -62,6 +68,7 @@ def write_status(
 
 
 def write_tor_firewall_rules() -> None:
+    ensure_nft_available()
     import pwd
 
     getpwnam = getattr(pwd, "getpwnam", None)
@@ -93,6 +100,7 @@ table inet nmosfilter {{
 
 
 def write_offline_firewall_rules() -> None:
+    ensure_nft_available()
     subprocess.run(["nft", "delete", "table", "inet", "nmosfilter"], check=False)
     rules = """
 table inet nmosfilter {
@@ -112,6 +120,7 @@ table inet nmosfilter {
 
 
 def nft_table_exists() -> bool:
+    ensure_nft_available()
     return (
         subprocess.run(
             ["nft", "list", "table", "inet", "nmosfilter"],
