@@ -24,6 +24,7 @@ SUPPORTED_THEME_PROFILES = ("nmos-classic", "nmos-night", "nmos-light")
 SUPPORTED_UI_ACCENTS = ("amber", "cyan", "mint", "rose")
 SUPPORTED_UI_DENSITIES = ("comfortable", "compact")
 SUPPORTED_UI_MOTION = ("full", "reduced")
+SUPPORTED_DEFAULT_BROWSERS = ("firefox-esr", "chromium", "none")
 
 PERSISTENT_SETTINGS_FILE = get_state_dir() / "system-settings.json"
 RUNTIME_SETTINGS_FILE = get_runtime_dir() / "system-settings.json"
@@ -92,6 +93,7 @@ SETTING_DISPLAY_LABELS = {
     "ui_accent": "Accent",
     "ui_density": "Density",
     "ui_motion": "Motion",
+    "default_browser": "Default browser",
 }
 
 PROFILE_DEFAULTS = {
@@ -112,6 +114,7 @@ PROFILE_DEFAULTS = {
         "ui_accent": "amber",
         "ui_density": "comfortable",
         "ui_motion": "full",
+        "default_browser": "firefox-esr",
     },
     "balanced": {
         "locale": DEFAULT_UI_LOCALE,
@@ -130,6 +133,7 @@ PROFILE_DEFAULTS = {
         "ui_accent": "amber",
         "ui_density": "comfortable",
         "ui_motion": "full",
+        "default_browser": "firefox-esr",
     },
     "hardened": {
         "locale": DEFAULT_UI_LOCALE,
@@ -148,6 +152,7 @@ PROFILE_DEFAULTS = {
         "ui_accent": "cyan",
         "ui_density": "compact",
         "ui_motion": "reduced",
+        "default_browser": "firefox-esr",
     },
     "maximum": {
         "locale": DEFAULT_UI_LOCALE,
@@ -166,6 +171,7 @@ PROFILE_DEFAULTS = {
         "ui_accent": "mint",
         "ui_density": "compact",
         "ui_motion": "reduced",
+        "default_browser": "none",
     },
 }
 
@@ -182,6 +188,7 @@ EFFECTIVE_SETTING_KEYS = (
     "ui_accent",
     "ui_density",
     "ui_motion",
+    "default_browser",
 )
 
 REBOOT_REQUIRED_FIELDS = {
@@ -202,6 +209,7 @@ POSTURE_PREVIEW_KEYS = (
     "ui_accent",
     "ui_density",
     "ui_motion",
+    "default_browser",
 )
 
 
@@ -244,6 +252,10 @@ def normalize_ui_density(value: object, default: str = "comfortable") -> str:
 
 def normalize_ui_motion(value: object, default: str = "full") -> str:
     return _normalize_choice(value, SUPPORTED_UI_MOTION, default)
+
+
+def normalize_default_browser(value: object, default: str = "firefox-esr") -> str:
+    return _normalize_choice(value, SUPPORTED_DEFAULT_BROWSERS, default)
 
 
 def profile_defaults(profile: str = DEFAULT_SECURITY_PROFILE) -> dict:
@@ -314,6 +326,8 @@ def _normalize_effective_value(key: str, value: object, default: object) -> obje
         return normalize_ui_density(value, default=str(default))
     if key == "ui_motion":
         return normalize_ui_motion(value, default=str(default))
+    if key == "default_browser":
+        return normalize_default_browser(value, default=str(default))
     raise KeyError(f"unsupported setting key: {key}")
 
 

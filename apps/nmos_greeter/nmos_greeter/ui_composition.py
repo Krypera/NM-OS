@@ -297,6 +297,11 @@ def current_browser_name(window) -> str:
     return window.tr(browser_label(current_browser(window)))
 
 
+def current_default_browser(window) -> str:
+    browser = current_browser(window)
+    return "none" if browser == "skip" else browser
+
+
 def current_network_policy(window) -> str:
     selected = window.network_policy_combo.get_selected()
     if selected == Gtk.INVALID_LIST_POSITION or selected >= len(NETWORK_POLICY_OPTIONS):
@@ -450,6 +455,8 @@ def _select_language(window, locale: str) -> None:
 
 def _select_browser(window, browser: str) -> None:
     normalized = str(browser or "skip").strip().lower()
+    if normalized == "none":
+        normalized = "skip"
     _select_string(window.browser_combo, window.browser_values, normalized)
 
 
@@ -481,7 +488,7 @@ def restore_state(window) -> None:
     keyboard = window.state.get("keyboard", "us")
     profile = window.state.get("active_profile", "balanced")
     network_policy = window.state.get("network_policy", "tor")
-    browser = window.state.get("browser", "firefox-esr")
+    browser = window.state.get("default_browser", window.state.get("browser", "firefox-esr"))
     _select_language(window, locale)
     _select_string(window.keyboard_combo, KEYBOARD_OPTIONS, keyboard)
     _select_profile(window, profile)
@@ -544,7 +551,7 @@ def refresh_summary(window) -> None:
             "Network: {policy}",
             policy=window.tr(display_network_policy_name(window.ui_locale, current_network_policy(window))),
         ),
-        window.tr("Browser: {browser}", browser=current_browser_name(window)),
+        window.tr("Default browser: {browser}", browser=current_browser_name(window)),
         window.tr("Theme: {theme}", theme=current_theme_profile_name(window)),
         window.tr("Accent: {accent}", accent=current_accent_name(window)),
     ]
@@ -573,6 +580,7 @@ def collect_state(window) -> dict:
         "network_policy": current_network_policy(window),
         "allow_brave_browser": window.allow_brave_browser_switch.get_active(),
         "browser": current_browser(window),
+        "default_browser": current_default_browser(window),
         "ui_theme_profile": current_theme_profile(window),
         "ui_accent": current_accent(window),
         "ui_density": current_density(window),

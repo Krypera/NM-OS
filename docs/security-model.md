@@ -123,6 +123,7 @@ The encrypted vault is a concrete example of explainable security:
 | `device_policy` | Shared / Prompt / Locked external device trust posture | Settings model + UI explanation | Partial (udev/polkit/udisks enforcement roadmap) |
 | `logging_policy` | Balanced / Minimal / Sealed retained trace posture | `config/system-overlay/usr/local/lib/nmos/logging_policy.py` + journald drop-in (`/etc/systemd/journald.conf.d/90-nmos-logging-policy.conf`) + startup vacuum policy | Enforced (boot-time policy application) |
 | `allow_brave_browser` | Whether Brave can appear when allowed by build/network posture | `config/system-overlay/usr/local/lib/nmos/desktop_mode.py` and `brave_policy.py` runtime gating | Enforced (feature-gated + policy-aware) |
+| `default_browser` | Which browser is used as the desktop default for web links | `config/system-overlay/usr/local/lib/nmos/desktop_mode.py` (`xdg-settings` + desktop defaults sync) | Enforced (post-login session policy) |
 | `vault` | Auto-lock and unlock-on-login defaults for encrypted vault behavior | Persistent storage service state + greeter/control-center orchestration | Enforced for current vault flow |
 | `active_profile` + overrides | Explainable security baseline with explicit deviations | `nmos_common.system_settings` normalization + pending reboot classification | Enforced in settings model, maps to runtime components above |
 

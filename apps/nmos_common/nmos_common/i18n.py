@@ -57,6 +57,12 @@ MOTION_TITLES = {
     "reduced": "Reduced motion",
 }
 
+DEFAULT_BROWSER_TITLES = {
+    "firefox-esr": "Firefox",
+    "chromium": "Chromium",
+    "none": "No default browser",
+}
+
 TRANSLATIONS = {
     "es": {
         "NM-OS Setup": "Configuración de NM-OS",
@@ -154,6 +160,7 @@ TRANSLATIONS = {
         "Keyboard: {keyboard}": "Teclado: {keyboard}",
         "Network: {network}": "Red: {network}",
         "Theme: {theme}": "Tema: {theme}",
+        "Default browser: {browser}": "Navegador predeterminado: {browser}",
         "Accent: {accent}": "Acento: {accent}",
         "Brave visibility: allowed when installed": "Brave visible cuando esté instalado",
         "Brave visibility: hidden": "Brave oculto",
@@ -206,6 +213,8 @@ TRANSLATIONS = {
         "Vault behavior": "Comportamiento de la bóveda",
         "Theme profile": "Perfil de tema",
         "Motion": "Movimiento",
+        "Default browser": "Navegador predeterminado",
+        "No default browser": "Sin navegador predeterminado",
         "Protection level: {level}/10": "Nivel de proteccion: {level}/10",
         "Convenience level: {level}/10": "Nivel de comodidad: {level}/10",
         "Current balance favors stronger protection.": "El balance actual favorece una proteccion mas fuerte.",
@@ -321,6 +330,9 @@ def display_setting_value(locale: str | None, key: str, value: object) -> str:
         return translate(locale, title)
     if key == "ui_motion":
         title = MOTION_TITLES.get(str(value or "").strip().lower(), MOTION_TITLES["full"])
+        return translate(locale, title)
+    if key == "default_browser":
+        title = DEFAULT_BROWSER_TITLES.get(str(value or "").strip().lower(), DEFAULT_BROWSER_TITLES["firefox-esr"])
         return translate(locale, title)
     if key == "vault":
         raw = value if isinstance(value, dict) else {}

@@ -72,6 +72,7 @@ def test_system_settings_round_trip(workspace_tmp_path: Path) -> None:
                 "network_policy": "direct",
                 "allow_brave_browser": True,
                 "ui_theme_profile": "nmos-light",
+                "default_browser": "chromium",
             },
         },
         persistent_path=persistent,
@@ -92,6 +93,7 @@ def test_system_settings_round_trip(workspace_tmp_path: Path) -> None:
     assert loaded["network_policy"] == "direct"
     assert loaded["allow_brave_browser"] is True
     assert loaded["ui_theme_profile"] == "nmos-light"
+    assert loaded["default_browser"] == "chromium"
     assert extract_effective_settings(loaded)["active_profile"] == "hardened"
     assert load_effective_system_settings(persistent_path=persistent, runtime_path=runtime, applied_path=applied)[
         "sandbox_default"
@@ -113,12 +115,16 @@ def test_system_settings_round_trip(workspace_tmp_path: Path) -> None:
     assert saved["network_policy"] == "direct"
 
     updated = update_system_overrides(
-        derive_overrides_for_profile("relaxed", {"network_policy": "offline", "logging_policy": "sealed"}),
+        derive_overrides_for_profile(
+            "relaxed",
+            {"network_policy": "offline", "logging_policy": "sealed", "default_browser": "chromium"},
+        ),
         persistent_path=persistent,
         runtime_path=runtime,
         applied_path=applied,
     )
     assert updated["network_policy"] == "offline"
+    assert updated["default_browser"] == "chromium"
     assert "network_policy" in updated["pending_reboot"]
 
 
@@ -351,6 +357,7 @@ def test_change_classification_groups_now_and_reboot() -> None:
             "network_policy": "direct",
             "ui_accent": "mint",
             "allow_brave_browser": True,
+            "default_browser": "chromium",
         },
     }
     applied = {
@@ -367,12 +374,14 @@ def test_change_classification_groups_now_and_reboot() -> None:
         "ui_accent": "amber",
         "ui_density": "comfortable",
         "ui_motion": "full",
+        "default_browser": "firefox-esr",
     }
     grouped = classify_effective_changes(draft, applied_settings=applied)
     detailed = describe_effective_change_details(draft, applied_settings=applied)
     assert "network_policy" in grouped["reboot"]
     assert "allow_brave_browser" in grouped["immediate"]
     assert "ui_accent" in grouped["immediate"]
+    assert "default_browser" in grouped["immediate"]
     assert any(item["key"] == "network_policy" and item["from"] == "tor" and item["to"] == "direct" for item in detailed["reboot"])
     assert any(item["key"] == "ui_accent" and item["from"] == "amber" and item["to"] == "mint" for item in detailed["immediate"])
     assert setting_display_name("network_policy") == "Network policy"
@@ -456,6 +465,7 @@ def test_greeter_layout_is_setup_only(repo_root: Path) -> None:
     assert "network_policy_combo" in ui_source
     assert "theme_profile_combo" in ui_source
     assert "allow_brave_browser" in ui_source
+    assert "default_browser" in ui_source
     state_source = (repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "state.py").read_text(encoding="utf-8")
     client_source = (repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "client.py").read_text(encoding="utf-8")
     network_model_source = (
@@ -512,6 +522,8 @@ def test_brave_visibility_and_runtime_share_settings_helper(repo_root: Path) -> 
     assert "load_effective_system_settings" in brave_policy_source
     assert 'allow_brave_browser' in desktop_mode_source
     assert 'allow_brave_browser' in brave_policy_source
+    assert 'default_browser' in desktop_mode_source
+    assert "default-web-browser" in desktop_mode_source
     assert "session-appearance.json" in desktop_mode_source
     assert "gsettings" in desktop_mode_source
     assert "picture-uri" in desktop_mode_source
@@ -732,6 +744,7 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "NM-OS Control Center" in control_center_source
     assert "Profiles" in control_center_source
     assert "Appearance" in control_center_source
+    assert "default_browser" in control_center_source
     assert "python3 -m nmos_help.main" in help_launcher_source
     assert "Exec=/usr/local/bin/nmos-help" in help_desktop_source
     assert ".nmos-root" in css_source

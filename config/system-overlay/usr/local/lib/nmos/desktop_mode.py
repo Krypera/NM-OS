@@ -21,6 +21,10 @@ WALLPAPER_BY_PROFILE = {
     "nmos-night": THEME_DIR / "wallpaper-night.svg",
     "nmos-light": THEME_DIR / "wallpaper-light.svg",
 }
+DEFAULT_BROWSER_DESKTOP_FILES = {
+    "firefox-esr": "firefox-esr.desktop",
+    "chromium": "chromium.desktop",
+}
 
 
 def log_policy_message(message: str) -> None:
@@ -143,9 +147,31 @@ def apply_desktop_preferences(settings: dict) -> None:
     )
 
 
+def apply_default_browser(settings: dict) -> None:
+    default_browser = str(settings.get("default_browser", "firefox-esr")).strip().lower()
+    desktop_file = DEFAULT_BROWSER_DESKTOP_FILES.get(default_browser)
+    if not desktop_file:
+        return
+    try:
+        run_gsettings("set", "org.gnome.desktop.default-applications.browser", "exec", desktop_file)
+    except Exception as exc:
+        log_policy_message(f"default browser sync skipped: {exc}")
+    try:
+        subprocess.run(
+            ["xdg-settings", "set", "default-web-browser", desktop_file],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception as exc:
+        log_policy_message(f"default browser xdg-settings failed: {exc}")
+
+
 def main() -> None:
     settings = load_effective_system_settings()
     apply_brave_visibility(settings)
+    apply_default_browser(settings)
     try:
         apply_desktop_preferences(settings)
     except Exception as exc:

@@ -63,6 +63,11 @@ THEME_PROFILE_OPTIONS = tuple(THEME_PROFILE_LABELS.items())
 ACCENT_OPTIONS = tuple(ACCENT_LABELS.items())
 DENSITY_OPTIONS = tuple(DENSITY_LABELS.items())
 MOTION_OPTIONS = tuple(MOTION_LABELS.items())
+DEFAULT_BROWSER_OPTIONS = (
+    ("firefox-esr", "Firefox"),
+    ("chromium", "Chromium"),
+    ("none", "No default browser"),
+)
 VAULT_AUTO_LOCK_OPTIONS = (
     ("0", "Manual lock"),
     ("5", "5 minutes"),
@@ -100,6 +105,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.ACCENT_OPTIONS = ACCENT_OPTIONS
         self.DENSITY_OPTIONS = DENSITY_OPTIONS
         self.MOTION_OPTIONS = MOTION_OPTIONS
+        self.DEFAULT_BROWSER_OPTIONS = DEFAULT_BROWSER_OPTIONS
         self.VAULT_AUTO_LOCK_OPTIONS = VAULT_AUTO_LOCK_OPTIONS
 
         self.ui_locale = resolve_supported_locale(self.settings.get("locale", "en_US.UTF-8"))
@@ -218,6 +224,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         accent = str(settings.get("ui_accent", "amber"))
         density = str(settings.get("ui_density", "comfortable"))
         motion = str(settings.get("ui_motion", "full"))
+        default_browser = str(settings.get("default_browser", "firefox-esr"))
         vault = settings.get("vault", {})
         auto_lock = str(vault.get("auto_lock_minutes", 15))
 
@@ -232,6 +239,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self._set_dropdown_value(self.accent_combo, [value for value, _label in ACCENT_OPTIONS], accent)
         self._set_dropdown_value(self.density_combo, [value for value, _label in DENSITY_OPTIONS], density)
         self._set_dropdown_value(self.motion_combo, [value for value, _label in MOTION_OPTIONS], motion)
+        self._set_dropdown_value(self.default_browser_combo, [value for value, _label in DEFAULT_BROWSER_OPTIONS], default_browser)
         self._set_dropdown_value(self.vault_auto_lock_combo, [value for value, _label in VAULT_AUTO_LOCK_OPTIONS], auto_lock)
         self.brave_switch.set_active(bool(settings.get("allow_brave_browser", False)))
         self.vault_unlock_on_login.set_active(bool(vault.get("unlock_on_login", False)))
@@ -256,6 +264,10 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             "network_policy": self._selected_value(self.network_combo, [value for value, _label in NETWORK_OPTIONS]),
             "allow_brave_browser": self.brave_switch.get_active(),
             "sandbox_default": self._selected_value(self.sandbox_combo, [value for value, _label in SANDBOX_OPTIONS]),
+            "default_browser": self._selected_value(
+                self.default_browser_combo,
+                [value for value, _label in DEFAULT_BROWSER_OPTIONS],
+            ),
             "vault": {
                 "enabled": True,
                 "auto_lock_minutes": int(

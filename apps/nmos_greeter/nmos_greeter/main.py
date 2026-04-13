@@ -217,6 +217,7 @@ class GreeterWindow(Adw.ApplicationWindow):
                     "network_policy": state.get("network_policy", "tor"),
                     "allow_brave_browser": bool(state.get("allow_brave_browser", False)),
                     "browser": state.get("browser", "firefox-esr"),
+                    "default_browser": state.get("default_browser", "firefox-esr"),
                 }
             )
             client = self.settings_client_factory()

@@ -47,6 +47,7 @@ Important top-level fields:
 - `ui_accent`
 - `ui_density`
 - `ui_motion`
+- `default_browser`
 - `pending_reboot`
 
 ## D-Bus services
@@ -133,4 +134,5 @@ Desktop session sync:
 - the helper reads effective settings and mirrors the active look into `~/.config/nmos/session-appearance.json`
 - theme profile selects a curated wallpaper and GNOME color scheme
 - motion and density preferences are applied through `gsettings`
+- default browser preference is applied through desktop defaults/`xdg-settings`
 - Brave visibility stays aligned with the selected network and browser policy
