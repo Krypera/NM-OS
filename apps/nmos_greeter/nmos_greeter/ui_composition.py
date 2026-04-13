@@ -9,7 +9,6 @@ from nmos_common.i18n import (
     display_network_policy_name,
     explain_brave_visibility,
     explain_network_policy,
-    format_change_detail,
     format_posture_shift,
     posture_explanation_lines,
     posture_meter_lines,
@@ -23,15 +22,14 @@ from nmos_common.system_settings import (
     THEME_PROFILE_LABELS,
     compute_posture_score_shift,
     compute_posture_scores,
-    derive_overrides_for_profile,
-    describe_effective_change_details,
     describe_posture_preview,
-    normalize_system_settings,
-    setting_display_name,
 )
 from nmos_common.ui_theme import apply_window_theme
 
+from nmos_greeter.browser_model import BROWSER_OPTIONS, browser_description, browser_label
+
 KEYBOARD_OPTIONS = ["us", "tr", "de", "fr"]
+NETWORK_POLICY_OPTIONS = ["tor", "direct", "offline"]
 
 
 def _combo(values: list[str]) -> Gtk.DropDown:
@@ -71,23 +69,33 @@ def _profile_page(window) -> Gtk.Widget:
     )
 
 
+def _browser_page(window) -> Gtk.Widget:
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+    window.browser_title_label = Gtk.Label(label="Web Browser", xalign=0)
+    window.browser_title_label.add_css_class("title-3")
+    window.browser_subtitle_label = Gtk.Label(label="Choose your default web browser.", xalign=0)
+    window.browser_subtitle_label.set_wrap(True)
+    window.browser_subtitle_label.add_css_class("dim-label")
+    box.append(window.browser_title_label)
+    box.append(window.browser_subtitle_label)
+    box.append(window.browser_combo)
+    box.append(window.browser_explanation_label)
+    return box
+
+
 def _network_page(window) -> Gtk.Widget:
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-    window.network_title_label = Gtk.Label(label="Network", xalign=0)
+    window.network_title_label = Gtk.Label(label="Network Policy", xalign=0)
     window.network_title_label.add_css_class("title-3")
-    window.network_subtitle_label = Gtk.Label(label="Choose how NM-OS should treat the network.", xalign=0)
+    window.network_subtitle_label = Gtk.Label(label="Choose how NM-OS should treat network access.", xalign=0)
     window.network_subtitle_label.set_wrap(True)
     window.network_subtitle_label.add_css_class("dim-label")
-    window.network_policy_label = Gtk.Label(label="Network policy", xalign=0)
     box.append(window.network_title_label)
     box.append(window.network_subtitle_label)
-    box.append(window.network_policy_label)
     box.append(window.network_policy_combo)
-    box.append(window.allow_brave_browser)
     box.append(window.network_explanation_label)
-    box.append(window.network_label)
-    box.append(window.network_progress)
-    box.append(window.network_refresh)
+    box.append(window.allow_brave_browser_switch)
+    box.append(window.allow_brave_browser_label)
     return box
 
 
@@ -96,7 +104,7 @@ def _appearance_page(window) -> Gtk.Widget:
         window,
         "appearance",
         "Appearance",
-        "Keep the visual language intentional. A few curated options go a long way.",
+        "Customize the visual language to your liking.",
         [
             window.theme_profile_combo,
             window.accent_combo,
@@ -106,43 +114,17 @@ def _appearance_page(window) -> Gtk.Widget:
     )
 
 
-def _storage_page(window) -> Gtk.Widget:
-    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-    window.storage_title_label = Gtk.Label(label="Encrypted Vault", xalign=0)
-    window.storage_title_label.add_css_class("title-3")
-    window.storage_subtitle_label = Gtk.Label(
-        label="Create or unlock an encrypted vault for sensitive files.",
-        xalign=0,
-    )
-    window.storage_subtitle_label.set_wrap(True)
-    window.storage_subtitle_label.add_css_class("dim-label")
-    box.append(window.storage_title_label)
-    box.append(window.storage_subtitle_label)
-    box.append(window.persistence_label)
-    box.append(window.persistence_password)
-    actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-    actions.append(window.persistence_create)
-    actions.append(window.persistence_unlock)
-    actions.append(window.persistence_lock)
-    actions.append(window.persistence_repair)
-    box.append(actions)
-    return box
-
-
 def _summary_page(window) -> Gtk.Widget:
     return _page(
         window,
         "summary",
-        "Review",
-        "A few changes can apply right away. Network and deeper security policy changes may wait until reboot.",
+        "Ready to start",
+        "These settings will be applied now. You can change them later from the Control Center.",
         [
             window.summary_label,
             window.summary_meter_label,
             window.summary_shift_label,
             window.summary_posture_label,
-            window.summary_timing_label,
-            window.summary_change_detail_label,
-            window.summary_reboot_label,
         ],
     )
 
@@ -187,15 +169,22 @@ def build_ui(window) -> None:
     window.profile_tradeoff_label = Gtk.Label(xalign=0)
     window.profile_tradeoff_label.set_wrap(True)
     window.profile_tradeoff_label.add_css_class("dim-label")
-    window.profile_details_label = Gtk.Label(xalign=0)
-    window.profile_details_label.set_wrap(True)
-    window.network_policy_combo = _combo([display_network_policy_name(policy) for policy in window.network_policy_values])
-    window.network_policy_combo.connect("notify::selected", window.on_network_policy_changed)
-    window.allow_brave_browser = Gtk.CheckButton()
-    window.allow_brave_browser.connect("toggled", window.on_allow_brave_browser_toggled)
+    window.network_policy_combo = _combo([display_network_policy_name(window.ui_locale, value) for value in NETWORK_POLICY_OPTIONS])
+    window.network_policy_combo.connect("notify::selected", window.on_network_changed)
     window.network_explanation_label = Gtk.Label(xalign=0)
     window.network_explanation_label.set_wrap(True)
     window.network_explanation_label.add_css_class("dim-label")
+    window.allow_brave_browser_switch = Gtk.Switch()
+    window.allow_brave_browser_switch.connect("notify::active", window.on_network_changed)
+    window.allow_brave_browser_label = Gtk.Label(xalign=0)
+    window.allow_brave_browser_label.set_wrap(True)
+    window.allow_brave_browser_label.add_css_class("dim-label")
+    window.browser_combo = _combo([browser_label(b) for b in BROWSER_OPTIONS])
+    window.browser_combo.connect("notify::selected", window.on_browser_changed)
+    window.browser_explanation_label = Gtk.Label(xalign=0)
+    window.browser_explanation_label.set_wrap(True)
+    window.browser_explanation_label.add_css_class("dim-label")
+
     window.theme_profile_combo = _combo([THEME_PROFILE_LABELS[value] for value in window.theme_profile_values])
     window.theme_profile_combo.connect("notify::selected", window.on_theme_preview_changed)
     window.accent_combo = _combo([ACCENT_LABELS[value] for value in window.accent_values])
@@ -204,22 +193,6 @@ def build_ui(window) -> None:
     window.density_combo.connect("notify::selected", window.on_theme_preview_changed)
     window.motion_combo = _combo([MOTION_LABELS[value] for value in window.motion_values])
     window.motion_combo.connect("notify::selected", window.on_theme_preview_changed)
-    window.network_progress = Gtk.ProgressBar()
-    window.network_label = Gtk.Label(xalign=0)
-    window.network_refresh = Gtk.Button()
-    window.network_refresh.connect("clicked", window.on_refresh_network)
-
-    window.persistence_label = Gtk.Label(xalign=0)
-    window.persistence_label.set_wrap(True)
-    window.persistence_password = Gtk.PasswordEntry()
-    window.persistence_create = Gtk.Button()
-    window.persistence_unlock = Gtk.Button()
-    window.persistence_lock = Gtk.Button()
-    window.persistence_repair = Gtk.Button()
-    window.persistence_create.connect("clicked", window.on_create_persistence)
-    window.persistence_unlock.connect("clicked", window.on_unlock_persistence)
-    window.persistence_lock.connect("clicked", window.on_lock_persistence)
-    window.persistence_repair.connect("clicked", window.on_repair_persistence)
 
     window.summary_label = Gtk.Label(xalign=0)
     window.summary_label.set_wrap(True)
@@ -231,22 +204,13 @@ def build_ui(window) -> None:
     window.summary_shift_label.add_css_class("dim-label")
     window.summary_posture_label = Gtk.Label(xalign=0)
     window.summary_posture_label.set_wrap(True)
-    window.summary_timing_label = Gtk.Label(xalign=0)
-    window.summary_timing_label.set_wrap(True)
-    window.summary_change_detail_label = Gtk.Label(xalign=0)
-    window.summary_change_detail_label.set_wrap(True)
-    window.summary_change_detail_label.add_css_class("dim-label")
-    window.summary_reboot_label = Gtk.Label(xalign=0)
-    window.summary_reboot_label.set_wrap(True)
-    window.summary_reboot_label.add_css_class("dim-label")
 
     window.page_widgets = {
-        "language": _page(window, "language", "Language", "Choose the interface language.", [window.language_combo]),
-        "keyboard": _page(window, "keyboard", "Keyboard", "Choose the keyboard layout.", [window.keyboard_combo]),
+        "language": _page(window, "language", "Language", "Choose the interface language.", [window.language_combo, window.keyboard_combo]),
         "profile": _profile_page(window),
         "network": _network_page(window),
+        "browser": _browser_page(window),
         "appearance": _appearance_page(window),
-        "storage": _storage_page(window),
         "summary": _summary_page(window),
     }
 
@@ -281,7 +245,7 @@ def build_ui(window) -> None:
 
 
 def resolve_page_order(_window) -> list[str]:
-    return ["language", "keyboard", "profile", "network", "appearance", "storage", "summary"]
+    return ["language", "profile", "network", "browser", "appearance", "summary"]
 
 
 def current_page_key(window) -> str:
@@ -321,16 +285,24 @@ def current_profile_summary(window) -> str:
     return window.tr(PROFILE_METADATA[current_profile(window)]["summary"])
 
 
+def current_browser(window) -> str:
+    selected = window.browser_combo.get_selected()
+    if selected == Gtk.INVALID_LIST_POSITION or selected >= len(window.browser_values):
+        window.browser_combo.set_selected(0)
+        return window.browser_values[0]
+    return window.browser_values[selected]
+
+
+def current_browser_name(window) -> str:
+    return window.tr(browser_label(current_browser(window)))
+
+
 def current_network_policy(window) -> str:
     selected = window.network_policy_combo.get_selected()
-    if selected == Gtk.INVALID_LIST_POSITION or selected >= len(window.network_policy_values):
+    if selected == Gtk.INVALID_LIST_POSITION or selected >= len(NETWORK_POLICY_OPTIONS):
         window.network_policy_combo.set_selected(0)
-        return window.network_policy_values[0]
-    return window.network_policy_values[selected]
-
-
-def current_network_policy_name(window) -> str:
-    return display_network_policy_name(current_network_policy(window), locale=window.ui_locale)
+        return NETWORK_POLICY_OPTIONS[0]
+    return NETWORK_POLICY_OPTIONS[selected]
 
 
 def current_posture_preview(window) -> dict:
@@ -388,11 +360,12 @@ def current_motion_name(window) -> str:
 def apply_translations(window) -> None:
     language_index = window.language_values.index(current_language_code(window))
     profile_index = window.profile_values.index(current_profile(window))
-    network_policy_index = window.network_policy_values.index(current_network_policy(window))
     theme_profile_index = window.theme_profile_values.index(current_theme_profile(window))
     accent_index = window.accent_values.index(current_accent(window))
     density_index = window.density_values.index(current_density(window))
     motion_index = window.motion_values.index(current_motion(window))
+    browser_index = window.browser_values.index(current_browser(window))
+    network_policy_index = NETWORK_POLICY_OPTIONS.index(current_network_policy(window))
     _set_dropdown_values(window.language_combo, [display_language_name(locale) for locale in window.language_values], language_index)
     _set_dropdown_values(
         window.profile_combo,
@@ -400,8 +373,13 @@ def apply_translations(window) -> None:
         profile_index,
     )
     _set_dropdown_values(
+        window.browser_combo,
+        [window.tr(browser_label(b)) for b in window.browser_values],
+        browser_index,
+    )
+    _set_dropdown_values(
         window.network_policy_combo,
-        [display_network_policy_name(policy, locale=window.ui_locale) for policy in window.network_policy_values],
+        [display_network_policy_name(window.ui_locale, value) for value in NETWORK_POLICY_OPTIONS],
         network_policy_index,
     )
     _set_dropdown_values(
@@ -426,55 +404,35 @@ def apply_translations(window) -> None:
     )
 
     window.set_title(window.tr("NM-OS Setup"))
-    window.header_subtitle_label.set_text(window.tr("Review your privacy and desktop settings before login."))
-    window.language_title_label.set_text(window.tr("Language"))
-    window.language_subtitle_label.set_text(window.tr("Choose the interface language."))
-    window.keyboard_title_label.set_text(window.tr("Keyboard"))
-    window.keyboard_subtitle_label.set_text(window.tr("Choose the keyboard layout."))
+    window.header_subtitle_label.set_text(window.tr("Review your basic preferences before you start."))
+    window.language_title_label.set_text(window.tr("Language & Keyboard"))
+    window.language_subtitle_label.set_text(window.tr("Choose the interface language and keyboard layout."))
     window.profile_title_label.set_text(window.tr("Security profile"))
     window.profile_subtitle_label.set_text(
         window.tr("Choose a starting point. You can still fine-tune it later from the desktop.")
     )
-    window.network_title_label.set_text(window.tr("Network"))
-    window.network_subtitle_label.set_text(window.tr("Choose how NM-OS should treat the network."))
-    window.network_policy_label.set_text(window.tr("Network policy"))
-    window.allow_brave_browser.set_label(window.tr("Allow Brave Browser when installed"))
-    window.network_refresh.set_label(window.tr("Refresh network status"))
+    window.network_title_label.set_text(window.tr("Network Policy"))
+    window.network_subtitle_label.set_text(window.tr("Choose how NM-OS should treat network access."))
+    window.allow_brave_browser_label.set_text(window.tr("Allow Brave Browser when installed"))
+    window.browser_title_label.set_text(window.tr("Web Browser"))
+    window.browser_subtitle_label.set_text(window.tr("Choose your default web browser."))
     window.appearance_title_label.set_text(window.tr("Appearance"))
     window.appearance_subtitle_label.set_text(
-        window.tr("Keep the visual language intentional. A few curated options go a long way.")
+        window.tr("Customize the visual language to your liking.")
     )
-    window.storage_title_label.set_text(window.tr("Encrypted Vault"))
-    window.storage_subtitle_label.set_text(window.tr("Create or unlock an encrypted vault for sensitive files."))
-    window.summary_title_label.set_text(window.tr("Review"))
+    window.summary_title_label.set_text(window.tr("Ready to start"))
     window.summary_subtitle_label.set_text(
-        window.tr("A few changes can apply right away. Network and deeper security policy changes may wait until reboot.")
+        window.tr("These settings will be applied now. You can change them anytime.")
     )
-    window.persistence_create.set_label(window.tr("Create"))
-    window.persistence_unlock.set_label(window.tr("Unlock"))
-    window.persistence_lock.set_label(window.tr("Lock"))
-    window.persistence_repair.set_label(window.tr("Repair"))
     window.back_button.set_label(window.tr("Back"))
     window.next_button.set_label(window.tr("Next"))
-    window.finish_button.set_label(window.tr("Apply settings"))
+    window.finish_button.set_label(window.tr("Start using NM-OS"))
     refresh_profile_explanation(window)
+    refresh_network_explanation(window)
     refresh_summary(window)
-    if window.persistence_init_error:
-        window.persistence_label.set_text(
-            window.tr(
-                "Encrypted vault backend unavailable: {error}",
-                error=window.translate_message(window.persistence_init_error),
-            )
-        )
-    elif window.persistence_state:
-        window.persistence_label.set_text(window.render_persistence_state(window.persistence_state))
 
 
 def apply_settings_ui_policy(window) -> None:
-    offline = current_network_policy(window) == "offline"
-    if offline:
-        window.allow_brave_browser.set_active(False)
-    window.allow_brave_browser.set_sensitive(not offline)
     preview_theme(window)
 
 
@@ -490,14 +448,19 @@ def _select_language(window, locale: str) -> None:
     _select_string(window.language_combo, window.language_values, resolved)
 
 
-def _select_network_policy(window, policy: str) -> None:
-    normalized = str(policy or "tor").strip().lower()
-    _select_string(window.network_policy_combo, window.network_policy_values, normalized)
+def _select_browser(window, browser: str) -> None:
+    normalized = str(browser or "skip").strip().lower()
+    _select_string(window.browser_combo, window.browser_values, normalized)
 
 
 def _select_profile(window, profile: str) -> None:
     normalized = str(profile or "balanced").strip().lower()
     _select_string(window.profile_combo, window.profile_values, normalized)
+
+
+def _select_network_policy(window, network_policy: str) -> None:
+    normalized = str(network_policy or "tor").strip().lower()
+    _select_string(window.network_policy_combo, NETWORK_POLICY_OPTIONS, normalized)
 
 
 def current_string(dropdown: Gtk.DropDown, values: list[str] | None = None) -> str:
@@ -518,17 +481,20 @@ def restore_state(window) -> None:
     keyboard = window.state.get("keyboard", "us")
     profile = window.state.get("active_profile", "balanced")
     network_policy = window.state.get("network_policy", "tor")
-    allow_brave = bool(window.state.get("allow_brave_browser", False))
+    browser = window.state.get("browser", "firefox-esr")
     _select_language(window, locale)
     _select_string(window.keyboard_combo, KEYBOARD_OPTIONS, keyboard)
     _select_profile(window, profile)
     _select_network_policy(window, network_policy)
+    _select_browser(window, browser)
+    window.allow_brave_browser_switch.set_active(bool(window.state.get("allow_brave_browser", False)))
     _select_string(window.theme_profile_combo, window.theme_profile_values, str(window.state.get("ui_theme_profile", "nmos-classic")))
     _select_string(window.accent_combo, window.accent_values, str(window.state.get("ui_accent", "amber")))
     _select_string(window.density_combo, window.density_values, str(window.state.get("ui_density", "comfortable")))
     _select_string(window.motion_combo, window.motion_values, str(window.state.get("ui_motion", "full")))
-    window.allow_brave_browser.set_active(allow_brave)
     refresh_profile_explanation(window)
+    refresh_network_explanation(window)
+    refresh_browser_explanation(window)
     apply_settings_ui_policy(window)
 
 
@@ -551,50 +517,37 @@ def refresh_profile_explanation(window) -> None:
     window.profile_guidance_label.set_text(window.tr(posture["ideal_for"]))
     window.profile_tradeoff_label.set_text(window.tr(posture["tradeoff"]))
     window.profile_details_label.set_text("\n".join(f"- {line}" for line in detail_lines))
-    window.network_explanation_label.set_text(
-        "\n".join(
-            [
-                explain_network_policy(window.ui_locale, current_network_policy(window)),
-                explain_brave_visibility(
-                    window.ui_locale,
-                    window.allow_brave_browser.get_active(),
-                    current_network_policy(window),
-                ),
-            ]
-        )
-    )
+
+
+def refresh_browser_explanation(window) -> None:
+    desc = browser_description(current_browser(window))
+    window.browser_explanation_label.set_text(window.tr(desc))
+
+
+def refresh_network_explanation(window) -> None:
+    network_policy = current_network_policy(window)
+    allow_brave = window.allow_brave_browser_switch.get_active()
+    details = [
+        explain_network_policy(window.ui_locale, network_policy),
+        explain_brave_visibility(window.ui_locale, allow_brave, network_policy),
+    ]
+    window.network_explanation_label.set_text("\n".join(details))
 
 
 def refresh_summary(window) -> None:
     draft_state = collect_state(window)
     posture = describe_posture_preview(draft_state["active_profile"], draft_state)
-    effective_payload = {
-        "active_profile": draft_state["active_profile"],
-        "overrides": derive_overrides_for_profile(draft_state["active_profile"], draft_state),
-    }
-    change_details = describe_effective_change_details(effective_payload)
-    immediate_details = change_details["immediate"]
-    reboot_details = change_details["reboot"]
-    immediate_labels = [window.tr(setting_display_name(str(item["key"]))) for item in immediate_details]
-    reboot_labels = [window.tr(setting_display_name(str(item["key"]))) for item in reboot_details]
-    draft_settings = normalize_system_settings(
-        {
-            "active_profile": draft_state["active_profile"],
-            "overrides": derive_overrides_for_profile(draft_state["active_profile"], draft_state),
-        }
-    )
     summary_lines = [
         window.tr("Profile: {profile}", profile=current_profile_name(window)),
         window.tr("Language: {language}", language=current_language_name(window)),
-        window.tr("Keyboard: {keyboard}", keyboard=current_string(window.keyboard_combo, KEYBOARD_OPTIONS)),
-        window.tr("Network: {network}", network=current_network_policy_name(window)),
+        window.tr(
+            "Network: {policy}",
+            policy=window.tr(display_network_policy_name(window.ui_locale, current_network_policy(window))),
+        ),
+        window.tr("Browser: {browser}", browser=current_browser_name(window)),
         window.tr("Theme: {theme}", theme=current_theme_profile_name(window)),
         window.tr("Accent: {accent}", accent=current_accent_name(window)),
     ]
-    if window.allow_brave_browser.get_active():
-        summary_lines.append(window.tr("Brave visibility: allowed when installed"))
-    else:
-        summary_lines.append(window.tr("Brave visibility: hidden"))
     window.summary_label.set_text("\n".join(summary_lines))
     window.summary_meter_label.set_text("\n".join(posture_meter_lines(window.ui_locale, posture)))
     baseline_scores = compute_posture_scores(window.state)
@@ -603,43 +556,6 @@ def refresh_summary(window) -> None:
     window.summary_posture_label.set_text(
         "\n".join(f"- {line}" for line in posture_explanation_lines(window.ui_locale, posture))
     )
-    if immediate_labels or reboot_labels:
-        window.summary_timing_label.set_text(
-            "\n".join(
-                [
-                    window.tr(
-                        "Applies now: {changes}",
-                        changes=", ".join(immediate_labels) if immediate_labels else window.tr("None"),
-                    ),
-                    window.tr(
-                        "Applies after reboot: {changes}",
-                        changes=", ".join(reboot_labels) if reboot_labels else window.tr("None"),
-                    ),
-                ]
-            )
-        )
-        detail_lines: list[str] = []
-        if immediate_details:
-            detail_lines.append(window.tr("Change details (now):"))
-            detail_lines.extend(
-                f"- {format_change_detail(window.ui_locale, window.tr(setting_display_name(str(item['key']))), str(item['key']), item.get('from'), item.get('to'))}"
-                for item in immediate_details
-            )
-        if reboot_details:
-            detail_lines.append(window.tr("Change details (after reboot):"))
-            detail_lines.extend(
-                f"- {format_change_detail(window.ui_locale, window.tr(setting_display_name(str(item['key']))), str(item['key']), item.get('from'), item.get('to'))}"
-                for item in reboot_details
-            )
-        window.summary_change_detail_label.set_text("\n".join(detail_lines))
-    else:
-        window.summary_timing_label.set_text(window.tr("No changed settings in the current draft."))
-        window.summary_change_detail_label.set_text("")
-    if draft_settings.get("pending_reboot"):
-        pending = ", ".join(str(item).replace("_", " ") for item in draft_settings["pending_reboot"])
-        window.summary_reboot_label.set_text(window.tr("Restart required for: {pending}", pending=pending))
-    else:
-        window.summary_reboot_label.set_text(window.tr("The current draft does not require a reboot."))
 
 
 def set_status(window, text: str, *, source: str = "event", force: bool = True) -> None:
@@ -655,17 +571,15 @@ def collect_state(window) -> dict:
         "keyboard": current_string(window.keyboard_combo, KEYBOARD_OPTIONS),
         "active_profile": current_profile(window),
         "network_policy": current_network_policy(window),
-        "allow_brave_browser": window.allow_brave_browser.get_active(),
+        "allow_brave_browser": window.allow_brave_browser_switch.get_active(),
+        "browser": current_browser(window),
         "ui_theme_profile": current_theme_profile(window),
         "ui_accent": current_accent(window),
         "ui_density": current_density(window),
         "ui_motion": current_motion(window),
     }
 
-
 def can_finish(window) -> bool:
-    if window.persistence_state.get("busy") or window.persistence_action_in_progress or window.persistence_refresh_in_progress:
-        return False
     return True
 
 

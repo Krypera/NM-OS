@@ -7,7 +7,7 @@ import gi
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
-from gi.repository import Adw, GLib, Gio, Gtk
+from gi.repository import Adw, GLib, Gtk
 
 from nmos_common.i18n import LANGUAGE_OPTIONS, resolve_supported_locale, translate, translate_message
 from nmos_common.settings_client import SettingsClient, SettingsClientError
@@ -22,8 +22,8 @@ from nmos_common.system_settings import (
     derive_overrides_for_profile,
 )
 from nmos_common.ui_theme import load_css
-from nmos_greeter import network_model, persistence_actions, ui_composition
-from nmos_greeter.client import PersistenceClient
+from nmos_greeter import ui_composition
+from nmos_greeter.browser_model import BROWSER_OPTIONS
 from nmos_greeter.state import load_state, save_state
 
 
@@ -47,36 +47,21 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.save_state = save_state
         self.language_values = [locale for locale, _label in LANGUAGE_OPTIONS]
         self.profile_values = list(PROFILE_METADATA)
-        self.network_policy_values = ["tor", "direct", "offline"]
+        self.browser_values = list(BROWSER_OPTIONS)
         self.theme_profile_values = list(THEME_PROFILE_LABELS)
         self.accent_values = list(ACCENT_LABELS)
         self.density_values = list(DENSITY_LABELS)
         self.motion_values = list(MOTION_LABELS)
         self.ui_locale = resolve_supported_locale(self.state.get("locale", os.environ.get("LANG", DEFAULT_UI_LOCALE)))
         self.page_order = self.resolve_page_order()
-        self.network_status = self.default_network_status()
-        self.persistence_state: dict = {}
-        self.persistence_client_factory = PersistenceClient
-        self.persistence_init_error = ""
         self.page_index = 0
-        self.persistence_action_in_progress = False
-        self.persistence_action_name = ""
-        self.persistence_refresh_in_progress = False
-        self.persistence_refresh_pending = False
         self.status_source = ""
-        self.network_refresh_pending_id = 0
-        self.network_refresh_force = False
-        self.network_monitors: list[Gio.FileMonitor] = []
         self.page_widgets: dict[str, Gtk.Widget] = {}
 
         ui_composition.build_ui(self)
         self.apply_translations()
         self.restore_state()
         self.apply_settings_ui_policy()
-        self.update_persistence_actions({})
-        self.refresh_persistence()
-        self.refresh_network(force_status=True)
-        self.setup_network_watchers()
         self.update_navigation()
         if not self.settings_backend_ready:
             prefix = f"{self.settings_backend_message} " if self.settings_backend_message else ""
@@ -103,9 +88,6 @@ class GreeterWindow(Adw.ApplicationWindow):
     def resolve_page_order(self) -> list[str]:
         return ui_composition.resolve_page_order(self)
 
-    def default_network_status(self) -> dict:
-        return network_model.default_network_status(self)
-
     def current_page_key(self) -> str:
         return ui_composition.current_page_key(self)
 
@@ -124,14 +106,8 @@ class GreeterWindow(Adw.ApplicationWindow):
     def current_profile_summary(self) -> str:
         return ui_composition.current_profile_summary(self)
 
-    def current_network_policy(self) -> str:
-        return ui_composition.current_network_policy(self)
-
-    def current_network_policy_name(self) -> str:
-        return ui_composition.current_network_policy_name(self)
-
     def action_label(self, action: str) -> str:
-        return ui_composition.current_network_policy_name(self) if action == "policy" else self.tr(action.capitalize()).lower()
+        return self.tr(action.capitalize()).lower()
 
     def apply_translations(self) -> None:
         ui_composition.apply_translations(self)
@@ -150,24 +126,6 @@ class GreeterWindow(Adw.ApplicationWindow):
 
     def collect_state(self) -> dict:
         return ui_composition.collect_state(self)
-
-    def refresh_network(self, *, force_status: bool = False) -> None:
-        network_model.refresh_network(self, force_status=force_status)
-
-    def refresh_persistence(self) -> None:
-        persistence_actions.refresh_persistence(self)
-
-    def run_persistence_refresh_worker(self) -> None:
-        persistence_actions.run_persistence_refresh_worker(self)
-
-    def complete_persistence_refresh(self, state: dict | None, error: str) -> bool:
-        return persistence_actions.complete_persistence_refresh(self, state, error)
-
-    def render_persistence_state(self, state: dict) -> str:
-        return persistence_actions.render_persistence_state(self, state)
-
-    def update_persistence_actions(self, state: dict) -> None:
-        persistence_actions.update_persistence_actions(self, state)
 
     def persist_pending_state(self) -> bool:
         self.state = self.collect_state()
@@ -198,58 +156,26 @@ class GreeterWindow(Adw.ApplicationWindow):
         )
         return True
 
-    def apply_network_preferences(self) -> bool:
+    def apply_browser(self) -> bool:
         if not self.persist_pending_state():
             return False
-        self.apply_settings_ui_policy()
-        self.set_status(
-            self.tr("Network policy will be applied as {policy}.", policy=self.current_network_policy_name())
-        )
         return True
-
-    def on_refresh_network(self, _button: Gtk.Button) -> None:
-        self.refresh_network(force_status=True)
 
     def on_profile_changed(self, *_args) -> None:
         ui_composition.refresh_profile_explanation(self)
         self.update_navigation()
 
-    def on_network_policy_changed(self, *_args) -> None:
-        self.apply_settings_ui_policy()
-        ui_composition.refresh_profile_explanation(self)
+    def on_browser_changed(self, *_args) -> None:
+        ui_composition.refresh_browser_explanation(self)
         self.update_navigation()
 
-    def on_allow_brave_browser_toggled(self, *_args) -> None:
-        ui_composition.refresh_profile_explanation(self)
+    def on_network_changed(self, *_args) -> None:
+        ui_composition.refresh_network_explanation(self)
         self.update_navigation()
 
     def on_theme_preview_changed(self, *_args) -> None:
         self.apply_settings_ui_policy()
         self.update_navigation()
-
-    def on_create_persistence(self, _button: Gtk.Button) -> None:
-        persistence_actions.on_create_persistence(self, _button)
-
-    def on_unlock_persistence(self, _button: Gtk.Button) -> None:
-        persistence_actions.on_unlock_persistence(self, _button)
-
-    def on_lock_persistence(self, _button: Gtk.Button) -> None:
-        persistence_actions.on_lock_persistence(self, _button)
-
-    def on_repair_persistence(self, _button: Gtk.Button) -> None:
-        persistence_actions.on_repair_persistence(self, _button)
-
-    def start_persistence_action(self, action: str, passphrase: str | None = None) -> None:
-        persistence_actions.start_persistence_action(self, action, passphrase)
-
-    def run_persistence_action_worker(self, action: str, passphrase: str | None) -> None:
-        persistence_actions.run_persistence_action_worker(self, action, passphrase)
-
-    def complete_persistence_action(self, action: str, response: dict | None, error: str) -> bool:
-        return persistence_actions.complete_persistence_action(self, action, response, error)
-
-    def handle_persistence_response(self, action: str, response: dict) -> None:
-        persistence_actions.handle_persistence_response(self, action, response)
 
     def on_back(self, _button: Gtk.Button) -> None:
         if self.page_index > 0:
@@ -265,7 +191,7 @@ class GreeterWindow(Adw.ApplicationWindow):
             return
         if current_key == "profile":
             self.profile_summary_label.set_text(self.tr(self.current_profile_summary()))
-        if current_key == "network" and not self.apply_network_preferences():
+        if current_key == "browser" and not self.apply_browser():
             return
         if self.page_index < len(self.page_order) - 1:
             self.page_index += 1
@@ -288,6 +214,9 @@ class GreeterWindow(Adw.ApplicationWindow):
                 {
                     "locale": state.get("locale", DEFAULT_UI_LOCALE),
                     "keyboard": state.get("keyboard", "us"),
+                    "network_policy": state.get("network_policy", "tor"),
+                    "allow_brave_browser": bool(state.get("allow_brave_browser", False)),
+                    "browser": state.get("browser", "firefox-esr"),
                 }
             )
             client = self.settings_client_factory()
@@ -313,22 +242,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         return ui_composition.can_finish(self)
 
     def poll_runtime(self) -> bool:
-        if not self.persistence_action_in_progress:
-            self.refresh_persistence()
-        self.refresh_network()
         return True
-
-    def setup_network_watchers(self) -> None:
-        network_model.setup_network_watchers(self)
-
-    def on_network_file_changed(self, _monitor, _file, _other_file, event_type) -> None:
-        network_model.on_network_file_changed(self, _monitor, _file, _other_file, event_type)
-
-    def queue_network_refresh(self, *, force_status: bool = False) -> None:
-        network_model.queue_network_refresh(self, force_status=force_status)
-
-    def run_queued_network_refresh(self) -> bool:
-        return network_model.run_queued_network_refresh(self)
 
 
 class GreeterApplication(Adw.Application):

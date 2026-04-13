@@ -7,7 +7,6 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Adw, Gtk
 from nmos_common.i18n import (
     LANGUAGE_OPTIONS,
-    display_language_name,
     explain_brave_visibility,
     explain_device_policy,
     explain_logging_policy,
@@ -73,46 +72,7 @@ VAULT_AUTO_LOCK_OPTIONS = (
 )
 
 
-def _string_dropdown(labels: list[str]) -> Gtk.DropDown:
-    return Gtk.DropDown(model=Gtk.StringList.new(labels))
-
-
-def _labelled_control(title: str, description: str, control: Gtk.Widget) -> Gtk.Widget:
-    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-    title_label = Gtk.Label(label=title, xalign=0)
-    title_label.add_css_class("title-4")
-    description_label = Gtk.Label(label=description, xalign=0)
-    description_label.set_wrap(True)
-    description_label.add_css_class("dim-label")
-    box.append(title_label)
-    box.append(description_label)
-    box.append(control)
-    return box
-
-
-def _page(title: str, subtitle: str, children: list[Gtk.Widget]) -> Gtk.Widget:
-    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
-    header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-    title_label = Gtk.Label(label=title, xalign=0)
-    title_label.add_css_class("title-2")
-    subtitle_label = Gtk.Label(label=subtitle, xalign=0)
-    subtitle_label.set_wrap(True)
-    subtitle_label.add_css_class("dim-label")
-    header.append(title_label)
-    header.append(subtitle_label)
-    box.append(header)
-    for child in children:
-        frame = Gtk.Frame()
-        frame.add_css_class("card")
-        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        inner.set_margin_top(14)
-        inner.set_margin_bottom(14)
-        inner.set_margin_start(14)
-        inner.set_margin_end(14)
-        inner.append(child)
-        frame.set_child(inner)
-        box.append(frame)
-    return box
+from nmos_control_center.panels import applications, language, network, personalization, security, system
 
 
 class ControlCenterWindow(Adw.ApplicationWindow):
@@ -130,6 +90,18 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.startup_error_message = self.describe_backend_issue(error)
         self.profile_values = list(PROFILE_METADATA)
         self.language_values = [locale for locale, _label in LANGUAGE_OPTIONS]
+        
+        self.KEYBOARD_OPTIONS = KEYBOARD_OPTIONS
+        self.NETWORK_OPTIONS = NETWORK_OPTIONS
+        self.SANDBOX_OPTIONS = SANDBOX_OPTIONS
+        self.DEVICE_POLICY_OPTIONS = DEVICE_POLICY_OPTIONS
+        self.LOGGING_OPTIONS = LOGGING_OPTIONS
+        self.THEME_PROFILE_OPTIONS = THEME_PROFILE_OPTIONS
+        self.ACCENT_OPTIONS = ACCENT_OPTIONS
+        self.DENSITY_OPTIONS = DENSITY_OPTIONS
+        self.MOTION_OPTIONS = MOTION_OPTIONS
+        self.VAULT_AUTO_LOCK_OPTIONS = VAULT_AUTO_LOCK_OPTIONS
+
         self.ui_locale = resolve_supported_locale(self.settings.get("locale", "en_US.UTF-8"))
         self.root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
         self.root.set_margin_top(24)
@@ -178,7 +150,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         title = Gtk.Label(label="NM-OS Control Center", xalign=0)
         title.add_css_class("title-1")
         subtitle = Gtk.Label(
-            label="Tune privacy, appearance, and recovery behavior without leaving the desktop.",
+            label="Tune privacy, Appearance, and recovery behavior without leaving the desktop.",
             xalign=0,
         )
         subtitle.set_wrap(True)
@@ -198,194 +170,23 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         split.append(self.sidebar)
         split.append(self.stack)
 
-        self.profile_combo = _string_dropdown([PROFILE_METADATA[key]["label"] for key in self.profile_values])
-        self.profile_combo.connect("notify::selected", self.on_profile_preview_changed)
-        self.profile_summary = Gtk.Label(xalign=0)
-        self.profile_summary.set_wrap(True)
-        self.profile_guidance = Gtk.Label(xalign=0)
-        self.profile_guidance.set_wrap(True)
-        self.profile_guidance.add_css_class("dim-label")
-        self.profile_tradeoff = Gtk.Label(xalign=0)
-        self.profile_tradeoff.set_wrap(True)
-        self.profile_tradeoff.add_css_class("dim-label")
-        self.profile_details = Gtk.Label(xalign=0)
-        self.profile_details.set_wrap(True)
-        self.profile_meter_label = Gtk.Label(xalign=0)
-        self.profile_meter_label.set_wrap(True)
-        self.profile_meter_label.add_css_class("dim-label")
-        self.profile_shift_label = Gtk.Label(xalign=0)
-        self.profile_shift_label.set_wrap(True)
-        self.profile_shift_label.add_css_class("dim-label")
-        self.change_timing_label = Gtk.Label(xalign=0)
-        self.change_timing_label.set_wrap(True)
-        self.change_detail_label = Gtk.Label(xalign=0)
-        self.change_detail_label.set_wrap(True)
-        self.change_detail_label.add_css_class("dim-label")
-        self.pending_reboot_label = Gtk.Label(xalign=0)
-        self.pending_reboot_label.set_wrap(True)
-
-        self.language_combo = _string_dropdown([display_language_name(locale) for locale in self.language_values])
-        self.language_combo.connect("notify::selected", self.on_draft_settings_changed)
-        self.keyboard_combo = _string_dropdown(list(KEYBOARD_OPTIONS))
-        self.keyboard_combo.connect("notify::selected", self.on_draft_settings_changed)
-        self.network_combo = _string_dropdown([label for _value, label in NETWORK_OPTIONS])
-        self.network_combo.connect("notify::selected", self.on_draft_settings_changed)
-        self.brave_switch = Gtk.Switch()
-        self.brave_switch.connect("notify::active", self.on_draft_settings_changed)
-        self.sandbox_combo = _string_dropdown([label for _value, label in SANDBOX_OPTIONS])
-        self.sandbox_combo.connect("notify::selected", self.on_draft_settings_changed)
-        self.device_policy_combo = _string_dropdown([label for _value, label in DEVICE_POLICY_OPTIONS])
-        self.device_policy_combo.connect("notify::selected", self.on_draft_settings_changed)
-        self.logging_combo = _string_dropdown([label for _value, label in LOGGING_OPTIONS])
-        self.logging_combo.connect("notify::selected", self.on_draft_settings_changed)
-        self.theme_profile_combo = _string_dropdown([label for _value, label in THEME_PROFILE_OPTIONS])
-        self.accent_combo = _string_dropdown([label for _value, label in ACCENT_OPTIONS])
-        self.density_combo = _string_dropdown([label for _value, label in DENSITY_OPTIONS])
-        self.motion_combo = _string_dropdown([label for _value, label in MOTION_OPTIONS])
-        self.vault_auto_lock_combo = _string_dropdown([label for _value, label in VAULT_AUTO_LOCK_OPTIONS])
-        self.vault_auto_lock_combo.connect("notify::selected", self.on_draft_settings_changed)
-        self.vault_unlock_on_login = Gtk.Switch()
-        self.vault_unlock_on_login.connect("notify::active", self.on_draft_settings_changed)
-        self.privacy_explanation = Gtk.Label(xalign=0)
-        self.privacy_explanation.set_wrap(True)
-        self.privacy_explanation.add_css_class("dim-label")
-        self.apps_explanation = Gtk.Label(xalign=0)
-        self.apps_explanation.set_wrap(True)
-        self.apps_explanation.add_css_class("dim-label")
-        self.vault_explanation = Gtk.Label(xalign=0)
-        self.vault_explanation.set_wrap(True)
-        self.vault_explanation.add_css_class("dim-label")
-        self.system_explanation = Gtk.Label(xalign=0)
-        self.system_explanation.set_wrap(True)
-        self.system_explanation.add_css_class("dim-label")
-
-        for dropdown in (
-            self.theme_profile_combo,
-            self.accent_combo,
-            self.density_combo,
-            self.motion_combo,
-        ):
-            dropdown.connect("notify::selected", self.on_theme_preview_changed)
-
-        self.profile_page = _page(
-            "Profiles",
-            "Pick a security posture, then refine it with advanced pages if you want more control.",
-            [
-                _labelled_control(
-                    "Security profile",
-                    "Balanced is recommended. Other profiles trade comfort for stronger or lighter restrictions.",
-                    self.profile_combo,
-                ),
-                self.profile_summary,
-                self.profile_guidance,
-                self.profile_tradeoff,
-                self.profile_meter_label,
-                self.profile_shift_label,
-                self.profile_details,
-                self.change_timing_label,
-                self.change_detail_label,
-                self.pending_reboot_label,
-            ],
-        )
-
-        self.privacy_page = _page(
-            "Privacy & Network",
-            "Choose how networking behaves and whether a privacy-focused browser should appear when available.",
-            [
-                _labelled_control("Network policy", "Tor-first keeps the safest baseline.", self.network_combo),
-                _labelled_control(
-                    "Allow Brave Browser",
-                    "Brave stays hidden unless the build enables it and you allow it here.",
-                    self.brave_switch,
-                ),
-                self.privacy_explanation,
-            ],
-        )
-
-        self.apps_page = _page(
-            "Apps & Permissions",
-            "Flatpak plus desktop portals is the first app-boundary layer for NM-OS.",
-            [
-                _labelled_control(
-                    "Default app isolation",
-                    "Focused is the default middle ground between broad access and strict confinement.",
-                    self.sandbox_combo,
-                ),
-                Gtk.Label(
-                    label="Per-app overrides will land later. This first slice keeps the default policy readable and easy to change.",
-                    xalign=0,
-                ),
-                self.apps_explanation,
-            ],
-        )
-
-        self.vault_page = _page(
-            "Vault",
-            "Save your preferred encrypted vault behavior and session handling defaults.",
-            [
-                _labelled_control(
-                    "Auto-lock",
-                    "Choose how quickly the encrypted vault should relock after inactivity.",
-                    self.vault_auto_lock_combo,
-                ),
-                _labelled_control(
-                    "Unlock on login",
-                    "Keep this off unless you explicitly want convenience ahead of stronger separation.",
-                    self.vault_unlock_on_login,
-                ),
-                self.vault_explanation,
-            ],
-        )
-
-        self.system_page = _page(
-            "System & Recovery",
-            "Control removable-media behavior, logging posture, and how quickly you can get back to a clean profile.",
-            [
-                _labelled_control(
-                    "Device policy",
-                    "Prompt is the recommended baseline for external devices and removable media.",
-                    self.device_policy_combo,
-                ),
-                _labelled_control(
-                    "Logging policy",
-                    "Minimal keeps diagnostics useful without retaining more than necessary.",
-                    self.logging_combo,
-                ),
-                self.system_explanation,
-            ],
-        )
-
-        self.language_page = _page(
-            "Language & Region",
-            "Adjust display language and keyboard defaults for new sessions.",
-            [
-                _labelled_control("Language", "English remains the source language and Spanish is included today.", self.language_combo),
-                _labelled_control("Keyboard", "Choose the default keyboard layout for the next login.", self.keyboard_combo),
-            ],
-        )
-
-        self.appearance_page = _page(
-            "Appearance",
-            "NM-OS uses a retro-futuristic theme language with limited, intentional customization.",
-            [
-                _labelled_control("Theme profile", "Switch between the three supported NM-OS looks.", self.theme_profile_combo),
-                _labelled_control("Accent", "Accents are intentionally limited to keep the system cohesive.", self.accent_combo),
-                _labelled_control("Density", "Comfortable is easier to read; compact fits more information.", self.density_combo),
-                _labelled_control("Motion", "Reduced motion lowers distraction while keeping the interface responsive.", self.motion_combo),
-            ],
-        )
+        self.personalization_page = personalization.build(self)
+        self.applications_page = applications.build(self)
+        self.network_page = network.build(self)
+        self.security_page = security.build(self)
+        self.system_page = system.build(self)
+        self.language_page = language.build(self)
 
         pages = [
-            ("profiles", "Profiles", self.profile_page),
-            ("privacy", "Privacy & Network", self.privacy_page),
-            ("apps", "Apps & Permissions", self.apps_page),
-            ("vault", "Vault", self.vault_page),
+            ("personalization", "Personalization", self.personalization_page),
+            ("applications", "Applications", self.applications_page),
+            ("network", "Network & Internet", self.network_page),
+            ("security", "Security & Profiles", self.security_page),
             ("system", "System & Recovery", self.system_page),
             ("language", "Language & Region", self.language_page),
-            ("appearance", "Appearance", self.appearance_page),
         ]
-        for key, title, widget in pages:
-            self.stack.add_titled(widget, key, title)
+        for key, title_text, widget in pages:
+            self.stack.add_titled(widget, key, title_text)
 
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         self.refresh_button = Gtk.Button(label="Refresh")
