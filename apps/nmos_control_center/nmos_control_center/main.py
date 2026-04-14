@@ -6,7 +6,7 @@ import gi
 
 gi.require_version("Adw", "1")
 gi.require_version("Gtk", "4.0")
-from gi.repository import Adw, Gtk
+from gi.repository import Adw, GLib, Gtk
 from nmos_common.i18n import (
     LANGUAGE_OPTIONS,
     explain_brave_visibility,
@@ -97,6 +97,10 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         super().__init__(application=app, title="NM-OS Control Center")
         self.set_default_size(1080, 720)
         self.client = SettingsClient(allow_local_fallback=False)
+        self._signal_bus = None
+        self._signal_interface = None
+        self._signal_match = None
+        self._reload_source_id: int | None = None
         self.backend_ready = True
         self.startup_error_message = ""
         try:
@@ -133,6 +137,8 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.root.set_margin_start(24)
         self.root.set_margin_end(24)
         self.build_ui()
+        self.connect("close-request", self._on_close_request)
+        self._connect_settings_signal()
         self.restore_settings()
         self.refresh_summary()
         if not self.backend_ready:
@@ -141,6 +147,47 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             prefix = f"{self.startup_error_message} " if self.startup_error_message else ""
             self.status_label.set_text(f"{prefix}Review mode only until service is reachable. Use Diagnostics for details.")
         self.set_content(self.root)
+
+    def _connect_settings_signal(self) -> None:
+        try:
+            self._signal_bus, self._signal_interface, self._signal_match = self.client.connect_settings_changed(
+                self._on_settings_changed_signal
+            )
+        except Exception:
+            self._signal_bus = None
+            self._signal_interface = None
+            self._signal_match = None
+
+    def _disconnect_settings_signal(self) -> None:
+        if self._signal_match is not None:
+            try:
+                self._signal_match.remove()
+            except Exception:
+                pass
+        self._signal_match = None
+        self._signal_interface = None
+        self._signal_bus = None
+
+    def _on_close_request(self, _window: Gtk.Window) -> bool:
+        self._disconnect_settings_signal()
+        return False
+
+    def _on_settings_changed_signal(self, _payload: dict) -> None:
+        # D-Bus callbacks may arrive off the GTK main loop, so defer the refresh safely.
+        if self._reload_source_id is not None:
+            return
+        self._reload_source_id = GLib.idle_add(self._reload_from_backend)
+
+    def _reload_from_backend(self) -> bool:
+        self._reload_source_id = None
+        try:
+            self.settings = self.client.get_settings()
+        except SettingsClientError:
+            return GLib.SOURCE_REMOVE
+        self.restore_settings()
+        self.refresh_summary()
+        self.status_label.set_text("Settings updated by another session.")
+        return GLib.SOURCE_REMOVE
 
     def describe_backend_issue(self, error: SettingsClientError) -> str:
         if error.reason == "access_denied":

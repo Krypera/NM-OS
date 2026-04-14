@@ -1092,6 +1092,12 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "allow_local_fallback=False" in control_center_source
     assert "describe_backend_issue" in control_center_source
     assert "backend_recovery_hint" in control_center_source
+    assert "_connect_settings_signal" in control_center_source
+    assert "_disconnect_settings_signal" in control_center_source
+    assert "_on_settings_changed_signal" in control_center_source
+    assert "_reload_from_backend" in control_center_source
+    assert "close-request" in control_center_source
+    assert "GLib.idle_add(self._reload_from_backend)" in control_center_source
     assert "Diagnostics" in control_center_source
     assert "Enforcement status" in system_panel_source
     assert "app-isolation-status.json" in control_center_source

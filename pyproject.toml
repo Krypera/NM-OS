@@ -38,3 +38,14 @@ module = [
   "stem.control",
 ]
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+addopts = "-p no:cacheprovider"
+norecursedirs = [
+  ".git",
+  ".pytest_cache",
+  "pytest-cache-files-*",
+  ".tmp-tests",
+  "dist",
+]
