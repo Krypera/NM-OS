@@ -9,6 +9,21 @@ STATE_FILE = get_runtime_dir() / "greeter-state.json"
 STATE_FILE_MODE = 0o660
 
 
+def normalize_onboarding_page_index(value: object, page_count: int) -> int:
+    if page_count <= 0:
+        return 0
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        parsed = 0
+    return max(0, min(page_count - 1, parsed))
+
+
+def load_onboarding_page_index(state: object, page_count: int) -> int:
+    raw_state = state if isinstance(state, dict) else {}
+    return normalize_onboarding_page_index(raw_state.get("onboarding_page_index", 0), page_count)
+
+
 def ensure_state_path_safe() -> bool:
     try:
         ensure_runtime_state_path_safe(STATE_FILE)

@@ -28,7 +28,7 @@ from nmos_common.ui_theme import load_css
 from nmos_greeter import ui_composition
 from nmos_greeter.browser_model import BROWSER_OPTIONS
 from nmos_greeter.client import read_network_status
-from nmos_greeter.state import load_state, save_state
+from nmos_greeter.state import load_onboarding_page_index, load_state, save_state
 
 
 class GreeterWindow(Adw.ApplicationWindow):
@@ -58,7 +58,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.motion_values = list(MOTION_LABELS)
         self.ui_locale = resolve_supported_locale(self.state.get("locale", os.environ.get("LANG", DEFAULT_UI_LOCALE)))
         self.page_order = self.resolve_page_order()
-        self.page_index = 0
+        self.page_index = load_onboarding_page_index(self.state, len(self.page_order))
         self.status_source = ""
         self.page_widgets: dict[str, Gtk.Widget] = {}
         self.runtime_dir = get_runtime_dir()
@@ -69,6 +69,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         ui_composition.build_ui(self)
         self.apply_translations()
         self.restore_state()
+        self.stack.set_visible_child_name(f"page-{self.page_index}")
         self.apply_settings_ui_policy()
         self.update_navigation()
         if not self.settings_backend_ready:
@@ -151,6 +152,7 @@ class GreeterWindow(Adw.ApplicationWindow):
 
     def persist_pending_state(self) -> bool:
         self.state = self.collect_state()
+        self.state["onboarding_page_index"] = self.page_index
         try:
             self.save_state(self.state)
         except (OSError, ValueError, RuntimeError) as exc:
@@ -207,6 +209,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         if self.page_index > 0:
             self.page_index -= 1
         self.stack.set_visible_child_name(f"page-{self.page_index}")
+        self.persist_pending_state()
         self.update_navigation()
 
     def on_next(self, _button: Gtk.Button) -> None:
@@ -222,6 +225,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         if self.page_index < len(self.page_order) - 1:
             self.page_index += 1
         self.stack.set_visible_child_name(f"page-{self.page_index}")
+        self.persist_pending_state()
         self.update_navigation()
 
     def close_after_apply(self) -> bool:

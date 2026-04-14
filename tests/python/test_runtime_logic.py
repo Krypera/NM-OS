@@ -49,6 +49,7 @@ from nmos_common.system_settings import (
     setting_display_name,
     update_system_overrides,
 )
+from nmos_greeter.state import load_onboarding_page_index, normalize_onboarding_page_index
 from nmos_settings.authorization import build_write_uid_allowlist, is_write_authorized
 
 
@@ -178,6 +179,18 @@ def test_read_runtime_json_returns_default_for_missing_or_invalid(workspace_tmp_
     valid = workspace_tmp_path / "valid-status.json"
     write_runtime_json(valid, {"ok": True}, mode=0o644)
     assert read_runtime_json(valid, default={"ok": False}) == {"ok": True}
+
+
+def test_greeter_onboarding_page_index_state_machine() -> None:
+    assert normalize_onboarding_page_index(0, 6) == 0
+    assert normalize_onboarding_page_index(5, 6) == 5
+    assert normalize_onboarding_page_index(-10, 6) == 0
+    assert normalize_onboarding_page_index(999, 6) == 5
+    assert normalize_onboarding_page_index("3", 6) == 3
+    assert normalize_onboarding_page_index("invalid", 6) == 0
+    assert load_onboarding_page_index({"onboarding_page_index": 4}, 6) == 4
+    assert load_onboarding_page_index({"onboarding_page_index": 40}, 6) == 5
+    assert load_onboarding_page_index({}, 6) == 0
 
 
 class _MockBackendUnavailableDBusError(Exception):
@@ -583,6 +596,9 @@ def test_greeter_layout_is_setup_only(repo_root: Path) -> None:
     assert "Action: sign in with an admin-authorized session and retry." in main_source
     assert "Review mode only until service is reachable." in main_source
     assert "read_network_status()" in main_source
+    assert "load_onboarding_page_index" in main_source
+    assert '"onboarding_page_index"' in main_source
+    assert 'self.stack.set_visible_child_name(f"page-{self.page_index}")' in main_source
     assert "persistent-storage.json" in main_source
     assert "Settings backend: reachable." in main_source
     assert 'self.set_status(combined, source="runtime", force=False)' in main_source
