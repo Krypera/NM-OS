@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import subprocess
+from pathlib import Path
 
 import gi
 
@@ -80,6 +82,11 @@ APP_FILESYSTEM_OPTIONS = (
     ("host", "Host filesystem"),
     ("none", "No filesystem access"),
 )
+APP_SANDBOX_PRESET_OPTIONS = (
+    ("secure", "Secure"),
+    ("balanced", "Balanced"),
+    ("compatible", "Compatible"),
+)
 VAULT_AUTO_LOCK_OPTIONS = (
     ("0", "Manual lock"),
     ("5", "5 minutes"),
@@ -87,6 +94,18 @@ VAULT_AUTO_LOCK_OPTIONS = (
     ("30", "30 minutes"),
     ("60", "1 hour"),
 )
+SETTING_RISK_HINTS = {
+    "network_policy": "Network reachability and some online apps can be affected.",
+    "allow_brave_browser": "Browser availability and app-launch expectations can change.",
+    "sandbox_default": "File access and inter-app workflows may become stricter.",
+    "default_browser": "Link handling behavior across desktop apps changes immediately.",
+    "device_policy": "External peripherals and removable media behavior may tighten.",
+    "logging_policy": "Diagnostic visibility may decrease as retention gets stricter.",
+    "vault_auto_lock_minutes": "Shorter lock timers reduce convenience during active work.",
+    "vault_unlock_on_login": "Disabling auto-unlock increases manual unlock steps.",
+    "app_overrides": "Per-app file access can break assumptions for some Flatpak apps.",
+    "active_profile": "Multiple security defaults can change together with profile shifts.",
+}
 
 
 from nmos_control_center.panels import applications, language, network, personalization, security, system
@@ -97,6 +116,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         super().__init__(application=app, title="NM-OS Control Center")
         self.set_default_size(1080, 720)
         self.client = SettingsClient(allow_local_fallback=False)
+        self.repo_root = Path(__file__).resolve().parents[3]
         self._signal_bus = None
         self._signal_interface = None
         self._signal_match = None
@@ -127,6 +147,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.MOTION_OPTIONS = MOTION_OPTIONS
         self.DEFAULT_BROWSER_OPTIONS = DEFAULT_BROWSER_OPTIONS
         self.APP_FILESYSTEM_OPTIONS = APP_FILESYSTEM_OPTIONS
+        self.APP_SANDBOX_PRESET_OPTIONS = APP_SANDBOX_PRESET_OPTIONS
         self.VAULT_AUTO_LOCK_OPTIONS = VAULT_AUTO_LOCK_OPTIONS
         self.app_override_dropdowns: dict[str, Gtk.DropDown] = {}
 
@@ -221,6 +242,9 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             return values[0]
         return values[selected]
 
+    def _selected_option_value(self, dropdown: Gtk.DropDown, options: tuple[tuple[str, str], ...]) -> str:
+        return self._selected_value(dropdown, [value for value, _label in options])
+
     def _set_dropdown_value(self, dropdown: Gtk.DropDown, values: list[str], value: str) -> None:
         try:
             dropdown.set_selected(values.index(value))
@@ -260,6 +284,39 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             if filesystem != "inherit":
                 overrides[app_id] = {"filesystem": filesystem}
         return overrides
+
+    def set_all_app_overrides(self, filesystem: str) -> None:
+        option_values = [value for value, _label in self.APP_FILESYSTEM_OPTIONS]
+        try:
+            selected_index = option_values.index(filesystem)
+        except ValueError:
+            selected_index = 0
+        for dropdown in self.app_override_dropdowns.values():
+            dropdown.set_selected(selected_index)
+
+    def apply_sandbox_preset(self, preset: str) -> None:
+        if preset == "secure":
+            self._set_dropdown_value(
+                self.sandbox_combo,
+                [value for value, _label in self.SANDBOX_OPTIONS],
+                "strict",
+            )
+            self.set_all_app_overrides("none")
+            return
+        if preset == "compatible":
+            self._set_dropdown_value(
+                self.sandbox_combo,
+                [value for value, _label in self.SANDBOX_OPTIONS],
+                "standard",
+            )
+            self.set_all_app_overrides("host")
+            return
+        self._set_dropdown_value(
+            self.sandbox_combo,
+            [value for value, _label in self.SANDBOX_OPTIONS],
+            "focused",
+        )
+        self.set_all_app_overrides("inherit")
 
     def rebuild_app_overrides_editor(self, settings: dict) -> None:
         model = settings.get("app_overrides", {}) if isinstance(settings.get("app_overrides", {}), dict) else {}
@@ -349,6 +406,108 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         else:
             lines.append("Logging policy: status unavailable")
         return "\n".join(lines)
+
+    def _change_timing_for_key(self, key: str, details: dict[str, list[dict[str, object]]]) -> str:
+        immediate_keys = {str(item.get("key", "")) for item in details.get("immediate", [])}
+        reboot_keys = {str(item.get("key", "")) for item in details.get("reboot", [])}
+        if key in immediate_keys and key in reboot_keys:
+            return "Partly now, partly after reboot."
+        if key in reboot_keys:
+            return "Applies after reboot."
+        return "Applies now."
+
+    def build_setting_change_explanation(
+        self,
+        *,
+        key: str,
+        details: dict[str, list[dict[str, object]]],
+    ) -> str:
+        timing = self._change_timing_for_key(key, details)
+        risk = SETTING_RISK_HINTS.get(key, "Compatibility impact depends on your current workflow.")
+        return (
+            f"What changes: {self.tr(setting_display_name(key))}. "
+            f"When: {timing} "
+            f"Compatibility risk: {risk}"
+        )
+
+    def format_privacy_dashboard(
+        self,
+        *,
+        draft_values: dict,
+        change_details: dict[str, list[dict[str, object]]],
+    ) -> str:
+        immediate = [self.tr(setting_display_name(str(item["key"]))) for item in change_details["immediate"]]
+        reboot = [self.tr(setting_display_name(str(item["key"]))) for item in change_details["reboot"]]
+        services = self.format_policy_runtime_status().splitlines()
+        policy_line = (
+            "Active policies: "
+            f"network={draft_values.get('network_policy', 'unknown')}, "
+            f"sandbox={draft_values.get('sandbox_default', 'unknown')}, "
+            f"devices={draft_values.get('device_policy', 'unknown')}, "
+            f"logging={draft_values.get('logging_policy', 'unknown')}"
+        )
+        changes_line = (
+            "Recent draft changes: "
+            f"now={', '.join(immediate) if immediate else 'none'}; "
+            f"reboot={', '.join(reboot) if reboot else 'none'}"
+        )
+        return "\n".join([policy_line, *services, changes_line])
+
+    def detect_release_channel(self, version: str) -> str:
+        version_text = str(version).lower()
+        if "alpha" in version_text or "nightly" in version_text:
+            return "nightly"
+        if "beta" in version_text or "rc" in version_text:
+            return "beta"
+        return "stable"
+
+    def format_trust_chain_status(self) -> str:
+        version = "unknown"
+        version_path = self.repo_root / "config" / "version"
+        if version_path.exists():
+            try:
+                version = version_path.read_text(encoding="utf-8").strip() or "unknown"
+            except OSError:
+                version = "unknown"
+        channel = self.detect_release_channel(version)
+        manifest_path = self.repo_root / "dist" / "build-manifest.json"
+        manifest = {}
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError, json.JSONDecodeError):
+                manifest = {}
+        build_id = str(manifest.get("build_id", "unknown"))
+        artifact = str(manifest.get("installer_iso", "unknown"))
+        signature_state = "not available in current build"
+        if manifest.get("signature_verified") is True:
+            signature_state = "verified"
+        verification = "partial"
+        if build_id != "unknown" and version != "unknown":
+            verification = "metadata available"
+        return "\n".join(
+            [
+                f"Installed version: {version}",
+                f"Channel: {channel}",
+                f"Build id: {build_id}",
+                f"Installer artifact: {artifact}",
+                f"Signatures: {signature_state}",
+                f"Verification status: {verification}",
+            ]
+        )
+
+    def try_lock_vault_now(self) -> bool:
+        try:
+            from nmos_common.settings_client import load_dbus
+
+            dbus = load_dbus()
+            bus = dbus.SystemBus()
+            proxy = bus.get_object("org.nmos.PersistentStorage", "/org/nmos/PersistentStorage", introspect=False)
+            interface = dbus.Interface(proxy, "org.nmos.PersistentStorage")
+            interface.Lock()
+            return True
+        except Exception:
+            return False
 
     def build_ui(self) -> None:
         header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -579,6 +738,40 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             )
         )
         self.enforcement_status_label.set_text(self.format_policy_runtime_status())
+        self.privacy_dashboard_label.set_text(
+            self.format_privacy_dashboard(draft_values=draft_values, change_details=change_details)
+        )
+        self.trust_chain_label.set_text(self.format_trust_chain_status())
+        self.network_change_explanation.set_text(
+            self.build_setting_change_explanation(key="network_policy", details=change_details)
+        )
+        self.profile_change_explanation.set_text(
+            self.build_setting_change_explanation(key="active_profile", details=change_details)
+        )
+        self.brave_change_explanation.set_text(
+            self.build_setting_change_explanation(key="allow_brave_browser", details=change_details)
+        )
+        self.default_browser_change_explanation.set_text(
+            self.build_setting_change_explanation(key="default_browser", details=change_details)
+        )
+        self.sandbox_change_explanation.set_text(
+            self.build_setting_change_explanation(key="sandbox_default", details=change_details)
+        )
+        self.app_overrides_change_explanation.set_text(
+            self.build_setting_change_explanation(key="app_overrides", details=change_details)
+        )
+        self.vault_auto_lock_change_explanation.set_text(
+            self.build_setting_change_explanation(key="vault_auto_lock_minutes", details=change_details)
+        )
+        self.vault_unlock_change_explanation.set_text(
+            self.build_setting_change_explanation(key="vault_unlock_on_login", details=change_details)
+        )
+        self.device_policy_change_explanation.set_text(
+            self.build_setting_change_explanation(key="device_policy", details=change_details)
+        )
+        self.logging_change_explanation.set_text(
+            self.build_setting_change_explanation(key="logging_policy", details=change_details)
+        )
         pending = draft_settings.get("pending_reboot", [])
         if pending:
             self.pending_reboot_label.set_text(
@@ -599,6 +792,12 @@ class ControlCenterWindow(Adw.ApplicationWindow):
     def on_theme_preview_changed(self, *_args) -> None:
         self.preview_theme()
         self.refresh_summary()
+
+    def on_apply_sandbox_preset(self, _button: Gtk.Button) -> None:
+        preset = self._selected_option_value(self.sandbox_preset_combo, self.APP_SANDBOX_PRESET_OPTIONS)
+        self.apply_sandbox_preset(preset)
+        self.refresh_summary()
+        self.status_label.set_text(f"Sandbox preset applied: {preset}. Review and click Apply Changes.")
 
     def on_refresh(self, _button: Gtk.Button) -> None:
         try:
@@ -645,6 +844,24 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.status_label.set_text("Changes saved. Some protections apply after the next reboot.")
         else:
             self.status_label.set_text("Changes saved.")
+
+    def on_emergency_lockdown(self, _button: Gtk.Button) -> None:
+        self._set_dropdown_value(self.network_combo, [value for value, _label in self.NETWORK_OPTIONS], "offline")
+        self._set_dropdown_value(self.logging_combo, [value for value, _label in self.LOGGING_OPTIONS], "sealed")
+        self._set_dropdown_value(self.device_policy_combo, [value for value, _label in self.DEVICE_POLICY_OPTIONS], "locked")
+        self._set_dropdown_value(self.sandbox_combo, [value for value, _label in self.SANDBOX_OPTIONS], "strict")
+        self._set_dropdown_value(self.vault_auto_lock_combo, [value for value, _label in self.VAULT_AUTO_LOCK_OPTIONS], "0")
+        self.vault_unlock_on_login.set_active(False)
+        self.set_all_app_overrides("none")
+        self.refresh_summary()
+        self.on_apply(self.apply_button)
+        locked_now = self.try_lock_vault_now()
+        suffix = " Vault locked now." if locked_now else " Vault lock will apply on next service action."
+        self.status_label.set_text("Emergency Lockdown applied: offline, sealed logging, locked devices, strict app isolation." + suffix)
+
+    def on_refresh_trust_chain(self, _button: Gtk.Button) -> None:
+        self.trust_chain_label.set_text(self.format_trust_chain_status())
+        self.status_label.set_text("Trust chain data refreshed.")
 
     def on_diagnostics(self, _button: Gtk.Button) -> None:
         self.status_label.set_text(

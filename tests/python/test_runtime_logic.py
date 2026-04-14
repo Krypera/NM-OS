@@ -1151,6 +1151,13 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "_reload_from_backend" in control_center_source
     assert "close-request" in control_center_source
     assert "GLib.idle_add(self._reload_from_backend)" in control_center_source
+    assert "Privacy dashboard" in system_panel_source
+    assert "Trust chain viewer" in system_panel_source
+    assert "Emergency Lockdown" in system_panel_source
+    assert "on_apply_sandbox_preset" in control_center_source
+    assert "apply_sandbox_preset" in control_center_source
+    assert "format_trust_chain_status" in control_center_source
+    assert "build_setting_change_explanation" in control_center_source
     assert "Diagnostics" in control_center_source
     assert "Enforcement status" in system_panel_source
     assert "app-isolation-status.json" in control_center_source

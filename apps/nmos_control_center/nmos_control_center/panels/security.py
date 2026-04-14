@@ -33,8 +33,14 @@ def build(window) -> Gtk.Widget:
 
     window.vault_auto_lock_combo = string_dropdown([label for _value, label in window.VAULT_AUTO_LOCK_OPTIONS])
     window.vault_auto_lock_combo.connect("notify::selected", window.on_draft_settings_changed)
+    window.vault_auto_lock_change_explanation = Gtk.Label(xalign=0)
+    window.vault_auto_lock_change_explanation.set_wrap(True)
+    window.vault_auto_lock_change_explanation.add_css_class("dim-label")
     window.vault_unlock_on_login = Gtk.Switch()
     window.vault_unlock_on_login.connect("notify::active", window.on_draft_settings_changed)
+    window.vault_unlock_change_explanation = Gtk.Label(xalign=0)
+    window.vault_unlock_change_explanation.set_wrap(True)
+    window.vault_unlock_change_explanation.add_css_class("dim-label")
     window.vault_explanation = Gtk.Label(xalign=0)
     window.vault_explanation.set_wrap(True)
     window.vault_explanation.add_css_class("dim-label")
@@ -48,6 +54,12 @@ def build(window) -> Gtk.Widget:
     
     window.brave_switch = Gtk.Switch()
     window.brave_switch.connect("notify::active", window.on_draft_settings_changed)
+    window.brave_change_explanation = Gtk.Label(xalign=0)
+    window.brave_change_explanation.set_wrap(True)
+    window.brave_change_explanation.add_css_class("dim-label")
+    window.profile_change_explanation = Gtk.Label(xalign=0)
+    window.profile_change_explanation.set_wrap(True)
+    window.profile_change_explanation.add_css_class("dim-label")
 
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
 
@@ -60,6 +72,7 @@ def build(window) -> Gtk.Widget:
                 "Balanced is recommended. Other profiles trade comfort for stronger or lighter restrictions.",
                 window.profile_combo,
             ),
+            window.profile_change_explanation,
             window.profile_summary,
             window.profile_guidance,
             window.profile_tradeoff,
@@ -81,11 +94,13 @@ def build(window) -> Gtk.Widget:
                 "Choose how quickly the encrypted vault should relock after inactivity.",
                 window.vault_auto_lock_combo,
             ),
+            window.vault_auto_lock_change_explanation,
             labelled_control(
                 "Unlock on login",
                 "Keep this off unless you explicitly want convenience ahead of stronger separation.",
                 window.vault_unlock_on_login,
             ),
+            window.vault_unlock_change_explanation,
             labelled_control(
                 "Vault passphrase check",
                 "Use at least 12 chars with upper/lowercase, number, and special character.",
@@ -105,6 +120,7 @@ def build(window) -> Gtk.Widget:
                 "Brave stays hidden unless the build enables it and you allow it here.",
                 window.brave_switch,
             ),
+            window.brave_change_explanation,
         ]
     )
 
