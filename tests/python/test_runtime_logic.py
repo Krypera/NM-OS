@@ -598,6 +598,8 @@ def test_greeter_layout_is_setup_only(repo_root: Path) -> None:
     assert "read_network_status()" in main_source
     assert "load_onboarding_page_index" in main_source
     assert '"onboarding_page_index"' in main_source
+    assert '"onboarding_page_index": self.page_index' in main_source
+    assert '"onboarding_page_index": 0' in main_source
     assert 'self.stack.set_visible_child_name(f"page-{self.page_index}")' in main_source
     assert "persistent-storage.json" in main_source
     assert "Settings backend: reachable." in main_source

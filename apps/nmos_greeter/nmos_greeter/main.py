@@ -248,6 +248,7 @@ class GreeterWindow(Adw.ApplicationWindow):
                     "allow_brave_browser": bool(state.get("allow_brave_browser", False)),
                     "browser": state.get("browser", "firefox-esr"),
                     "default_browser": state.get("default_browser", "firefox-esr"),
+                    "onboarding_page_index": self.page_index,
                 }
             )
             client = self.settings_client_factory()
@@ -256,6 +257,17 @@ class GreeterWindow(Adw.ApplicationWindow):
                 client.set_overrides(overrides)
             self.system_settings = client.commit()
             self.state = dict(self.system_settings)
+            # Setup completed successfully; start from page 0 on the next run.
+            self.save_state(
+                {
+                    "locale": self.system_settings.get("locale", DEFAULT_UI_LOCALE),
+                    "keyboard": self.system_settings.get("keyboard", "us"),
+                    "network_policy": self.system_settings.get("network_policy", "tor"),
+                    "allow_brave_browser": bool(self.system_settings.get("allow_brave_browser", False)),
+                    "default_browser": self.system_settings.get("default_browser", "firefox-esr"),
+                    "onboarding_page_index": 0,
+                }
+            )
         except (OSError, ValueError, RuntimeError, SettingsClientError) as exc:
             self.logger.error("failed to save system settings: %s", exc)
             if isinstance(exc, SettingsClientError):
