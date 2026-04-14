@@ -167,3 +167,18 @@ class SettingsClient:
 
     def commit(self) -> dict:
         return self._with_fallback("Commit", DBUS_WRITE_INTERFACE, self.local.commit)
+
+    def connect_settings_changed(self, handler):
+        try:
+            dbus = load_dbus()
+            bus = dbus.SystemBus()
+            proxy = bus.get_object(DBUS_NAME, DBUS_PATH, introspect=False)
+            interface = dbus.Interface(proxy, DBUS_WRITE_INTERFACE)
+            match = interface.connect_to_signal("SettingsChanged", handler)
+        except Exception as error:
+            raise SettingsClientError(
+                "ConnectSettingsChanged",
+                self._classify_error_reason(error),
+                dbus_name=self._dbus_error_name(error),
+            ) from error
+        return bus, interface, match

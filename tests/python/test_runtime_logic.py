@@ -235,6 +235,41 @@ def test_settings_client_access_denied_never_falls_back() -> None:
         assert "denied access" in error.user_message().lower()
 
 
+def test_settings_client_commit_failure_is_reported_without_fallback() -> None:
+    client = SettingsClient(allow_local_fallback=False)
+    client._interface = lambda _interface: (_ for _ in ()).throw(_MockRetriableDBusError())  # type: ignore[method-assign]
+    try:
+        client.commit()
+        assert False, "Expected SettingsClientError when commit cannot reach backend"
+    except SettingsClientError as error:
+        assert error.method_name == "Commit"
+        assert error.reason == "transport_error"
+
+
+def test_settings_client_commit_uses_local_fallback_only_when_enabled() -> None:
+    client = SettingsClient(allow_local_fallback=True)
+    client._interface = lambda _interface: (_ for _ in ()).throw(_MockRetriableDBusError())  # type: ignore[method-assign]
+    client.local.commit = lambda: {"source": "local"}  # type: ignore[method-assign]
+    assert client.commit() == {"source": "local"}
+
+
+def test_settings_client_connect_signal_failure_is_classified(monkeypatch) -> None:
+    client = SettingsClient(allow_local_fallback=False)
+
+    def _raise_backend_unavailable():
+        raise _MockBackendUnavailableDBusError()
+
+    import nmos_common.settings_client as settings_client_module
+
+    monkeypatch.setattr(settings_client_module, "load_dbus", _raise_backend_unavailable)
+    try:
+        client.connect_settings_changed(lambda _payload: None)
+        assert False, "Expected SettingsClientError when connecting to SettingsChanged signal fails"
+    except SettingsClientError as error:
+        assert error.method_name == "ConnectSettingsChanged"
+        assert error.reason == "backend_unavailable"
+
+
 def test_settings_client_uses_read_write_interfaces() -> None:
     client = SettingsClient(allow_local_fallback=False)
     called_interfaces: list[str] = []
