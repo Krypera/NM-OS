@@ -14,6 +14,11 @@ def build(window) -> Gtk.Widget:
     window.logging_change_explanation = Gtk.Label(xalign=0)
     window.logging_change_explanation.set_wrap(True)
     window.logging_change_explanation.add_css_class("dim-label")
+    window.ram_wipe_combo = string_dropdown([label for _v, label in window.RAM_WIPE_OPTIONS])
+    window.ram_wipe_combo.connect("notify::selected", window.on_draft_settings_changed)
+    window.ram_wipe_change_explanation = Gtk.Label(xalign=0)
+    window.ram_wipe_change_explanation.set_wrap(True)
+    window.ram_wipe_change_explanation.add_css_class("dim-label")
 
     window.system_explanation = Gtk.Label(xalign=0)
     window.system_explanation.set_wrap(True)
@@ -31,6 +36,9 @@ def build(window) -> Gtk.Widget:
     window.recovery_status_label = Gtk.Label(xalign=0)
     window.recovery_status_label.set_wrap(True)
     window.recovery_status_label.add_css_class("dim-label")
+    window.ram_wipe_status_label = Gtk.Label(xalign=0)
+    window.ram_wipe_status_label.set_wrap(True)
+    window.ram_wipe_status_label.add_css_class("dim-label")
     window.emergency_lockdown_button = Gtk.Button(label="Emergency Lockdown")
     window.emergency_lockdown_button.add_css_class("destructive-action")
     window.emergency_lockdown_button.connect("clicked", window.on_emergency_lockdown)
@@ -68,6 +76,13 @@ def build(window) -> Gtk.Widget:
                 window.logging_combo,
             ),
             window.logging_change_explanation,
+            labelled_control(
+                "RAM wipe policy",
+                "Balanced enables kernel memory scrubbing with moderate overhead; Strict maximizes hygiene.",
+                window.ram_wipe_combo,
+            ),
+            window.ram_wipe_change_explanation,
+            window.ram_wipe_status_label,
             window.system_explanation,
             Gtk.Label(label="Privacy dashboard", xalign=0),
             window.privacy_dashboard_label,

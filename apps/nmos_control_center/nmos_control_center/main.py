@@ -71,6 +71,11 @@ LOGGING_OPTIONS = (
     ("minimal", "Minimal"),
     ("sealed", "Sealed"),
 )
+RAM_WIPE_OPTIONS = (
+    ("off", "Off"),
+    ("balanced", "Balanced"),
+    ("strict", "Strict"),
+)
 THEME_PROFILE_OPTIONS = tuple(THEME_PROFILE_LABELS.items())
 ACCENT_OPTIONS = tuple(ACCENT_LABELS.items())
 DENSITY_OPTIONS = tuple(DENSITY_LABELS.items())
@@ -111,6 +116,7 @@ SETTING_RISK_HINTS = {
     "default_browser": "Link handling behavior across desktop apps changes immediately.",
     "device_policy": "External peripherals and removable media behavior may tighten.",
     "logging_policy": "Diagnostic visibility may decrease as retention gets stricter.",
+    "ram_wipe_mode": "Stricter memory wiping improves hygiene but can reduce performance.",
     "vault_auto_lock_minutes": "Shorter lock timers reduce convenience during active work.",
     "vault_unlock_on_login": "Disabling auto-unlock increases manual unlock steps.",
     "app_overrides": "Per-app file access can break assumptions for some Flatpak apps.",
@@ -145,6 +151,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.logging_status_file = runtime_dir / "logging-policy-status.json"
         self.app_isolation_status_file = runtime_dir / "app-isolation-status.json"
         self.device_policy_status_file = runtime_dir / "device-policy-status.json"
+        self.ram_wipe_status_file = runtime_dir / "ram-wipe-status.json"
         self.update_status_file = runtime_dir / "update-center-status.json"
         self.update_history_file = runtime_dir / "update-center-history.json"
         self.update_catalog_file = self.repo_root / "config" / "update-catalog.json"
@@ -162,6 +169,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.SANDBOX_OPTIONS = SANDBOX_OPTIONS
         self.DEVICE_POLICY_OPTIONS = DEVICE_POLICY_OPTIONS
         self.LOGGING_OPTIONS = LOGGING_OPTIONS
+        self.RAM_WIPE_OPTIONS = RAM_WIPE_OPTIONS
         self.THEME_PROFILE_OPTIONS = THEME_PROFILE_OPTIONS
         self.ACCENT_OPTIONS = ACCENT_OPTIONS
         self.DENSITY_OPTIONS = DENSITY_OPTIONS
@@ -386,6 +394,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         app_status = read_runtime_json(self.app_isolation_status_file, default={})
         logging_status = read_runtime_json(self.logging_status_file, default={})
         device_status = read_runtime_json(self.device_policy_status_file, default={})
+        ram_wipe_status = read_runtime_json(self.ram_wipe_status_file, default={})
 
         lines = []
         if app_status:
@@ -427,6 +436,36 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                 lines.append("Action: review nmos-logging-policy.service diagnostics.")
         else:
             lines.append("Logging policy: status unavailable")
+        if ram_wipe_status:
+            update_ok = bool(ram_wipe_status.get("update_grub_ok", False))
+            reboot_required = bool(ram_wipe_status.get("reboot_required", False))
+            lines.append(
+                "RAM wipe policy: "
+                f"mode={ram_wipe_status.get('ram_wipe_mode', 'unknown')} "
+                f"update_grub={update_ok} "
+                f"reboot_required={reboot_required}"
+            )
+            if not update_ok:
+                lines.append("Action: review nmos-ram-wipe-policy.service diagnostics.")
+        else:
+            lines.append("RAM wipe policy: status unavailable")
+        return "\n".join(lines)
+
+    def format_ram_wipe_status(self) -> str:
+        status = read_runtime_json(self.ram_wipe_status_file, default={})
+        if not status:
+            return "RAM wipe runtime status is unavailable."
+        mode = str(status.get("ram_wipe_mode", "unknown"))
+        update_grub_ok = bool(status.get("update_grub_ok", False))
+        update_grub_detail = str(status.get("update_grub_detail", ""))
+        reboot_required = bool(status.get("reboot_required", False))
+        lines = [
+            f"Mode: {mode}",
+            f"update-grub: {update_grub_ok}",
+            f"Reboot required: {reboot_required}",
+        ]
+        if update_grub_detail:
+            lines.append(f"Detail: {update_grub_detail}")
         return "\n".join(lines)
 
     def _change_timing_for_key(self, key: str, details: dict[str, list[dict[str, object]]]) -> str:
@@ -987,6 +1026,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         sandbox_default = str(settings.get("sandbox_default", "focused"))
         device_policy = str(settings.get("device_policy", "prompt"))
         logging_policy = str(settings.get("logging_policy", "minimal"))
+        ram_wipe_mode = str(settings.get("ram_wipe_mode", "balanced"))
         theme_profile = str(settings.get("ui_theme_profile", "nmos-classic"))
         accent = str(settings.get("ui_accent", "amber"))
         density = str(settings.get("ui_density", "comfortable"))
@@ -1002,6 +1042,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self._set_dropdown_value(self.sandbox_combo, [value for value, _label in SANDBOX_OPTIONS], sandbox_default)
         self._set_dropdown_value(self.device_policy_combo, [value for value, _label in DEVICE_POLICY_OPTIONS], device_policy)
         self._set_dropdown_value(self.logging_combo, [value for value, _label in LOGGING_OPTIONS], logging_policy)
+        self._set_dropdown_value(self.ram_wipe_combo, [value for value, _label in RAM_WIPE_OPTIONS], ram_wipe_mode)
         self._set_dropdown_value(self.theme_profile_combo, [value for value, _label in THEME_PROFILE_OPTIONS], theme_profile)
         self._set_dropdown_value(self.accent_combo, [value for value, _label in ACCENT_OPTIONS], accent)
         self._set_dropdown_value(self.density_combo, [value for value, _label in DENSITY_OPTIONS], density)
@@ -1056,6 +1097,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             },
             "device_policy": self._selected_value(self.device_policy_combo, [value for value, _label in DEVICE_POLICY_OPTIONS]),
             "logging_policy": self._selected_value(self.logging_combo, [value for value, _label in LOGGING_OPTIONS]),
+            "ram_wipe_mode": self._selected_value(self.ram_wipe_combo, [value for value, _label in RAM_WIPE_OPTIONS]),
             "ui_theme_profile": self._selected_value(self.theme_profile_combo, [value for value, _label in THEME_PROFILE_OPTIONS]),
             "ui_accent": self._selected_value(self.accent_combo, [value for value, _label in ACCENT_OPTIONS]),
             "ui_density": self._selected_value(self.density_combo, [value for value, _label in DENSITY_OPTIONS]),
@@ -1149,6 +1191,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                 [
                     explain_device_policy(self.ui_locale, str(draft_values["device_policy"])),
                     explain_logging_policy(self.ui_locale, str(draft_values["logging_policy"])),
+                    "RAM wipe policy controls kernel memory scrubbing flags and usually needs a reboot.",
                 ]
             )
         )
@@ -1158,6 +1201,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         )
         self.trust_chain_label.set_text(self.format_trust_chain_status())
         self.recovery_status_label.set_text(self.format_recovery_status())
+        self.ram_wipe_status_label.set_text(self.format_ram_wipe_status())
         self.refresh_update_center()
         self.network_change_explanation.set_text(
             self.build_setting_change_explanation(key="network_policy", details=change_details)
@@ -1188,6 +1232,9 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         )
         self.logging_change_explanation.set_text(
             self.build_setting_change_explanation(key="logging_policy", details=change_details)
+        )
+        self.ram_wipe_change_explanation.set_text(
+            self.build_setting_change_explanation(key="ram_wipe_mode", details=change_details)
         )
         pending = draft_settings.get("pending_reboot", [])
         if pending:
@@ -1278,6 +1325,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self._set_dropdown_value(self.logging_combo, [value for value, _label in self.LOGGING_OPTIONS], "sealed")
         self._set_dropdown_value(self.device_policy_combo, [value for value, _label in self.DEVICE_POLICY_OPTIONS], "locked")
         self._set_dropdown_value(self.sandbox_combo, [value for value, _label in self.SANDBOX_OPTIONS], "strict")
+        self._set_dropdown_value(self.ram_wipe_combo, [value for value, _label in self.RAM_WIPE_OPTIONS], "strict")
         self._set_dropdown_value(self.vault_auto_lock_combo, [value for value, _label in self.VAULT_AUTO_LOCK_OPTIONS], "0")
         self.vault_unlock_on_login.set_active(False)
         self.set_all_app_overrides("none")

@@ -1157,11 +1157,13 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "Recovery actions" in system_panel_source
     assert "Create diagnostics bundle" in system_panel_source
     assert "Rollback last settings" in system_panel_source
+    assert "RAM wipe policy" in system_panel_source
     assert "Update center" in system_panel_source
     assert "on_apply_sandbox_preset" in control_center_source
     assert "apply_sandbox_preset" in control_center_source
     assert "format_trust_chain_status" in control_center_source
     assert "format_recovery_status" in control_center_source
+    assert "format_ram_wipe_status" in control_center_source
     assert "build_setting_change_explanation" in control_center_source
     assert "UPDATE_CHANNEL_OPTIONS" in control_center_source
     assert "on_check_updates" in control_center_source
@@ -1177,6 +1179,7 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "app-isolation-status.json" in control_center_source
     assert "device-policy-status.json" in control_center_source
     assert "logging-policy-status.json" in control_center_source
+    assert "ram-wipe-status.json" in control_center_source
     assert "release-manifest.json" in control_center_source
     assert "update-catalog.json" in control_center_source
     assert "recovery-diagnostics.json" in control_center_source
