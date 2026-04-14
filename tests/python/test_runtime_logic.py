@@ -1154,10 +1154,15 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "Privacy dashboard" in system_panel_source
     assert "Trust chain viewer" in system_panel_source
     assert "Emergency Lockdown" in system_panel_source
+    assert "Update center" in system_panel_source
     assert "on_apply_sandbox_preset" in control_center_source
     assert "apply_sandbox_preset" in control_center_source
     assert "format_trust_chain_status" in control_center_source
     assert "build_setting_change_explanation" in control_center_source
+    assert "UPDATE_CHANNEL_OPTIONS" in control_center_source
+    assert "on_check_updates" in control_center_source
+    assert "on_apply_update" in control_center_source
+    assert "on_rollback_update" in control_center_source
     assert "Diagnostics" in control_center_source
     assert "Enforcement status" in system_panel_source
     assert "app-isolation-status.json" in control_center_source

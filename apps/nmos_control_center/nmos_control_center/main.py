@@ -87,6 +87,11 @@ APP_SANDBOX_PRESET_OPTIONS = (
     ("balanced", "Balanced"),
     ("compatible", "Compatible"),
 )
+UPDATE_CHANNEL_OPTIONS = (
+    ("stable", "Stable"),
+    ("beta", "Beta"),
+    ("nightly", "Nightly"),
+)
 VAULT_AUTO_LOCK_OPTIONS = (
     ("0", "Manual lock"),
     ("5", "5 minutes"),
@@ -135,6 +140,9 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.logging_status_file = runtime_dir / "logging-policy-status.json"
         self.app_isolation_status_file = runtime_dir / "app-isolation-status.json"
         self.device_policy_status_file = runtime_dir / "device-policy-status.json"
+        self.update_status_file = runtime_dir / "update-center-status.json"
+        self.update_history_file = runtime_dir / "update-center-history.json"
+        self.update_catalog_file = self.repo_root / "config" / "update-catalog.json"
         
         self.KEYBOARD_OPTIONS = KEYBOARD_OPTIONS
         self.NETWORK_OPTIONS = NETWORK_OPTIONS
@@ -148,6 +156,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.DEFAULT_BROWSER_OPTIONS = DEFAULT_BROWSER_OPTIONS
         self.APP_FILESYSTEM_OPTIONS = APP_FILESYSTEM_OPTIONS
         self.APP_SANDBOX_PRESET_OPTIONS = APP_SANDBOX_PRESET_OPTIONS
+        self.UPDATE_CHANNEL_OPTIONS = UPDATE_CHANNEL_OPTIONS
         self.VAULT_AUTO_LOCK_OPTIONS = VAULT_AUTO_LOCK_OPTIONS
         self.app_override_dropdowns: dict[str, Gtk.DropDown] = {}
 
@@ -461,14 +470,131 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             return "beta"
         return "stable"
 
-    def format_trust_chain_status(self) -> str:
-        version = "unknown"
+    def _selected_update_channel(self) -> str:
+        return self._selected_option_value(self.update_channel_combo, self.UPDATE_CHANNEL_OPTIONS)
+
+    def _current_timestamp(self) -> str:
+        now = GLib.DateTime.new_now_local()
+        formatted = now.format("%Y-%m-%d %H:%M:%S %Z")
+        return formatted or "unknown"
+
+    def load_update_status(self) -> dict[str, object]:
+        data = read_runtime_json(self.update_status_file, default={})
+        if isinstance(data, dict):
+            return data
+        return {}
+
+    def write_update_status(self, payload: dict[str, object]) -> None:
+        self.update_status_file.parent.mkdir(parents=True, exist_ok=True)
+        self.update_status_file.write_text(
+            json.dumps(payload, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+
+    def load_update_history(self) -> list[dict[str, object]]:
+        if not self.update_history_file.exists():
+            return []
+        try:
+            payload = json.loads(self.update_history_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError, json.JSONDecodeError):
+            return []
+        if not isinstance(payload, list):
+            return []
+        history: list[dict[str, object]] = []
+        for item in payload:
+            if isinstance(item, dict):
+                history.append(item)
+        return history
+
+    def write_update_history(self, history: list[dict[str, object]]) -> None:
+        self.update_history_file.parent.mkdir(parents=True, exist_ok=True)
+        self.update_history_file.write_text(
+            json.dumps(history, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+
+    def read_installed_version(self) -> str:
+        status = self.load_update_status()
+        status_version = str(status.get("installed_version", "")).strip()
+        if status_version:
+            return status_version
         version_path = self.repo_root / "config" / "version"
         if version_path.exists():
             try:
-                version = version_path.read_text(encoding="utf-8").strip() or "unknown"
+                version = version_path.read_text(encoding="utf-8").strip()
+                if version:
+                    return version
             except OSError:
-                version = "unknown"
+                pass
+        return "unknown"
+
+    def load_update_catalog(self) -> dict[str, dict[str, str]]:
+        if self.update_catalog_file.exists():
+            try:
+                payload = json.loads(self.update_catalog_file.read_text(encoding="utf-8"))
+            except (OSError, ValueError, json.JSONDecodeError):
+                payload = {}
+            if isinstance(payload, dict):
+                catalog: dict[str, dict[str, str]] = {}
+                for channel in ("stable", "beta", "nightly"):
+                    item = payload.get(channel, {})
+                    if isinstance(item, dict):
+                        catalog[channel] = {
+                            "version": str(item.get("version", "")).strip(),
+                            "notes": str(item.get("notes", "")).strip(),
+                        }
+                if catalog:
+                    return catalog
+        installed = self.read_installed_version()
+        return {
+            "stable": {"version": installed, "notes": "No catalog published."},
+            "beta": {"version": installed, "notes": "No catalog published."},
+            "nightly": {"version": installed, "notes": "No catalog published."},
+        }
+
+    def refresh_update_center(self, *, persist_status: bool = False) -> None:
+        installed_version = self.read_installed_version()
+        status = self.load_update_status()
+        default_channel = self.detect_release_channel(installed_version)
+        selected_channel = self._selected_update_channel()
+        if selected_channel not in {value for value, _label in self.UPDATE_CHANNEL_OPTIONS}:
+            selected_channel = str(status.get("channel", default_channel) or default_channel)
+        catalog = self.load_update_catalog()
+        available = catalog.get(selected_channel, {})
+        available_version = str(available.get("version", "")).strip() or "unknown"
+        available_notes = str(available.get("notes", "")).strip() or "No release notes."
+        has_update = (
+            available_version not in {"", "unknown"}
+            and installed_version not in {"", "unknown"}
+            and available_version != installed_version
+        )
+        last_checked_at = str(status.get("last_checked_at", "never"))
+        last_action = str(status.get("last_action", "No update action yet."))
+        state_line = "Update available." if has_update else "System is up to date for selected channel."
+        self.update_status_label.set_text(
+            "\n".join(
+                [
+                    f"Installed version: {installed_version}",
+                    f"Selected channel: {selected_channel}",
+                    f"Available version: {available_version}",
+                    f"State: {state_line}",
+                    f"Last checked: {last_checked_at}",
+                    f"Last action: {last_action}",
+                    f"Release notes: {available_notes}",
+                ]
+            )
+        )
+        self.update_apply_button.set_sensitive(has_update)
+        self.update_rollback_button.set_sensitive(len(self.load_update_history()) > 0)
+        if persist_status:
+            next_status = dict(status)
+            next_status["channel"] = selected_channel
+            if "installed_version" not in next_status:
+                next_status["installed_version"] = installed_version
+            self.write_update_status(next_status)
+
+    def format_trust_chain_status(self) -> str:
+        version = self.read_installed_version()
         channel = self.detect_release_channel(version)
         manifest_path = self.repo_root / "dist" / "build-manifest.json"
         manifest = {}
@@ -495,6 +621,72 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                 f"Verification status: {verification}",
             ]
         )
+
+    def on_update_channel_changed(self, *_args) -> None:
+        self.refresh_update_center(persist_status=True)
+
+    def on_check_updates(self, _button: Gtk.Button) -> None:
+        status = self.load_update_status()
+        status["last_checked_at"] = self._current_timestamp()
+        status["channel"] = self._selected_update_channel()
+        status["last_action"] = "Checked for updates."
+        if "installed_version" not in status:
+            status["installed_version"] = self.read_installed_version()
+        self.write_update_status(status)
+        self.refresh_update_center()
+        self.status_label.set_text("Update check completed.")
+
+    def on_apply_update(self, _button: Gtk.Button) -> None:
+        status = self.load_update_status()
+        channel = self._selected_update_channel()
+        catalog = self.load_update_catalog()
+        available = catalog.get(channel, {})
+        target_version = str(available.get("version", "")).strip()
+        installed_version = self.read_installed_version()
+        if not target_version or target_version == "unknown" or target_version == installed_version:
+            self.refresh_update_center()
+            self.status_label.set_text("No newer version available in the selected channel.")
+            return
+        history = self.load_update_history()
+        history.append(
+            {
+                "action": "apply",
+                "channel": channel,
+                "from": installed_version,
+                "to": target_version,
+                "at": self._current_timestamp(),
+            }
+        )
+        self.write_update_history(history)
+        status["channel"] = channel
+        status["installed_version"] = target_version
+        status["last_checked_at"] = self._current_timestamp()
+        status["last_action"] = f"Updated from {installed_version} to {target_version}."
+        self.write_update_status(status)
+        self.trust_chain_label.set_text(self.format_trust_chain_status())
+        self.refresh_update_center()
+        self.status_label.set_text("Update applied in control-center metadata. Reboot and verify package rollout.")
+
+    def on_rollback_update(self, _button: Gtk.Button) -> None:
+        history = self.load_update_history()
+        if not history:
+            self.refresh_update_center()
+            self.status_label.set_text("No update history available for rollback.")
+            return
+        last_entry = history.pop()
+        previous_version = str(last_entry.get("from", "")).strip()
+        if not previous_version:
+            previous_version = "unknown"
+        status = self.load_update_status()
+        status["installed_version"] = previous_version
+        status["last_checked_at"] = self._current_timestamp()
+        status["last_action"] = f"Rolled back to {previous_version}."
+        status["channel"] = self._selected_update_channel()
+        self.write_update_history(history)
+        self.write_update_status(status)
+        self.trust_chain_label.set_text(self.format_trust_chain_status())
+        self.refresh_update_center()
+        self.status_label.set_text("Rollback recorded. Reboot and verify package state before continuing.")
 
     def try_lock_vault_now(self) -> bool:
         try:
@@ -602,6 +794,15 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self._set_dropdown_value(self.motion_combo, [value for value, _label in MOTION_OPTIONS], motion)
         self._set_dropdown_value(self.default_browser_combo, [value for value, _label in DEFAULT_BROWSER_OPTIONS], default_browser)
         self._set_dropdown_value(self.vault_auto_lock_combo, [value for value, _label in VAULT_AUTO_LOCK_OPTIONS], auto_lock)
+        update_status = self.load_update_status()
+        update_channel = str(
+            update_status.get("channel", self.detect_release_channel(self.read_installed_version()))
+        )
+        self._set_dropdown_value(
+            self.update_channel_combo,
+            [value for value, _label in UPDATE_CHANNEL_OPTIONS],
+            update_channel,
+        )
         self.brave_switch.set_active(bool(settings.get("allow_brave_browser", False)))
         self.vault_unlock_on_login.set_active(bool(vault.get("unlock_on_login", False)))
         self.vault_passphrase_entry.set_text("")
@@ -742,6 +943,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.format_privacy_dashboard(draft_values=draft_values, change_details=change_details)
         )
         self.trust_chain_label.set_text(self.format_trust_chain_status())
+        self.refresh_update_center()
         self.network_change_explanation.set_text(
             self.build_setting_change_explanation(key="network_policy", details=change_details)
         )
