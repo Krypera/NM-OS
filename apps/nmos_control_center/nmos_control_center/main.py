@@ -26,7 +26,12 @@ from nmos_common.i18n import (
 )
 from nmos_common.passphrase_policy import passphrase_feedback_text
 from nmos_common.platform_adapter import get_runtime_dir
-from nmos_common.runtime_state import read_runtime_json
+from nmos_common.runtime_state import (
+    read_runtime_json,
+    read_runtime_text,
+    write_runtime_json,
+    write_runtime_text,
+)
 from nmos_common.settings_client import SettingsClient, SettingsClientError
 from nmos_common.system_settings import (
     ACCENT_LABELS,
@@ -143,7 +148,9 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.update_status_file = runtime_dir / "update-center-status.json"
         self.update_history_file = runtime_dir / "update-center-history.json"
         self.update_catalog_file = self.repo_root / "config" / "update-catalog.json"
-        
+        self.recovery_bundle_file = runtime_dir / "recovery-diagnostics.json"
+        self.settings_snapshot_file = runtime_dir / "settings-rollback-snapshot.json"
+
         self.KEYBOARD_OPTIONS = KEYBOARD_OPTIONS
         self.NETWORK_OPTIONS = NETWORK_OPTIONS
         self.SANDBOX_OPTIONS = SANDBOX_OPTIONS
@@ -485,17 +492,13 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         return {}
 
     def write_update_status(self, payload: dict[str, object]) -> None:
-        self.update_status_file.parent.mkdir(parents=True, exist_ok=True)
-        self.update_status_file.write_text(
-            json.dumps(payload, indent=2, sort_keys=True),
-            encoding="utf-8",
-        )
+        write_runtime_json(self.update_status_file, payload)
 
     def load_update_history(self) -> list[dict[str, object]]:
         if not self.update_history_file.exists():
             return []
         try:
-            payload = json.loads(self.update_history_file.read_text(encoding="utf-8"))
+            payload = json.loads(read_runtime_text(self.update_history_file))
         except (OSError, ValueError, json.JSONDecodeError):
             return []
         if not isinstance(payload, list):
@@ -507,10 +510,90 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         return history
 
     def write_update_history(self, history: list[dict[str, object]]) -> None:
-        self.update_history_file.parent.mkdir(parents=True, exist_ok=True)
-        self.update_history_file.write_text(
+        write_runtime_text(
+            self.update_history_file,
             json.dumps(history, indent=2, sort_keys=True),
-            encoding="utf-8",
+        )
+
+    def load_settings_snapshot(self) -> dict[str, object]:
+        data = read_runtime_json(self.settings_snapshot_file, default={})
+        if isinstance(data, dict):
+            return data
+        return {}
+
+    def write_settings_snapshot(self, payload: dict[str, object]) -> None:
+        write_runtime_json(self.settings_snapshot_file, payload)
+
+    def snapshot_current_settings(self, *, reason: str) -> bool:
+        current_settings = normalize_system_settings(self.settings)
+        snapshot = {
+            "taken_at": self._current_timestamp(),
+            "reason": reason,
+            "settings": current_settings,
+        }
+        try:
+            self.write_settings_snapshot(snapshot)
+        except OSError:
+            return False
+        return True
+
+    def load_recovery_bundle(self) -> dict[str, object]:
+        data = read_runtime_json(self.recovery_bundle_file, default={})
+        if isinstance(data, dict):
+            return data
+        return {}
+
+    def build_diagnostics_bundle(self) -> dict[str, object]:
+        try:
+            effective_settings = self.client.get_effective_settings()
+        except SettingsClientError:
+            effective_settings = normalize_system_settings(self.settings)
+        bundle_id = GLib.DateTime.new_now_utc().format("%Y%m%dT%H%M%SZ") or "unknown"
+        update_history = self.load_update_history()
+        return {
+            "bundle_id": bundle_id,
+            "created_at": self._current_timestamp(),
+            "backend_ready": self.backend_ready,
+            "startup_error_message": self.startup_error_message,
+            "settings": normalize_system_settings(self.settings),
+            "effective_settings": effective_settings,
+            "policy_runtime_status": {
+                "app_isolation": read_runtime_json(self.app_isolation_status_file, default={}),
+                "device_policy": read_runtime_json(self.device_policy_status_file, default={}),
+                "logging_policy": read_runtime_json(self.logging_status_file, default={}),
+            },
+            "update_center": {
+                "status": self.load_update_status(),
+                "history_count": len(update_history),
+                "history_tail": update_history[-5:],
+            },
+            "rollback_snapshot": self.load_settings_snapshot(),
+            "trust_chain": self.format_trust_chain_status().splitlines(),
+            "diagnostic_commands": [
+                "systemctl status nmos-settings.service nmos-app-isolation-policy.service nmos-device-policy.service nmos-logging-policy.service",
+                "journalctl -u nmos-settings.service -u nmos-app-isolation-policy.service -u nmos-device-policy.service -u nmos-logging-policy.service -n 50",
+            ],
+        }
+
+    def format_recovery_status(self) -> str:
+        snapshot = self.load_settings_snapshot()
+        snapshot_settings = snapshot.get("settings", {}) if isinstance(snapshot.get("settings", {}), dict) else {}
+        snapshot_profile = str(snapshot_settings.get("active_profile", "unknown"))
+        snapshot_time = str(snapshot.get("taken_at", "not captured"))
+        snapshot_reason = str(snapshot.get("reason", "No rollback snapshot captured yet."))
+        bundle = self.load_recovery_bundle()
+        bundle_time = str(bundle.get("created_at", "not created"))
+        bundle_id = str(bundle.get("bundle_id", "not created"))
+        self.snapshot_rollback_button.set_sensitive(bool(snapshot_settings) and self.backend_ready)
+        return "\n".join(
+            [
+                f"Rollback snapshot: {snapshot_time}",
+                f"Snapshot profile: {snapshot_profile}",
+                f"Snapshot reason: {snapshot_reason}",
+                f"Diagnostics bundle: {bundle_id}",
+                f"Bundle created: {bundle_time}",
+                "Recovery guidance: create a diagnostics bundle before resetting or rolling back settings.",
+            ]
         )
 
     def read_installed_version(self) -> str:
@@ -943,6 +1026,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.format_privacy_dashboard(draft_values=draft_values, change_details=change_details)
         )
         self.trust_chain_label.set_text(self.format_trust_chain_status())
+        self.recovery_status_label.set_text(self.format_recovery_status())
         self.refresh_update_center()
         self.network_change_explanation.set_text(
             self.build_setting_change_explanation(key="network_policy", details=change_details)
@@ -1018,6 +1102,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.status_label.set_text("Settings refreshed.")
 
     def on_reset_to_profile(self, _button: Gtk.Button) -> None:
+        snapshot_saved = self.snapshot_current_settings(reason="Before reset to profile")
         try:
             self.client.apply_preset(self._selected_value(self.profile_combo, self.profile_values))
             self.settings = self.client.commit()
@@ -1026,12 +1111,16 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             return
         self.restore_settings()
         self.refresh_summary()
-        self.status_label.set_text("Overrides removed. The selected profile is active again.")
+        if snapshot_saved:
+            self.status_label.set_text("Overrides removed. The selected profile is active again. Rollback snapshot captured.")
+        else:
+            self.status_label.set_text("Overrides removed. The selected profile is active again.")
 
     def on_apply(self, _button: Gtk.Button) -> None:
         profile = self._selected_value(self.profile_combo, self.profile_values)
         values = self.collect_values()
         overrides = derive_overrides_for_profile(profile, values)
+        snapshot_saved = self.snapshot_current_settings(reason="Before apply changes")
         try:
             self.client.apply_preset(profile)
             if overrides:
@@ -1043,9 +1132,15 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.restore_settings()
         self.refresh_summary()
         if self.settings.get("pending_reboot"):
-            self.status_label.set_text("Changes saved. Some protections apply after the next reboot.")
+            if snapshot_saved:
+                self.status_label.set_text("Changes saved. Some protections apply after the next reboot. Rollback snapshot captured.")
+            else:
+                self.status_label.set_text("Changes saved. Some protections apply after the next reboot.")
         else:
-            self.status_label.set_text("Changes saved.")
+            if snapshot_saved:
+                self.status_label.set_text("Changes saved. Rollback snapshot captured.")
+            else:
+                self.status_label.set_text("Changes saved.")
 
     def on_emergency_lockdown(self, _button: Gtk.Button) -> None:
         self._set_dropdown_value(self.network_combo, [value for value, _label in self.NETWORK_OPTIONS], "offline")
@@ -1064,6 +1159,52 @@ class ControlCenterWindow(Adw.ApplicationWindow):
     def on_refresh_trust_chain(self, _button: Gtk.Button) -> None:
         self.trust_chain_label.set_text(self.format_trust_chain_status())
         self.status_label.set_text("Trust chain data refreshed.")
+
+    def on_create_diagnostics_bundle(self, _button: Gtk.Button) -> None:
+        bundle = self.build_diagnostics_bundle()
+        try:
+            write_runtime_json(self.recovery_bundle_file, bundle)
+        except OSError:
+            self.status_label.set_text("Diagnostics bundle could not be written to the runtime directory.")
+            return
+        self.recovery_status_label.set_text(self.format_recovery_status())
+        self.status_label.set_text(f"Diagnostics bundle created: {self.recovery_bundle_file}")
+
+    def on_rollback_settings_snapshot(self, _button: Gtk.Button) -> None:
+        snapshot = self.load_settings_snapshot()
+        target_settings = snapshot.get("settings", {}) if isinstance(snapshot.get("settings", {}), dict) else {}
+        if not target_settings:
+            self.recovery_status_label.set_text(self.format_recovery_status())
+            self.status_label.set_text("No rollback snapshot is available yet.")
+            return
+        current_settings = normalize_system_settings(self.settings)
+        target_profile = str(target_settings.get("active_profile", "balanced"))
+        target_overrides = target_settings.get("overrides", {})
+        if not isinstance(target_overrides, dict):
+            target_overrides = {}
+        try:
+            self.client.apply_preset(target_profile)
+            if target_overrides:
+                self.client.set_overrides(target_overrides)
+            self.settings = self.client.commit()
+        except SettingsClientError as error:
+            self.status_label.set_text(self.format_backend_guidance(error))
+            return
+        try:
+            self.write_settings_snapshot(
+                {
+                    "taken_at": self._current_timestamp(),
+                    "reason": "Rollback undo point",
+                    "settings": current_settings,
+                }
+            )
+        except OSError:
+            pass
+        self.restore_settings()
+        self.refresh_summary()
+        self.status_label.set_text(
+            f"Settings rolled back to snapshot from {snapshot.get('taken_at', 'an earlier session')}."
+        )
 
     def on_diagnostics(self, _button: Gtk.Button) -> None:
         self.status_label.set_text(

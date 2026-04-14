@@ -28,11 +28,18 @@ def build(window) -> Gtk.Widget:
     window.trust_chain_label = Gtk.Label(xalign=0)
     window.trust_chain_label.set_wrap(True)
     window.trust_chain_label.add_css_class("dim-label")
+    window.recovery_status_label = Gtk.Label(xalign=0)
+    window.recovery_status_label.set_wrap(True)
+    window.recovery_status_label.add_css_class("dim-label")
     window.emergency_lockdown_button = Gtk.Button(label="Emergency Lockdown")
     window.emergency_lockdown_button.add_css_class("destructive-action")
     window.emergency_lockdown_button.connect("clicked", window.on_emergency_lockdown)
     window.trust_chain_refresh_button = Gtk.Button(label="Refresh trust data")
     window.trust_chain_refresh_button.connect("clicked", window.on_refresh_trust_chain)
+    window.create_diagnostics_bundle_button = Gtk.Button(label="Create diagnostics bundle")
+    window.create_diagnostics_bundle_button.connect("clicked", window.on_create_diagnostics_bundle)
+    window.snapshot_rollback_button = Gtk.Button(label="Rollback last settings")
+    window.snapshot_rollback_button.connect("clicked", window.on_rollback_settings_snapshot)
     window.update_channel_combo = string_dropdown([label for _v, label in window.UPDATE_CHANNEL_OPTIONS])
     window.update_channel_combo.connect("notify::selected", window.on_update_channel_changed)
     window.update_status_label = Gtk.Label(xalign=0)
@@ -70,6 +77,10 @@ def build(window) -> Gtk.Widget:
             Gtk.Label(label="Trust chain viewer", xalign=0),
             window.trust_chain_label,
             window.trust_chain_refresh_button,
+            Gtk.Label(label="Recovery actions", xalign=0),
+            window.recovery_status_label,
+            window.create_diagnostics_bundle_button,
+            window.snapshot_rollback_button,
             Gtk.Label(label="Update center", xalign=0),
             labelled_control(
                 "Release channel",
