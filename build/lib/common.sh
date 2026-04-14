@@ -60,6 +60,21 @@ validate_version_format() {
     fi
 }
 
+release_channel_for_version() {
+    local value="${1:-${VERSION}}"
+    local normalized
+    normalized="$(printf '%s' "${value}" | tr '[:upper:]' '[:lower:]')"
+    if [[ "${normalized}" == *alpha* || "${normalized}" == *nightly* ]]; then
+        echo "nightly"
+        return
+    fi
+    if [[ "${normalized}" == *beta* || "${normalized}" == *rc* ]]; then
+        echo "beta"
+        return
+    fi
+    echo "stable"
+}
+
 prepare_directories() {
     mkdir -p "${ROOTFS_DIR}" "${DIST_DIR}" "${INSTALLER_WORK_DIR}" "${INSTALLER_ISO_TREE_DIR}" "${INSTALLER_CACHE_DIR}"
 }

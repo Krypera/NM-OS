@@ -9,6 +9,8 @@ ARCHIVE_PATH="${ROOT_DIR}/dist/${STEM}.tar.gz"
 CHECKSUM_PATH="${ROOT_DIR}/dist/${STEM}.sha256"
 PACKAGES_PATH="${ROOT_DIR}/dist/${STEM}.packages"
 MANIFEST_PATH="${ROOT_DIR}/dist/${STEM}.build-manifest"
+RELEASE_MANIFEST_JSON_PATH="${ROOT_DIR}/dist/release-manifest.json"
+UPDATE_CATALOG_PATH="${ROOT_DIR}/dist/update-catalog.json"
 INSTALLER_STEM="nmos-installer-assets-${VERSION}"
 INSTALLER_ARCHIVE_PATH="${ROOT_DIR}/dist/${INSTALLER_STEM}.tar.gz"
 INSTALLER_CHECKSUM_PATH="${ROOT_DIR}/dist/${INSTALLER_STEM}.sha256"
@@ -16,12 +18,23 @@ INSTALLER_PACKAGES_PATH="${ROOT_DIR}/dist/${INSTALLER_STEM}.packages"
 INSTALLER_ISO_STEM="nmos-installer-${VERSION}-amd64"
 INSTALLER_ISO_PATH="${ROOT_DIR}/dist/${INSTALLER_ISO_STEM}.iso"
 INSTALLER_ISO_CHECKSUM_PATH="${ROOT_DIR}/dist/${INSTALLER_ISO_STEM}.sha256"
+RELEASE_CHANNEL="stable"
+case "${VERSION}" in
+    *alpha*|*nightly*)
+        RELEASE_CHANNEL="nightly"
+        ;;
+    *beta*|*rc*)
+        RELEASE_CHANNEL="beta"
+        ;;
+esac
 
 for path in \
     "${ARCHIVE_PATH}" \
     "${CHECKSUM_PATH}" \
     "${PACKAGES_PATH}" \
     "${MANIFEST_PATH}" \
+    "${RELEASE_MANIFEST_JSON_PATH}" \
+    "${UPDATE_CATALOG_PATH}" \
     "${INSTALLER_ARCHIVE_PATH}" \
     "${INSTALLER_CHECKSUM_PATH}" \
     "${INSTALLER_PACKAGES_PATH}" \
@@ -45,6 +58,10 @@ command -v xorriso >/dev/null 2>&1 || {
 sha256sum -c "${CHECKSUM_PATH}" >/dev/null
 sha256sum -c "${INSTALLER_CHECKSUM_PATH}" >/dev/null
 sha256sum -c "${INSTALLER_ISO_CHECKSUM_PATH}" >/dev/null
+OVERLAY_SHA256="$(awk '{print $1}' "${CHECKSUM_PATH}")"
+INSTALLER_ASSETS_SHA256="$(awk '{print $1}' "${INSTALLER_CHECKSUM_PATH}")"
+INSTALLER_ISO_SHA256="$(awk '{print $1}' "${INSTALLER_ISO_CHECKSUM_PATH}")"
+PACKAGE_SET_SHA256="$(sha256sum "${PACKAGES_PATH}" | awk '{print $1}')"
 
 TMP_DIR="$(mktemp -d)"
 INSTALLER_TMP_DIR="$(mktemp -d)"
@@ -159,6 +176,62 @@ grep -q "^installer_ui=calamares-assets$" "${MANIFEST_PATH}" || {
 }
 grep -q "^app_isolation=flatpak-portals$" "${MANIFEST_PATH}" || {
     echo "build manifest does not record the app isolation stack." >&2
+    exit 1
+}
+grep -q '"schema_version": 1' "${RELEASE_MANIFEST_JSON_PATH}" || {
+    echo "release manifest does not declare the expected schema version." >&2
+    exit 1
+}
+grep -q "\"version\": \"${VERSION}\"" "${RELEASE_MANIFEST_JSON_PATH}" || {
+    echo "release manifest does not record the current version." >&2
+    exit 1
+}
+grep -q "\"channel\": \"${RELEASE_CHANNEL}\"" "${RELEASE_MANIFEST_JSON_PATH}" || {
+    echo "release manifest does not record the derived release channel." >&2
+    exit 1
+}
+grep -q "\"name\": \"${STEM}\\.tar\\.gz\"" "${RELEASE_MANIFEST_JSON_PATH}" || {
+    echo "release manifest does not record the system overlay artifact." >&2
+    exit 1
+}
+grep -q "\"sha256\": \"${OVERLAY_SHA256}\"" "${RELEASE_MANIFEST_JSON_PATH}" || {
+    echo "release manifest does not record the system overlay checksum." >&2
+    exit 1
+}
+grep -q "\"name\": \"${INSTALLER_STEM}\\.tar\\.gz\"" "${RELEASE_MANIFEST_JSON_PATH}" || {
+    echo "release manifest does not record the installer assets artifact." >&2
+    exit 1
+}
+grep -q "\"sha256\": \"${INSTALLER_ASSETS_SHA256}\"" "${RELEASE_MANIFEST_JSON_PATH}" || {
+    echo "release manifest does not record the installer assets checksum." >&2
+    exit 1
+}
+grep -q "\"name\": \"${INSTALLER_ISO_STEM}\\.iso\"" "${RELEASE_MANIFEST_JSON_PATH}" || {
+    echo "release manifest does not record the installer ISO artifact." >&2
+    exit 1
+}
+grep -q "\"sha256\": \"${INSTALLER_ISO_SHA256}\"" "${RELEASE_MANIFEST_JSON_PATH}" || {
+    echo "release manifest does not record the installer ISO checksum." >&2
+    exit 1
+}
+grep -q "\"sha256\": \"${PACKAGE_SET_SHA256}\"" "${RELEASE_MANIFEST_JSON_PATH}" || {
+    echo "release manifest does not record the package set lock digest." >&2
+    exit 1
+}
+grep -q '"supports_rollback": true' "${RELEASE_MANIFEST_JSON_PATH}" || {
+    echo "release manifest does not declare rollback support." >&2
+    exit 1
+}
+grep -q '"mode": "checksum"' "${RELEASE_MANIFEST_JSON_PATH}" || {
+    echo "release manifest does not describe the current signing mode." >&2
+    exit 1
+}
+grep -q "\"${RELEASE_CHANNEL}\":" "${UPDATE_CATALOG_PATH}" || {
+    echo "update catalog does not expose the current release channel." >&2
+    exit 1
+}
+grep -q "\"version\": \"${VERSION}\"" "${UPDATE_CATALOG_PATH}" || {
+    echo "update catalog does not expose the current version." >&2
     exit 1
 }
 

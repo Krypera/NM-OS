@@ -1170,11 +1170,15 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "on_create_diagnostics_bundle" in control_center_source
     assert "on_rollback_settings_snapshot" in control_center_source
     assert "snapshot_current_settings" in control_center_source
+    assert "load_release_manifest" in control_center_source
+    assert "read_build_info" in control_center_source
     assert "Diagnostics" in control_center_source
     assert "Enforcement status" in system_panel_source
     assert "app-isolation-status.json" in control_center_source
     assert "device-policy-status.json" in control_center_source
     assert "logging-policy-status.json" in control_center_source
+    assert "release-manifest.json" in control_center_source
+    assert "update-catalog.json" in control_center_source
     assert "recovery-diagnostics.json" in control_center_source
     assert "settings-rollback-snapshot.json" in control_center_source
     assert "nmos-app-isolation-policy.service" in control_center_source
@@ -1238,8 +1242,12 @@ def test_installer_media_and_assets_are_packaged(repo_root: Path) -> None:
     assert "installer_assets" in build_source
     assert "installer_iso=" in build_source
     assert "build_installer_iso_image" in build_source
+    assert "release-manifest.json" in build_source
+    assert "update-catalog.json" in build_source
+    assert "BUILD_ID" in build_source
     assert "resolve_base_installer_iso" in common_source
     assert "is_truthy" in common_source
+    assert "release_channel_for_version" in common_source
     assert "BASE_ISO_LOCK_FILE" in common_source
     assert "read_base_iso_lock_value" in common_source
     assert "NMOS_BASE_INSTALLER_SHA256" in common_source
@@ -1250,6 +1258,10 @@ def test_installer_media_and_assets_are_packaged(repo_root: Path) -> None:
     assert 'sub(/^\\.\\//, "", path)' in common_source
     assert 'sub(/^\\*/, "", path)' in common_source
     assert "xorriso -osirrox on -indev" in verify_artifacts_source
+    assert "RELEASE_MANIFEST_JSON_PATH" in verify_artifacts_source
+    assert "UPDATE_CATALOG_PATH" in verify_artifacts_source
+    assert '"supports_rollback": true' in verify_artifacts_source
+    assert '"mode": "checksum"' in verify_artifacts_source
     assert "branding: nmos" in installer_settings
     assert "productName: \"NM-OS\"" in branding_source
     assert "@PKGSEL_INCLUDE@" in installer_preseed

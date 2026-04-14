@@ -148,6 +148,12 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.update_status_file = runtime_dir / "update-center-status.json"
         self.update_history_file = runtime_dir / "update-center-history.json"
         self.update_catalog_file = self.repo_root / "config" / "update-catalog.json"
+        self.dist_update_catalog_file = self.repo_root / "dist" / "update-catalog.json"
+        self.shared_metadata_dir = Path("/usr/share/nmos")
+        self.shared_update_catalog_file = self.shared_metadata_dir / "update-catalog.json"
+        self.build_info_file = self.shared_metadata_dir / "build-info"
+        self.release_manifest_file = self.shared_metadata_dir / "release-manifest.json"
+        self.dist_release_manifest_file = self.repo_root / "dist" / "release-manifest.json"
         self.recovery_bundle_file = runtime_dir / "recovery-diagnostics.json"
         self.settings_snapshot_file = runtime_dir / "settings-rollback-snapshot.json"
 
@@ -596,11 +602,92 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             ]
         )
 
+    def read_build_info(self) -> dict[str, str]:
+        if not self.build_info_file.exists():
+            return {}
+        try:
+            raw = read_runtime_text(self.build_info_file)
+        except OSError:
+            return {}
+        info: dict[str, str] = {}
+        for line in raw.splitlines():
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            info[str(key).strip()] = str(value).strip()
+        return info
+
+    def load_release_manifest(self) -> dict[str, object]:
+        for path in (self.release_manifest_file, self.dist_release_manifest_file):
+            if not path.exists():
+                continue
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError, json.JSONDecodeError):
+                continue
+            if isinstance(payload, dict):
+                return payload
+
+        dist_dir = self.dist_release_manifest_file.parent
+        if dist_dir.exists():
+            for path in sorted(dist_dir.glob("*.build-manifest")):
+                try:
+                    raw = path.read_text(encoding="utf-8")
+                except OSError:
+                    continue
+                legacy: dict[str, str] = {}
+                for line in raw.splitlines():
+                    if "=" not in line:
+                        continue
+                    key, value = line.split("=", 1)
+                    legacy[str(key).strip()] = str(value).strip()
+                if legacy:
+                    version = str(legacy.get("version", "")).strip()
+                    channel = str(legacy.get("channel", "")).strip() or self.detect_release_channel(version)
+                    return {
+                        "schema_version": 1,
+                        "product": "NM-OS",
+                        "version": version,
+                        "channel": channel,
+                        "build_id": str(legacy.get("build_id", "")).strip(),
+                        "released_at": str(legacy.get("built_at", "")).strip(),
+                        "source_repo": str(legacy.get("source_repo", "")).strip(),
+                        "artifacts": {
+                            "system_overlay": {
+                                "name": str(legacy.get("artifact", "")).strip(),
+                                "sha256": "",
+                            },
+                            "installer_assets": {
+                                "name": str(legacy.get("installer_assets", "")).strip(),
+                                "sha256": "",
+                            },
+                            "installer_iso": {
+                                "name": str(legacy.get("installer_iso", "")).strip(),
+                                "sha256": "",
+                            },
+                        },
+                        "signing": {
+                            "mode": "legacy-metadata",
+                            "signature_verified": False,
+                            "key_id": "",
+                            "notes": "Legacy build manifest loaded without detached signatures.",
+                        },
+                    }
+        return {}
+
     def read_installed_version(self) -> str:
         status = self.load_update_status()
         status_version = str(status.get("installed_version", "")).strip()
         if status_version:
             return status_version
+        manifest = self.load_release_manifest()
+        manifest_version = str(manifest.get("version", "")).strip()
+        if manifest_version:
+            return manifest_version
+        build_info = self.read_build_info()
+        build_info_version = str(build_info.get("NMOS_VERSION", "")).strip()
+        if build_info_version:
+            return build_info_version
         version_path = self.repo_root / "config" / "version"
         if version_path.exists():
             try:
@@ -611,23 +698,50 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                 pass
         return "unknown"
 
+    def _normalize_update_catalog(self, payload: object) -> dict[str, dict[str, str]]:
+        catalog_root = payload if isinstance(payload, dict) else {}
+        channels = catalog_root.get("channels", catalog_root) if isinstance(catalog_root, dict) else {}
+        if not isinstance(channels, dict):
+            return {}
+        catalog: dict[str, dict[str, str]] = {}
+        for channel in ("stable", "beta", "nightly"):
+            item = channels.get(channel, {})
+            if not isinstance(item, dict):
+                continue
+            catalog[channel] = {
+                "version": str(item.get("version", "")).strip(),
+                "notes": str(item.get("notes", "")).strip(),
+            }
+        return catalog
+
     def load_update_catalog(self) -> dict[str, dict[str, str]]:
-        if self.update_catalog_file.exists():
+        for path in (
+            self.shared_update_catalog_file,
+            self.dist_update_catalog_file,
+            self.update_catalog_file,
+        ):
+            if not path.exists():
+                continue
             try:
-                payload = json.loads(self.update_catalog_file.read_text(encoding="utf-8"))
+                payload = json.loads(path.read_text(encoding="utf-8"))
             except (OSError, ValueError, json.JSONDecodeError):
-                payload = {}
-            if isinstance(payload, dict):
-                catalog: dict[str, dict[str, str]] = {}
-                for channel in ("stable", "beta", "nightly"):
-                    item = payload.get(channel, {})
-                    if isinstance(item, dict):
-                        catalog[channel] = {
-                            "version": str(item.get("version", "")).strip(),
-                            "notes": str(item.get("notes", "")).strip(),
-                        }
-                if catalog:
-                    return catalog
+                continue
+            catalog = self._normalize_update_catalog(payload)
+            if catalog:
+                return catalog
+        manifest = self.load_release_manifest()
+        manifest_version = str(manifest.get("version", "")).strip()
+        manifest_channel = str(manifest.get("channel", "")).strip()
+        if manifest_version and manifest_channel:
+            return {
+                "stable": {"version": "", "notes": "No stable release published in the local catalog."},
+                "beta": {"version": "", "notes": "No beta release published in the local catalog."},
+                "nightly": {"version": "", "notes": "No nightly release published in the local catalog."},
+                manifest_channel: {
+                    "version": manifest_version,
+                    "notes": "Local release manifest detected. Check signed catalog metadata before updating across channels.",
+                },
+            }
         installed = self.read_installed_version()
         return {
             "stable": {"version": installed, "notes": "No catalog published."},
@@ -677,31 +791,48 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.write_update_status(next_status)
 
     def format_trust_chain_status(self) -> str:
+        manifest = self.load_release_manifest()
+        build_info = self.read_build_info()
         version = self.read_installed_version()
-        channel = self.detect_release_channel(version)
-        manifest_path = self.repo_root / "dist" / "build-manifest.json"
-        manifest = {}
-        if manifest_path.exists():
-            try:
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            except (OSError, ValueError, json.JSONDecodeError):
-                manifest = {}
-        build_id = str(manifest.get("build_id", "unknown"))
-        artifact = str(manifest.get("installer_iso", "unknown"))
-        signature_state = "not available in current build"
-        if manifest.get("signature_verified") is True:
-            signature_state = "verified"
+        channel = str(manifest.get("channel", "")).strip() or self.detect_release_channel(version)
+        build_id = str(manifest.get("build_id", "")).strip() or str(build_info.get("BUILD_TIMESTAMP", "unknown")).strip()
+        artifacts = manifest.get("artifacts", {}) if isinstance(manifest.get("artifacts", {}), dict) else {}
+        installer_iso = artifacts.get("installer_iso", {}) if isinstance(artifacts.get("installer_iso", {}), dict) else {}
+        artifact_name = str(installer_iso.get("name", "")).strip() or str(manifest.get("installer_iso", "unknown"))
+        signing = manifest.get("signing", {}) if isinstance(manifest.get("signing", {}), dict) else {}
+        signing_mode = str(signing.get("mode", "")).strip()
+        if signing.get("signature_verified") is True:
+            signature_state = "detached signatures verified"
+        elif signing_mode == "checksum":
+            signature_state = "checksum manifest only"
+        elif signing_mode:
+            signature_state = signing_mode
+        else:
+            signature_state = "not available in current build"
+        upgrade_policy = (
+            manifest.get("upgrade_policy", {})
+            if isinstance(manifest.get("upgrade_policy", {}), dict)
+            else {}
+        )
+        minimum_source_version = str(upgrade_policy.get("minimum_source_version", "unknown"))
+        rollback_support = str(upgrade_policy.get("supports_rollback", "unknown")).lower()
         verification = "partial"
-        if build_id != "unknown" and version != "unknown":
-            verification = "metadata available"
+        if manifest:
+            verification = "release manifest available"
+        if signing.get("signature_verified") is True:
+            verification = "signed metadata verified"
+        elif signing_mode == "checksum":
+            verification = "artifact checksums recorded"
         return "\n".join(
             [
                 f"Installed version: {version}",
                 f"Channel: {channel}",
                 f"Build id: {build_id}",
-                f"Installer artifact: {artifact}",
+                f"Installer artifact: {artifact_name or 'unknown'}",
                 f"Signatures: {signature_state}",
                 f"Verification status: {verification}",
+                f"Upgrade floor: {minimum_source_version}",
+                f"Rollback support: {rollback_support}",
             ]
         )
 

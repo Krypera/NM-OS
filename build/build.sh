@@ -48,6 +48,9 @@ INSTALLER_ARCHIVE_PATH="${DIST_DIR}/${INSTALLER_ARCHIVE_NAME}"
 INSTALLER_ISO_STEM="$(installer_iso_output_stem)"
 INSTALLER_ISO_NAME="$(installer_iso_name)"
 INSTALLER_ISO_PATH="${DIST_DIR}/${INSTALLER_ISO_NAME}"
+BUILD_TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+BUILD_ID="$(date -u +"%Y%m%dT%H%M%SZ")-${VERSION}"
+RELEASE_CHANNEL="$(release_channel_for_version "${VERSION}")"
 
 tar -C "${ROOTFS_DIR}" -czf "${ARCHIVE_PATH}" .
 tar -C "${INSTALLER_WORK_DIR}" -czf "${INSTALLER_ARCHIVE_PATH}" .
@@ -64,20 +67,117 @@ fi
 
 build_installer_iso_image "${ARCHIVE_PATH}" "${DIST_DIR}/${OUTPUT_STEM}.packages"
 
+OVERLAY_SHA256="$(awk '{print $1}' "${DIST_DIR}/${OUTPUT_STEM}.sha256")"
+INSTALLER_ASSETS_SHA256="$(awk '{print $1}' "${DIST_DIR}/${INSTALLER_STEM}.sha256")"
+INSTALLER_ISO_SHA256="$(awk '{print $1}' "${DIST_DIR}/${INSTALLER_ISO_STEM}.sha256")"
+PACKAGE_SET_SHA256="$(sha256sum "${DIST_DIR}/${OUTPUT_STEM}.packages" | awk '{print $1}')"
+INSTALLER_BASE_NAME="$(basename "$(resolve_base_installer_iso)")"
+
 cat > "${DIST_DIR}/${OUTPUT_STEM}.build-manifest" <<EOF
 version=${VERSION}
 artifact=${ARCHIVE_NAME}
 build_host=$(hostname)
-built_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+built_at=${BUILD_TIMESTAMP}
+build_id=${BUILD_ID}
+channel=${RELEASE_CHANNEL}
 source_repo=https://github.com/Krypera/NM-OS.git
 artifact_type=system-overlay
 installer_assets=${INSTALLER_ARCHIVE_NAME}
 installer_iso=${INSTALLER_ISO_NAME}
 installer_stack=debian-installer
 installer_ui=calamares-assets
-installer_base=$(basename "$(resolve_base_installer_iso)")
+installer_base=${INSTALLER_BASE_NAME}
 app_isolation=flatpak-portals
 features=${FEATURES_VALUE}
+EOF
+
+cat > "${DIST_DIR}/release-manifest.json" <<EOF
+{
+  "schema_version": 1,
+  "product": "NM-OS",
+  "version": "${VERSION}",
+  "channel": "${RELEASE_CHANNEL}",
+  "build_id": "${BUILD_ID}",
+  "released_at": "${BUILD_TIMESTAMP}",
+  "source_repo": "https://github.com/Krypera/NM-OS.git",
+  "artifacts": {
+    "system_overlay": {
+      "name": "${ARCHIVE_NAME}",
+      "sha256": "${OVERLAY_SHA256}"
+    },
+    "installer_assets": {
+      "name": "${INSTALLER_ARCHIVE_NAME}",
+      "sha256": "${INSTALLER_ASSETS_SHA256}"
+    },
+    "installer_iso": {
+      "name": "${INSTALLER_ISO_NAME}",
+      "sha256": "${INSTALLER_ISO_SHA256}"
+    }
+  },
+  "package_set_lock": {
+    "name": "${OUTPUT_STEM}.packages",
+    "sha256": "${PACKAGE_SET_SHA256}"
+  },
+  "upgrade_policy": {
+    "minimum_source_version": "${VERSION}",
+    "supports_rollback": true,
+    "rollback_scope": "metadata-only"
+  },
+  "recovery": {
+    "available": false,
+    "image": "",
+    "sha256": ""
+  },
+  "signing": {
+    "mode": "checksum",
+    "signature_verified": false,
+    "key_id": "",
+    "notes": "Detached signatures are not generated in alpha builds."
+  }
+}
+EOF
+
+stable_version=""
+stable_notes="No stable release published in the local catalog."
+beta_version=""
+beta_notes="No beta release published in the local catalog."
+nightly_version=""
+nightly_notes="No nightly release published in the local catalog."
+
+case "${RELEASE_CHANNEL}" in
+    stable)
+        stable_version="${VERSION}"
+        stable_notes="Local stable catalog entry generated from release-manifest.json."
+        ;;
+    beta)
+        beta_version="${VERSION}"
+        beta_notes="Local beta catalog entry generated from release-manifest.json."
+        ;;
+    nightly)
+        nightly_version="${VERSION}"
+        nightly_notes="Local nightly catalog entry generated from release-manifest.json."
+        ;;
+esac
+
+cat > "${DIST_DIR}/update-catalog.json" <<EOF
+{
+  "schema_version": 1,
+  "generated_at": "${BUILD_TIMESTAMP}",
+  "channels": {
+    "stable": {
+      "version": "${stable_version}",
+      "notes": "${stable_notes}"
+    },
+    "beta": {
+      "version": "${beta_version}",
+      "notes": "${beta_notes}"
+    },
+    "nightly": {
+      "version": "${nightly_version}",
+      "notes": "${nightly_notes}"
+    }
+  }
+}
 EOF
 
 bash "${ROOT_DIR}/build/verify-artifacts.sh"
