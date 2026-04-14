@@ -1124,8 +1124,8 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert 'send_interface="org.nmos.Settings1.Write"' in settings_policy_source
     assert '@NMOS_SETTINGS_ADMIN_GROUP@' in settings_policy_source
     assert "NM-OS Control Center" in control_center_source
-    assert "Profiles" in control_center_source
-    assert "Appearance" in control_center_source
+    assert "Security & Profiles" in control_center_source
+    assert "Personalization" in control_center_source
     assert "default_browser" in control_center_source
     assert "app_overrides" in control_center_source
     assert "vault_passphrase_entry" in control_center_source
