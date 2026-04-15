@@ -28,7 +28,14 @@ from nmos_common.ui_theme import load_css
 from nmos_greeter import ui_composition
 from nmos_greeter.browser_model import BROWSER_OPTIONS
 from nmos_greeter.client import read_network_status
-from nmos_greeter.state import load_onboarding_page_index, load_state, save_state
+from nmos_greeter.state import (
+    load_onboarding_page_index,
+    load_state,
+    next_onboarding_page_index,
+    previous_onboarding_page_index,
+    save_state,
+    skip_to_summary_page_index,
+)
 
 
 class GreeterWindow(Adw.ApplicationWindow):
@@ -206,8 +213,7 @@ class GreeterWindow(Adw.ApplicationWindow):
         self.update_navigation()
 
     def on_back(self, _button: Gtk.Button) -> None:
-        if self.page_index > 0:
-            self.page_index -= 1
+        self.page_index = previous_onboarding_page_index(self.page_index, len(self.page_order))
         self.stack.set_visible_child_name(f"page-{self.page_index}")
         self.persist_pending_state()
         self.update_navigation()
@@ -222,11 +228,17 @@ class GreeterWindow(Adw.ApplicationWindow):
             self.profile_summary_label.set_text(self.tr(self.current_profile_summary()))
         if current_key == "browser" and not self.apply_browser():
             return
-        if self.page_index < len(self.page_order) - 1:
-            self.page_index += 1
+        self.page_index = next_onboarding_page_index(self.page_index, len(self.page_order))
         self.stack.set_visible_child_name(f"page-{self.page_index}")
         self.persist_pending_state()
         self.update_navigation()
+
+    def on_skip(self, _button: Gtk.Button) -> None:
+        self.page_index = skip_to_summary_page_index(len(self.page_order))
+        self.stack.set_visible_child_name(f"page-{self.page_index}")
+        self.persist_pending_state()
+        self.update_navigation()
+        self.set_status(self.tr("Setup pages skipped. Review summary and click Start using NM-OS."))
 
     def close_after_apply(self) -> bool:
         self.close()

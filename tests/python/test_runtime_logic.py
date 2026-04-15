@@ -49,7 +49,13 @@ from nmos_common.system_settings import (
     setting_display_name,
     update_system_overrides,
 )
-from nmos_greeter.state import load_onboarding_page_index, normalize_onboarding_page_index
+from nmos_greeter.state import (
+    load_onboarding_page_index,
+    next_onboarding_page_index,
+    normalize_onboarding_page_index,
+    previous_onboarding_page_index,
+    skip_to_summary_page_index,
+)
 from nmos_settings.authorization import build_write_uid_allowlist, is_write_authorized
 
 
@@ -203,6 +209,19 @@ def test_greeter_onboarding_page_index_state_machine() -> None:
     assert load_onboarding_page_index({"onboarding_page_index": 4}, 6) == 4
     assert load_onboarding_page_index({"onboarding_page_index": 40}, 6) == 5
     assert load_onboarding_page_index({}, 6) == 0
+    assert next_onboarding_page_index(0, 6) == 1
+    assert next_onboarding_page_index(5, 6) == 5
+    assert previous_onboarding_page_index(5, 6) == 4
+    assert previous_onboarding_page_index(0, 6) == 0
+    assert skip_to_summary_page_index(6) == 5
+
+    interrupted_state = {"onboarding_page_index": 3}
+    resumed_index = load_onboarding_page_index(interrupted_state, 6)
+    assert resumed_index == 3
+    resumed_index = next_onboarding_page_index(resumed_index, 6)
+    assert resumed_index == 4
+    skipped_index = skip_to_summary_page_index(6)
+    assert skipped_index == 5
 
 
 class _MockBackendUnavailableDBusError(Exception):
@@ -615,6 +634,10 @@ def test_greeter_layout_is_setup_only(repo_root: Path) -> None:
     assert "Review mode only until service is reachable." in main_source
     assert "read_network_status()" in main_source
     assert "load_onboarding_page_index" in main_source
+    assert "next_onboarding_page_index" in main_source
+    assert "previous_onboarding_page_index" in main_source
+    assert "skip_to_summary_page_index" in main_source
+    assert "on_skip" in main_source
     assert '"onboarding_page_index"' in main_source
     assert '"onboarding_page_index": self.page_index' in main_source
     assert '"onboarding_page_index": 0' in main_source
@@ -629,6 +652,8 @@ def test_greeter_layout_is_setup_only(repo_root: Path) -> None:
     assert "allow_brave_browser" in ui_source
     assert "default_browser" in ui_source
     assert "vault_passphrase_entry" in ui_source
+    assert "skip_button" in ui_source
+    assert "Skip setup" in ui_source
     assert "passphrase_feedback_text" in ui_source
     state_source = (repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "state.py").read_text(encoding="utf-8")
     client_source = (repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "client.py").read_text(encoding="utf-8")

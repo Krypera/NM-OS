@@ -24,6 +24,24 @@ def load_onboarding_page_index(state: object, page_count: int) -> int:
     return normalize_onboarding_page_index(raw_state.get("onboarding_page_index", 0), page_count)
 
 
+def next_onboarding_page_index(current: object, page_count: int) -> int:
+    current_index = normalize_onboarding_page_index(current, page_count)
+    if page_count <= 0:
+        return 0
+    return min(page_count - 1, current_index + 1)
+
+
+def previous_onboarding_page_index(current: object, page_count: int) -> int:
+    current_index = normalize_onboarding_page_index(current, page_count)
+    return max(0, current_index - 1)
+
+
+def skip_to_summary_page_index(page_count: int) -> int:
+    if page_count <= 0:
+        return 0
+    return page_count - 1
+
+
 def ensure_state_path_safe() -> bool:
     try:
         ensure_runtime_state_path_safe(STATE_FILE)
