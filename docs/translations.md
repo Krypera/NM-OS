@@ -19,8 +19,21 @@ Build scripts and most documentation are still handled separately.
 3. Add the translated desktop entry name to both of these files:
    `config/system-overlay/usr/share/applications/nmos-greeter.desktop`
    `config/system-overlay/usr/share/gdm/greeter/applications/nmos-greeter.desktop`
-4. Update `tests/smoke/verify-greeter-i18n.sh` so the new language is covered by smoke checks.
-5. Run the greeter smoke checks and open a PR.
+4. Ensure the locale has all required keys and placeholder-safe strings by running:
+   `python3 scripts/check_i18n_quality.py`
+5. Update `tests/smoke/verify-greeter-i18n.sh` only if policy expectations changed.
+6. Run greeter and i18n smoke checks, then open a PR.
+
+## Contribution Workflow (PR Checklist)
+
+1. Add/modify user-facing source strings first in English.
+2. Add matching translations in `TRANSLATIONS`.
+3. Keep placeholder names identical across source and translation.
+4. Avoid machine-facing value translation (`tor`, `direct`, `offline`, reason codes, service names).
+5. Run:
+   `python3 scripts/check_i18n_quality.py`
+   `bash tests/smoke/verify-greeter-i18n.sh`
+6. Confirm CI smoke workflow passes before merge.
 
 ## Rules To Follow
 
@@ -29,6 +42,8 @@ Build scripts and most documentation are still handled separately.
 - Do not translate machine-facing reason codes such as `already_exists` or `no_space`.
 - Translate only user-facing strings.
 - If you add a new user-facing string in the setup assistant, add it to the translation table at the same time.
+- Keep string placeholders consistent (for example `{minutes}` must stay `{minutes}` in every locale).
+- Keep files UTF-8 and avoid mojibake artifacts in committed text.
 
 ## Example
 

@@ -67,3 +67,5 @@ assert translate("de_DE.UTF-8", "Language") == "Language"
 
 print("Greeter i18n checks passed")
 PY
+
+PYTHONDONTWRITEBYTECODE=1 python3 "${ROOT_DIR}/scripts/check_i18n_quality.py"

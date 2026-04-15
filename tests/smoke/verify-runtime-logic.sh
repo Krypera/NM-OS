@@ -14,6 +14,9 @@ else
     exit 1
 fi
 
-PYTHONDONTWRITEBYTECODE=1 "${PYTEST_BIN}" -q -p no:cacheprovider "${ROOT_DIR}/tests/python/test_runtime_logic.py"
+PYTHONDONTWRITEBYTECODE=1 "${PYTEST_BIN}" -q -p no:cacheprovider \
+    "${ROOT_DIR}/tests/python/test_runtime_logic.py" \
+    "${ROOT_DIR}/tests/python/test_security_docs.py" \
+    "${ROOT_DIR}/tests/python/test_i18n_quality.py"
 
 echo "runtime logic checks passed"

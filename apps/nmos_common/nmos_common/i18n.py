@@ -133,6 +133,7 @@ TRANSLATIONS = {
         "Back": "Atrás",
         "Next": "Siguiente",
         "Skip setup": "Saltar configuración",
+        "Start using NM-OS": "Empezar a usar NM-OS",
         "Apply settings": "Aplicar ajustes",
         "Tor-first": "Tor primero",
         "Direct network": "Red directa",
