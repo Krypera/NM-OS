@@ -92,6 +92,16 @@ APP_FILESYSTEM_OPTIONS = (
     ("host", "Host filesystem"),
     ("none", "No filesystem access"),
 )
+APP_NETWORK_OPTIONS = (
+    ("inherit", "Inherit default"),
+    ("shared", "Shared network"),
+    ("isolated", "Isolated network"),
+)
+APP_DEVICE_OPTIONS = (
+    ("inherit", "Inherit default"),
+    ("all", "All devices"),
+    ("none", "No device access"),
+)
 APP_SANDBOX_PRESET_OPTIONS = (
     ("secure", "Secure"),
     ("balanced", "Balanced"),
@@ -119,7 +129,7 @@ SETTING_RISK_HINTS = {
     "ram_wipe_mode": "Stricter memory wiping improves hygiene but can reduce performance.",
     "vault_auto_lock_minutes": "Shorter lock timers reduce convenience during active work.",
     "vault_unlock_on_login": "Disabling auto-unlock increases manual unlock steps.",
-    "app_overrides": "Per-app file access can break assumptions for some Flatpak apps.",
+    "app_overrides": "Per-app filesystem, network, or device access can affect app behavior.",
     "active_profile": "Multiple security defaults can change together with profile shifts.",
 }
 
@@ -176,10 +186,12 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.MOTION_OPTIONS = MOTION_OPTIONS
         self.DEFAULT_BROWSER_OPTIONS = DEFAULT_BROWSER_OPTIONS
         self.APP_FILESYSTEM_OPTIONS = APP_FILESYSTEM_OPTIONS
+        self.APP_NETWORK_OPTIONS = APP_NETWORK_OPTIONS
+        self.APP_DEVICE_OPTIONS = APP_DEVICE_OPTIONS
         self.APP_SANDBOX_PRESET_OPTIONS = APP_SANDBOX_PRESET_OPTIONS
         self.UPDATE_CHANNEL_OPTIONS = UPDATE_CHANNEL_OPTIONS
         self.VAULT_AUTO_LOCK_OPTIONS = VAULT_AUTO_LOCK_OPTIONS
-        self.app_override_dropdowns: dict[str, Gtk.DropDown] = {}
+        self.app_override_dropdowns: dict[str, dict[str, Gtk.DropDown]] = {}
 
         self.ui_locale = resolve_supported_locale(self.settings.get("locale", "en_US.UTF-8"))
         self.root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
@@ -307,22 +319,53 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             return "inherit"
         return values[selected]
 
+    def _selected_app_profile(self, dropdown: Gtk.DropDown, values: list[str]) -> str:
+        selected = dropdown.get_selected()
+        if selected == Gtk.INVALID_LIST_POSITION or selected >= len(values):
+            return "inherit"
+        return values[selected]
+
     def collect_app_overrides(self) -> dict[str, dict[str, str]]:
         overrides: dict[str, dict[str, str]] = {}
-        for app_id, dropdown in self.app_override_dropdowns.items():
-            filesystem = self._selected_filesystem_profile(dropdown)
+        filesystem_values = [value for value, _label in self.APP_FILESYSTEM_OPTIONS]
+        network_values = [value for value, _label in self.APP_NETWORK_OPTIONS]
+        device_values = [value for value, _label in self.APP_DEVICE_OPTIONS]
+        for app_id, controls in self.app_override_dropdowns.items():
+            filesystem = self._selected_app_profile(controls["filesystem"], filesystem_values)
+            network = self._selected_app_profile(controls["network"], network_values)
+            devices = self._selected_app_profile(controls["devices"], device_values)
+            if filesystem == "inherit" and network == "inherit" and devices == "inherit":
+                continue
+            app_override: dict[str, str] = {}
             if filesystem != "inherit":
-                overrides[app_id] = {"filesystem": filesystem}
+                app_override["filesystem"] = filesystem
+            if network != "inherit":
+                app_override["network"] = network
+            if devices != "inherit":
+                app_override["devices"] = devices
+            overrides[app_id] = app_override
         return overrides
 
-    def set_all_app_overrides(self, filesystem: str) -> None:
-        option_values = [value for value, _label in self.APP_FILESYSTEM_OPTIONS]
+    def set_all_app_overrides(self, *, filesystem: str, network: str, devices: str) -> None:
+        filesystem_values = [value for value, _label in self.APP_FILESYSTEM_OPTIONS]
+        network_values = [value for value, _label in self.APP_NETWORK_OPTIONS]
+        device_values = [value for value, _label in self.APP_DEVICE_OPTIONS]
         try:
-            selected_index = option_values.index(filesystem)
+            filesystem_index = filesystem_values.index(filesystem)
         except ValueError:
-            selected_index = 0
-        for dropdown in self.app_override_dropdowns.values():
-            dropdown.set_selected(selected_index)
+            filesystem_index = 0
+        try:
+            network_index = network_values.index(network)
+        except ValueError:
+            network_index = 0
+        try:
+            device_index = device_values.index(devices)
+        except ValueError:
+            device_index = 0
+        for controls in self.app_override_dropdowns.values():
+            controls["filesystem"].set_selected(filesystem_index)
+            controls["network"].set_selected(network_index)
+            controls["devices"].set_selected(device_index)
 
     def apply_sandbox_preset(self, preset: str) -> None:
         if preset == "secure":
@@ -331,7 +374,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                 [value for value, _label in self.SANDBOX_OPTIONS],
                 "strict",
             )
-            self.set_all_app_overrides("none")
+            self.set_all_app_overrides(filesystem="none", network="isolated", devices="none")
             return
         if preset == "compatible":
             self._set_dropdown_value(
@@ -339,14 +382,14 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                 [value for value, _label in self.SANDBOX_OPTIONS],
                 "standard",
             )
-            self.set_all_app_overrides("host")
+            self.set_all_app_overrides(filesystem="host", network="shared", devices="all")
             return
         self._set_dropdown_value(
             self.sandbox_combo,
             [value for value, _label in self.SANDBOX_OPTIONS],
             "focused",
         )
-        self.set_all_app_overrides("inherit")
+        self.set_all_app_overrides(filesystem="inherit", network="inherit", devices="inherit")
 
     def rebuild_app_overrides_editor(self, settings: dict) -> None:
         model = settings.get("app_overrides", {}) if isinstance(settings.get("app_overrides", {}), dict) else {}
@@ -363,23 +406,47 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.app_overrides_empty.set_visible(True)
             return
         self.app_overrides_empty.set_visible(False)
-        option_labels = [label for _value, label in self.APP_FILESYSTEM_OPTIONS]
-        option_values = [value for value, _label in self.APP_FILESYSTEM_OPTIONS]
+        filesystem_labels = [label for _value, label in self.APP_FILESYSTEM_OPTIONS]
+        filesystem_values = [value for value, _label in self.APP_FILESYSTEM_OPTIONS]
+        network_labels = [label for _value, label in self.APP_NETWORK_OPTIONS]
+        network_values = [value for value, _label in self.APP_NETWORK_OPTIONS]
+        device_labels = [label for _value, label in self.APP_DEVICE_OPTIONS]
+        device_values = [value for value, _label in self.APP_DEVICE_OPTIONS]
         for app_id in all_apps:
             row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
             row_label = Gtk.Label(label=app_id, xalign=0)
             row_label.set_hexpand(True)
-            dropdown = Gtk.DropDown(model=Gtk.StringList.new(option_labels))
-            selected = str(model.get(app_id, {}).get("filesystem", "inherit")).strip().lower()
+            filesystem_dropdown = Gtk.DropDown(model=Gtk.StringList.new(filesystem_labels))
+            network_dropdown = Gtk.DropDown(model=Gtk.StringList.new(network_labels))
+            device_dropdown = Gtk.DropDown(model=Gtk.StringList.new(device_labels))
+            selected_filesystem = str(model.get(app_id, {}).get("filesystem", "inherit")).strip().lower()
+            selected_network = str(model.get(app_id, {}).get("network", "inherit")).strip().lower()
+            selected_devices = str(model.get(app_id, {}).get("devices", "inherit")).strip().lower()
             try:
-                dropdown.set_selected(option_values.index(selected))
+                filesystem_dropdown.set_selected(filesystem_values.index(selected_filesystem))
             except ValueError:
-                dropdown.set_selected(0)
-            dropdown.connect("notify::selected", self.on_draft_settings_changed)
+                filesystem_dropdown.set_selected(0)
+            try:
+                network_dropdown.set_selected(network_values.index(selected_network))
+            except ValueError:
+                network_dropdown.set_selected(0)
+            try:
+                device_dropdown.set_selected(device_values.index(selected_devices))
+            except ValueError:
+                device_dropdown.set_selected(0)
+            filesystem_dropdown.connect("notify::selected", self.on_draft_settings_changed)
+            network_dropdown.connect("notify::selected", self.on_draft_settings_changed)
+            device_dropdown.connect("notify::selected", self.on_draft_settings_changed)
             row.append(row_label)
-            row.append(dropdown)
+            row.append(filesystem_dropdown)
+            row.append(network_dropdown)
+            row.append(device_dropdown)
             self.app_overrides_list.append(row)
-            self.app_override_dropdowns[app_id] = dropdown
+            self.app_override_dropdowns[app_id] = {
+                "filesystem": filesystem_dropdown,
+                "network": network_dropdown,
+                "devices": device_dropdown,
+            }
 
     def on_vault_passphrase_changed(self, *_args) -> None:
         text = self.vault_passphrase_entry.get_text()
@@ -1328,7 +1395,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self._set_dropdown_value(self.ram_wipe_combo, [value for value, _label in self.RAM_WIPE_OPTIONS], "strict")
         self._set_dropdown_value(self.vault_auto_lock_combo, [value for value, _label in self.VAULT_AUTO_LOCK_OPTIONS], "0")
         self.vault_unlock_on_login.set_active(False)
-        self.set_all_app_overrides("none")
+        self.set_all_app_overrides(filesystem="none", network="isolated", devices="none")
         self.refresh_summary()
         self.on_apply(self.apply_button)
         locked_now = self.try_lock_vault_now()

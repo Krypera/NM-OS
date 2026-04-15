@@ -27,6 +27,8 @@ SUPPORTED_UI_DENSITIES = ("comfortable", "compact")
 SUPPORTED_UI_MOTION = ("full", "reduced")
 SUPPORTED_DEFAULT_BROWSERS = ("firefox-esr", "chromium", "none")
 SUPPORTED_APP_FILESYSTEM_PROFILES = ("inherit", "home", "documents", "host", "none")
+SUPPORTED_APP_NETWORK_PROFILES = ("inherit", "shared", "isolated")
+SUPPORTED_APP_DEVICE_PROFILES = ("inherit", "all", "none")
 
 PERSISTENT_SETTINGS_FILE = get_state_dir() / "system-settings.json"
 RUNTIME_SETTINGS_FILE = get_runtime_dir() / "system-settings.json"
@@ -337,9 +339,26 @@ def normalize_app_overrides(value: object, default: dict | None = None) -> dict:
             SUPPORTED_APP_FILESYSTEM_PROFILES,
             "inherit",
         )
-        if filesystem == "inherit":
+        network = _normalize_choice(
+            config.get("network", "inherit"),
+            SUPPORTED_APP_NETWORK_PROFILES,
+            "inherit",
+        )
+        devices = _normalize_choice(
+            config.get("devices", "inherit"),
+            SUPPORTED_APP_DEVICE_PROFILES,
+            "inherit",
+        )
+        if filesystem == "inherit" and network == "inherit" and devices == "inherit":
             continue
-        normalized[app_text] = {"filesystem": filesystem}
+        app_override: dict[str, str] = {}
+        if filesystem != "inherit":
+            app_override["filesystem"] = filesystem
+        if network != "inherit":
+            app_override["network"] = network
+        if devices != "inherit":
+            app_override["devices"] = devices
+        normalized[app_text] = app_override
     return normalized
 
 

@@ -55,10 +55,11 @@ def build(window) -> Gtk.Widget:
             window.sandbox_preset_apply,
             Gtk.Label(label="Per-app overrides", xalign=0),
             Gtk.Label(
-                label="Choose a filesystem profile per Flatpak app. Inherit uses the default isolation profile.",
+                label="Choose filesystem, network, and device profiles per Flatpak app. Inherit uses the default isolation profile.",
                 xalign=0,
                 wrap=True,
             ),
+            Gtk.Label(label="Each row: Filesystem | Network | Devices", xalign=0),
             window.app_overrides_change_explanation,
             window.app_overrides_refresh,
             window.app_overrides_empty,

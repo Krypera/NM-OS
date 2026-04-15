@@ -12,7 +12,7 @@
 4. `nmos-persistent-storage.service`
    exposes the encrypted vault backend
 5. `nmos-app-isolation-policy.service`
-   enforces the selected `sandbox_default` as a global Flatpak baseline override
+   enforces the selected `sandbox_default` as a global Flatpak baseline override and applies per-app filesystem/network/device override rules
 6. `nmos-device-policy.service`
    enforces the selected `device_policy` baseline for removable USB storage trust
 7. the GDM greeter session launches `nmos-greeter`

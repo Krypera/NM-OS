@@ -24,6 +24,16 @@ APP_FILESYSTEM_ARGS = {
     "host": ["--filesystem=host"],
     "none": ["--nofilesystem=home", "--nofilesystem=host", "--nofilesystem=xdg-documents"],
 }
+APP_NETWORK_ARGS = {
+    "inherit": [],
+    "shared": ["--share=network"],
+    "isolated": ["--unshare=network"],
+}
+APP_DEVICE_ARGS = {
+    "inherit": [],
+    "all": ["--device=all"],
+    "none": ["--nodevice=all"],
+}
 
 
 def policy_name(settings: dict) -> str:
@@ -51,8 +61,14 @@ def policy_commands(profile: str, overrides: dict[str, dict[str, str]]) -> list[
         commands.append(["flatpak", "override", "--system", *args])
     for app_id, config in sorted(overrides.items()):
         filesystem_profile = str(config.get("filesystem", "inherit")).strip().lower()
+        network_profile = str(config.get("network", "inherit")).strip().lower()
+        device_profile = str(config.get("devices", "inherit")).strip().lower()
         commands.append(["flatpak", "override", "--system", "--reset", app_id])
-        app_args = APP_FILESYSTEM_ARGS.get(filesystem_profile, APP_FILESYSTEM_ARGS["inherit"])
+        app_args = [
+            *APP_FILESYSTEM_ARGS.get(filesystem_profile, APP_FILESYSTEM_ARGS["inherit"]),
+            *APP_NETWORK_ARGS.get(network_profile, APP_NETWORK_ARGS["inherit"]),
+            *APP_DEVICE_ARGS.get(device_profile, APP_DEVICE_ARGS["inherit"]),
+        ]
         if app_args:
             commands.append(["flatpak", "override", "--system", *app_args, app_id])
     return commands
