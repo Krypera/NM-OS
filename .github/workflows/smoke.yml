@@ -41,6 +41,7 @@ jobs:
           bash ./tests/smoke/verify-settings-model.sh
           bash ./tests/smoke/verify-security-matrix-gates.sh
           bash ./tests/smoke/verify-security-setting-explanations.sh
+          bash ./tests/smoke/verify-comfort-mode.sh
           bash ./tests/smoke/verify-control-center.sh
           bash ./tests/smoke/verify-installer-media.sh
           bash ./tests/smoke/verify-systemd-hardening.sh
