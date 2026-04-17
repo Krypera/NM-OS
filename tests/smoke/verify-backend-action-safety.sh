@@ -82,4 +82,10 @@ grep -q 'self._set_review_mode_status(self.format_backend_guidance(error))' "${C
     exit 1
 }
 
+review_helper_count="$(grep -c 'self._set_review_mode_status(' "${CONTROL_CENTER_MAIN}")"
+if [ "${review_helper_count}" -lt 4 ]; then
+    echo "review mode helper should be used in at least 4 paths, found ${review_helper_count}." >&2
+    exit 1
+fi
+
 echo "Backend action safety checks passed."

@@ -1531,6 +1531,39 @@ def test_control_center_mutation_handlers_start_with_backend_guard(repo_root: Pa
         assert _starts_with_backend_guard(method_map[handler_name]), handler_name
 
 
+def test_control_center_review_mode_helper_used_in_failure_paths(repo_root: Path) -> None:
+    control_center_source = (
+        repo_root / "apps" / "nmos_control_center" / "nmos_control_center" / "main.py"
+    ).read_text(encoding="utf-8")
+    module = ast.parse(control_center_source)
+    window_class = next(
+        node
+        for node in module.body
+        if isinstance(node, ast.ClassDef) and node.name == "ControlCenterWindow"
+    )
+    method_map: dict[str, ast.FunctionDef] = {
+        node.name: node for node in window_class.body if isinstance(node, ast.FunctionDef)
+    }
+
+    def _calls_review_mode_helper(function_node: ast.FunctionDef) -> bool:
+        for child in ast.walk(function_node):
+            if not isinstance(child, ast.Call):
+                continue
+            target = child.func
+            if (
+                isinstance(target, ast.Attribute)
+                and isinstance(target.value, ast.Name)
+                and target.value.id == "self"
+                and target.attr == "_set_review_mode_status"
+            ):
+                return True
+        return False
+
+    for handler_name in ("_guard_backend_mutation", "_reload_from_backend", "on_refresh"):
+        assert handler_name in method_map
+        assert _calls_review_mode_helper(method_map[handler_name]), handler_name
+
+
 def test_installer_media_and_assets_are_packaged(repo_root: Path) -> None:
     build_source = (repo_root / "build" / "build.sh").read_text(encoding="utf-8")
     common_source = (repo_root / "build" / "lib" / "common.sh").read_text(encoding="utf-8")
