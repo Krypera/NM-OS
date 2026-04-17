@@ -41,4 +41,19 @@ grep -q 'self._set_backend_action_sensitivity(False)' "${CONTROL_CENTER_MAIN}" |
     exit 1
 }
 
+grep -q 'def _reload_from_backend' "${CONTROL_CENTER_MAIN}" || {
+    echo "control center does not define backend reload handler." >&2
+    exit 1
+}
+
+grep -q 'except SettingsClientError as error:' "${CONTROL_CENTER_MAIN}" || {
+    echo "backend reload failure is not classified with SettingsClientError guidance." >&2
+    exit 1
+}
+
+grep -q 'self.status_label.set_text(f"{self.format_backend_guidance(error)} Review mode only until service is reachable.")' "${CONTROL_CENTER_MAIN}" || {
+    echo "backend reload failure does not publish explicit review mode guidance." >&2
+    exit 1
+}
+
 echo "Backend action safety checks passed."

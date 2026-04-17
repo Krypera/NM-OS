@@ -244,8 +244,13 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self._reload_source_id = None
         try:
             self.settings = self.client.get_settings()
-        except SettingsClientError:
+        except SettingsClientError as error:
+            self.backend_ready = False
+            self._set_backend_action_sensitivity(False)
+            self.status_label.set_text(f"{self.format_backend_guidance(error)} Review mode only until service is reachable.")
             return GLib.SOURCE_REMOVE
+        self.backend_ready = True
+        self._set_backend_action_sensitivity(True)
         self.restore_settings()
         self.refresh_summary()
         self.status_label.set_text("Settings updated by another session.")

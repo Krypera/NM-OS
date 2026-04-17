@@ -1392,6 +1392,9 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "self._set_backend_action_sensitivity(self.backend_ready)" in control_center_source
     assert "self._set_backend_action_sensitivity(True)" in control_center_source
     assert "self._set_backend_action_sensitivity(False)" in control_center_source
+    assert "def _reload_from_backend" in control_center_source
+    assert "except SettingsClientError as error:" in control_center_source
+    assert 'self.status_label.set_text(f"{self.format_backend_guidance(error)} Review mode only until service is reachable.")' in control_center_source
     assert "def on_apply(self, _button: Gtk.Button) -> bool:" in control_center_source
     assert "if not self.on_apply(self.apply_button):" in control_center_source
     assert "Emergency Lockdown draft prepared, but applying changes failed." in control_center_source
