@@ -1312,6 +1312,7 @@ def test_workflow_includes_overlay_and_windows_validation(repo_root: Path) -> No
     assert "verify-emergency-lockdown.sh" in workflow_source
     assert "verify-trust-chain-privacy-dashboard.sh" in workflow_source
     assert "verify-app-sandbox-presets.sh" in workflow_source
+    assert "verify-recovery-actions.sh" in workflow_source
     assert "windows-smoke:" in workflow_source
     assert "verify-windows-wsl-bridge.ps1" in workflow_source
     assert "verify-control-center.sh" in workflow_source
