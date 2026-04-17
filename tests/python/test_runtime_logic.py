@@ -224,6 +224,42 @@ def test_greeter_onboarding_page_index_state_machine() -> None:
     assert skipped_index == 5
 
 
+def test_greeter_state_persistence_supports_skip_back_resume(
+    repo_root: Path,
+    workspace_tmp_path: Path,
+) -> None:
+    greeter_state = load_module(
+        "greeter_state_module",
+        repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "state.py",
+    )
+    greeter_state.STATE_FILE = workspace_tmp_path / "greeter-state.json"
+
+    greeter_state.save_state({"onboarding_page_index": 2, "default_browser": "chromium"})
+    loaded = greeter_state.load_state()
+    assert loaded["onboarding_page_index"] == 2
+    assert loaded["default_browser"] == "chromium"
+
+    resumed = greeter_state.load_onboarding_page_index(loaded, 6)
+    assert resumed == 2
+    assert greeter_state.next_onboarding_page_index(resumed, 6) == 3
+    assert greeter_state.previous_onboarding_page_index(resumed, 6) == 1
+
+    skipped = greeter_state.skip_to_summary_page_index(6)
+    loaded["onboarding_page_index"] = skipped
+    greeter_state.save_state(loaded)
+    assert greeter_state.load_onboarding_page_index(greeter_state.load_state(), 6) == 5
+
+    # Simulate interrupted completion handoff: the next launch should start from page 0.
+    greeter_state.save_state({"onboarding_page_index": 0, "default_browser": "chromium"})
+    assert greeter_state.load_onboarding_page_index(greeter_state.load_state(), 6) == 0
+
+    greeter_state.STATE_FILE.write_text("{bad-json", encoding="utf-8")
+    assert greeter_state.load_state() == {}
+
+    greeter_state.clear_state()
+    assert greeter_state.load_state() == {}
+
+
 class _MockBackendUnavailableDBusError(Exception):
     def get_dbus_name(self) -> str:
         return "org.freedesktop.DBus.Error.ServiceUnknown"
