@@ -15,6 +15,11 @@ grep -q 'def _set_backend_action_sensitivity' "${CONTROL_CENTER_MAIN}" || {
     exit 1
 }
 
+grep -q 'def _guard_backend_mutation' "${CONTROL_CENTER_MAIN}" || {
+    echo "control center does not define backend mutation guard helper." >&2
+    exit 1
+}
+
 for button in \
     'self.apply_button.set_sensitive(enabled)' \
     'self.reset_button.set_sensitive(enabled)' \
@@ -40,6 +45,15 @@ grep -q 'self._set_backend_action_sensitivity(False)' "${CONTROL_CENTER_MAIN}" |
     echo "backend failure path does not disable mutation controls." >&2
     exit 1
 }
+
+for callsite in \
+    'if not self._guard_backend_mutation():' \
+    'Settings backend is unavailable. Review mode only until service is reachable.'; do
+    grep -q "${callsite}" "${CONTROL_CENTER_MAIN}" || {
+        echo "backend mutation guard wiring missing: ${callsite}" >&2
+        exit 1
+    }
+done
 
 grep -q 'def _reload_from_backend' "${CONTROL_CENTER_MAIN}" || {
     echo "control center does not define backend reload handler." >&2

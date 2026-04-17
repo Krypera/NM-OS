@@ -287,6 +287,13 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.comfort_mode_button.set_sensitive(enabled)
         self.emergency_lockdown_button.set_sensitive(enabled)
 
+    def _guard_backend_mutation(self) -> bool:
+        if self.backend_ready:
+            return True
+        self._set_backend_action_sensitivity(False)
+        self.status_label.set_text("Settings backend is unavailable. Review mode only until service is reachable.")
+        return False
+
     def _selected_value(self, dropdown: Gtk.DropDown, values: list[str]) -> str:
         selected = dropdown.get_selected()
         if selected == Gtk.INVALID_LIST_POSITION or selected >= len(values):
@@ -1409,6 +1416,8 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.status_label.set_text("Settings refreshed.")
 
     def on_reset_to_profile(self, _button: Gtk.Button) -> None:
+        if not self._guard_backend_mutation():
+            return
         snapshot_saved = self.snapshot_current_settings(reason="Before reset to profile")
         try:
             self.client.apply_preset(self._selected_value(self.profile_combo, self.profile_values))
@@ -1424,6 +1433,8 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.status_label.set_text("Overrides removed. The selected profile is active again.")
 
     def on_apply(self, _button: Gtk.Button) -> bool:
+        if not self._guard_backend_mutation():
+            return False
         profile = self._selected_value(self.profile_combo, self.profile_values)
         values = self.collect_values()
         overrides = derive_overrides_for_profile(profile, values)
@@ -1451,6 +1462,8 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         return True
 
     def on_apply_comfort_mode(self, _button: Gtk.Button) -> None:
+        if not self._guard_backend_mutation():
+            return
         snapshot_saved = self.snapshot_current_settings(reason="Before comfort mode")
         current_overrides = self.settings.get("overrides", {})
         if not isinstance(current_overrides, dict):
@@ -1471,6 +1484,8 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.status_label.set_text("Comfort Mode applied with existing overrides preserved.")
 
     def on_emergency_lockdown(self, _button: Gtk.Button) -> None:
+        if not self._guard_backend_mutation():
+            return
         self._set_dropdown_value(self.network_combo, [value for value, _label in self.NETWORK_OPTIONS], "offline")
         self._set_dropdown_value(self.logging_combo, [value for value, _label in self.LOGGING_OPTIONS], "sealed")
         self._set_dropdown_value(self.device_policy_combo, [value for value, _label in self.DEVICE_POLICY_OPTIONS], "locked")
@@ -1504,6 +1519,8 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.status_label.set_text(f"Diagnostics bundle created: {self.recovery_bundle_file}")
 
     def on_rollback_settings_snapshot(self, _button: Gtk.Button) -> None:
+        if not self._guard_backend_mutation():
+            return
         snapshot = self.load_settings_snapshot()
         target_settings = snapshot.get("settings", {}) if isinstance(snapshot.get("settings", {}), dict) else {}
         if not target_settings:

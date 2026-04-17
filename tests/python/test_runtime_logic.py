@@ -1387,11 +1387,14 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "on_apply_sandbox_preset" in control_center_source
     assert "on_apply_comfort_mode" in control_center_source
     assert "_set_backend_action_sensitivity" in control_center_source
+    assert "_guard_backend_mutation" in control_center_source
     assert "self.comfort_mode_button.set_sensitive(enabled)" in control_center_source
     assert "self.emergency_lockdown_button.set_sensitive(enabled)" in control_center_source
     assert "self._set_backend_action_sensitivity(self.backend_ready)" in control_center_source
     assert "self._set_backend_action_sensitivity(True)" in control_center_source
     assert "self._set_backend_action_sensitivity(False)" in control_center_source
+    assert "if not self._guard_backend_mutation():" in control_center_source
+    assert "Settings backend is unavailable. Review mode only until service is reachable." in control_center_source
     assert "def _reload_from_backend" in control_center_source
     assert "except SettingsClientError as error:" in control_center_source
     assert 'self.status_label.set_text(f"{self.format_backend_guidance(error)} Review mode only until service is reachable.")' in control_center_source
