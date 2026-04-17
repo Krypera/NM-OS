@@ -1382,6 +1382,9 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "format_recovery_status" in control_center_source
     assert "format_ram_wipe_status" in control_center_source
     assert "build_setting_change_explanation" in control_center_source
+    assert "Explain this setting:" in control_center_source
+    assert "Changes now:" in control_center_source
+    assert "Changes after reboot:" in control_center_source
     assert "UPDATE_CHANNEL_OPTIONS" in control_center_source
     assert "on_check_updates" in control_center_source
     assert "on_apply_update" in control_center_source

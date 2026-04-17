@@ -544,16 +544,24 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             return "Applies after reboot."
         return "Applies now."
 
+    def _change_phase_flags_for_key(self, key: str, details: dict[str, list[dict[str, object]]]) -> tuple[bool, bool]:
+        immediate_keys = {str(item.get("key", "")) for item in details.get("immediate", [])}
+        reboot_keys = {str(item.get("key", "")) for item in details.get("reboot", [])}
+        return key in immediate_keys, key in reboot_keys
+
     def build_setting_change_explanation(
         self,
         *,
         key: str,
         details: dict[str, list[dict[str, object]]],
     ) -> str:
+        changes_now, changes_after_reboot = self._change_phase_flags_for_key(key, details)
         timing = self._change_timing_for_key(key, details)
         risk = SETTING_RISK_HINTS.get(key, "Compatibility impact depends on your current workflow.")
         return (
-            f"What changes: {self.tr(setting_display_name(key))}. "
+            f"Explain this setting: {self.tr(setting_display_name(key))}. "
+            f"Changes now: {'yes' if changes_now else 'no'}. "
+            f"Changes after reboot: {'yes' if changes_after_reboot else 'no'}. "
             f"When: {timing} "
             f"Compatibility risk: {risk}"
         )
