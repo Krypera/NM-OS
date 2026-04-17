@@ -1065,6 +1065,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.stack.add_titled(widget, key, title_text)
 
         actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        self.help_button = Gtk.Button(label="Help")
         self.refresh_button = Gtk.Button(label="Refresh")
         self.diagnostics_button = Gtk.Button(label="Diagnostics")
         self.reset_button = Gtk.Button(label="Reset To Profile")
@@ -1073,11 +1074,13 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.status_label.set_hexpand(True)
         self.status_label.set_wrap(True)
         self.status_label.add_css_class("dim-label")
+        self.help_button.connect("clicked", self.on_open_help)
         self.refresh_button.connect("clicked", self.on_refresh)
         self.diagnostics_button.connect("clicked", self.on_diagnostics)
         self.reset_button.connect("clicked", self.on_reset_to_profile)
         self.apply_button.connect("clicked", self.on_apply)
         actions.append(self.status_label)
+        actions.append(self.help_button)
         actions.append(self.refresh_button)
         actions.append(self.diagnostics_button)
         actions.append(self.reset_button)
@@ -1479,6 +1482,17 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             "journalctl -u nmos-settings.service -u nmos-app-isolation-policy.service "
             "-u nmos-device-policy.service -u nmos-logging-policy.service -n 50"
         )
+
+    def on_open_help(self, _button: Gtk.Button) -> None:
+        try:
+            subprocess.Popen(["/usr/local/bin/nmos-help"])
+        except OSError:
+            try:
+                subprocess.Popen(["python3", "-m", "nmos_help.main"])
+            except OSError:
+                self.status_label.set_text("Help could not be launched from this session.")
+                return
+        self.status_label.set_text("Help opened.")
 
 
 class ControlCenterApplication(Adw.Application):

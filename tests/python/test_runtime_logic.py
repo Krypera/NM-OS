@@ -1388,6 +1388,7 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "on_create_diagnostics_bundle" in control_center_source
     assert "on_rollback_settings_snapshot" in control_center_source
     assert "snapshot_current_settings" in control_center_source
+    assert "on_open_help" in control_center_source
     assert "load_release_manifest" in control_center_source
     assert "read_build_info" in control_center_source
     assert "Diagnostics" in control_center_source
@@ -1432,6 +1433,7 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "vault_passphrase_entry" in control_center_source
     assert "passphrase_feedback_text" in control_center_source
     assert "python3 -m nmos_help.main" in help_launcher_source
+    assert "/usr/local/bin/nmos-help" in control_center_source
     assert "Exec=/usr/local/bin/nmos-help" in help_desktop_source
     assert ".nmos-root" in css_source
     assert "theme-nmos-classic" in css_source
