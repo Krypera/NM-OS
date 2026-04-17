@@ -1387,6 +1387,26 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             else:
                 self.status_label.set_text("Changes saved.")
 
+    def on_apply_comfort_mode(self, _button: Gtk.Button) -> None:
+        snapshot_saved = self.snapshot_current_settings(reason="Before comfort mode")
+        current_overrides = self.settings.get("overrides", {})
+        if not isinstance(current_overrides, dict):
+            current_overrides = {}
+        try:
+            self.client.apply_preset("relaxed")
+            if current_overrides:
+                self.client.set_overrides(current_overrides)
+            self.settings = self.client.commit()
+        except SettingsClientError as error:
+            self.status_label.set_text(self.format_backend_guidance(error))
+            return
+        self.restore_settings()
+        self.refresh_summary()
+        if snapshot_saved:
+            self.status_label.set_text("Comfort Mode applied with existing overrides preserved. Rollback snapshot captured.")
+        else:
+            self.status_label.set_text("Comfort Mode applied with existing overrides preserved.")
+
     def on_emergency_lockdown(self, _button: Gtk.Button) -> None:
         self._set_dropdown_value(self.network_combo, [value for value, _label in self.NETWORK_OPTIONS], "offline")
         self._set_dropdown_value(self.logging_combo, [value for value, _label in self.LOGGING_OPTIONS], "sealed")

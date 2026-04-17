@@ -1325,6 +1325,9 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     system_panel_source = (
         repo_root / "apps" / "nmos_control_center" / "nmos_control_center" / "panels" / "system.py"
     ).read_text(encoding="utf-8")
+    security_panel_source = (
+        repo_root / "apps" / "nmos_control_center" / "nmos_control_center" / "panels" / "security.py"
+    ).read_text(encoding="utf-8")
     help_launcher_source = (
         repo_root / "config" / "system-overlay" / "usr" / "local" / "bin" / "nmos-help"
     ).read_text(encoding="utf-8")
@@ -1370,6 +1373,9 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "RAM wipe policy" in system_panel_source
     assert "Update center" in system_panel_source
     assert "on_apply_sandbox_preset" in control_center_source
+    assert "on_apply_comfort_mode" in control_center_source
+    assert 'self.client.apply_preset("relaxed")' in control_center_source
+    assert "self.client.set_overrides(current_overrides)" in control_center_source
     assert "apply_sandbox_preset" in control_center_source
     assert "format_trust_chain_status" in control_center_source
     assert "format_recovery_status" in control_center_source
@@ -1417,6 +1423,8 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "NM-OS Control Center" in control_center_source
     assert "Security & Profiles" in control_center_source
     assert "Personalization" in control_center_source
+    assert "Apply Comfort Mode" in security_panel_source
+    assert "Comfort Mode quickly switches to the Relaxed baseline while keeping your existing overrides." in security_panel_source
     assert "default_browser" in control_center_source
     assert "app_overrides" in control_center_source
     assert "APP_NETWORK_OPTIONS" in control_center_source

@@ -60,6 +60,8 @@ def build(window) -> Gtk.Widget:
     window.profile_change_explanation = Gtk.Label(xalign=0)
     window.profile_change_explanation.set_wrap(True)
     window.profile_change_explanation.add_css_class("dim-label")
+    window.comfort_mode_button = Gtk.Button(label="Apply Comfort Mode")
+    window.comfort_mode_button.connect("clicked", window.on_apply_comfort_mode)
 
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
 
@@ -72,6 +74,12 @@ def build(window) -> Gtk.Widget:
                 "Balanced is recommended. Other profiles trade comfort for stronger or lighter restrictions.",
                 window.profile_combo,
             ),
+            Gtk.Label(
+                label="Comfort Mode quickly switches to the Relaxed baseline while keeping your existing overrides.",
+                xalign=0,
+                wrap=True,
+            ),
+            window.comfort_mode_button,
             window.profile_change_explanation,
             window.profile_summary,
             window.profile_guidance,
