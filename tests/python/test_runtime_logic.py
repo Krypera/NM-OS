@@ -1385,6 +1385,9 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "Update center" in system_panel_source
     assert "on_apply_sandbox_preset" in control_center_source
     assert "on_apply_comfort_mode" in control_center_source
+    assert "def on_apply(self, _button: Gtk.Button) -> bool:" in control_center_source
+    assert "if not self.on_apply(self.apply_button):" in control_center_source
+    assert "Emergency Lockdown draft prepared, but applying changes failed." in control_center_source
     assert 'self.client.apply_preset("relaxed")' in control_center_source
     assert "self.client.set_overrides(current_overrides)" in control_center_source
     assert "apply_sandbox_preset" in control_center_source

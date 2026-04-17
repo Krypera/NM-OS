@@ -1415,7 +1415,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         else:
             self.status_label.set_text("Overrides removed. The selected profile is active again.")
 
-    def on_apply(self, _button: Gtk.Button) -> None:
+    def on_apply(self, _button: Gtk.Button) -> bool:
         profile = self._selected_value(self.profile_combo, self.profile_values)
         values = self.collect_values()
         overrides = derive_overrides_for_profile(profile, values)
@@ -1427,7 +1427,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             self.settings = self.client.commit()
         except SettingsClientError as error:
             self.status_label.set_text(self.format_backend_guidance(error))
-            return
+            return False
         self.restore_settings()
         self.refresh_summary()
         if self.settings.get("pending_reboot"):
@@ -1440,6 +1440,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                 self.status_label.set_text("Changes saved. Rollback snapshot captured.")
             else:
                 self.status_label.set_text("Changes saved.")
+        return True
 
     def on_apply_comfort_mode(self, _button: Gtk.Button) -> None:
         snapshot_saved = self.snapshot_current_settings(reason="Before comfort mode")
@@ -1471,7 +1472,11 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.vault_unlock_on_login.set_active(False)
         self.set_all_app_overrides(filesystem="none", network="isolated", devices="none")
         self.refresh_summary()
-        self.on_apply(self.apply_button)
+        if not self.on_apply(self.apply_button):
+            self.status_label.set_text(
+                "Emergency Lockdown draft prepared, but applying changes failed. Resolve backend issue and retry Apply Changes."
+            )
+            return
         locked_now = self.try_lock_vault_now()
         suffix = " Vault locked now." if locked_now else " Vault lock will apply on next service action."
         self.status_label.set_text("Emergency Lockdown applied: offline, sealed logging, locked devices, strict app isolation." + suffix)

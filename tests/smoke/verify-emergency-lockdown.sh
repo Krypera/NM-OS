@@ -58,6 +58,16 @@ grep -q 'self.set_all_app_overrides(filesystem="none", network="isolated", devic
     exit 1
 }
 
+grep -q 'if not self.on_apply(self.apply_button):' "${CONTROL_CENTER_MAIN}" || {
+    echo "emergency lockdown does not guard against apply failures." >&2
+    exit 1
+}
+
+grep -q 'Emergency Lockdown draft prepared, but applying changes failed.' "${CONTROL_CENTER_MAIN}" || {
+    echo "emergency lockdown does not report apply failure clearly." >&2
+    exit 1
+}
+
 grep -q 'locked_now = self.try_lock_vault_now()' "${CONTROL_CENTER_MAIN}" || {
     echo "emergency lockdown does not attempt an immediate vault lock." >&2
     exit 1
