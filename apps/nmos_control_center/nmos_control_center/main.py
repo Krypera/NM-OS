@@ -204,9 +204,8 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self._connect_settings_signal()
         self.restore_settings()
         self.refresh_summary()
+        self._set_backend_action_sensitivity(self.backend_ready)
         if not self.backend_ready:
-            self.apply_button.set_sensitive(False)
-            self.reset_button.set_sensitive(False)
             prefix = f"{self.startup_error_message} " if self.startup_error_message else ""
             self.status_label.set_text(f"{prefix}Review mode only until service is reachable. Use Diagnostics for details.")
         self.set_content(self.root)
@@ -276,6 +275,12 @@ class ControlCenterWindow(Adw.ApplicationWindow):
 
     def format_backend_guidance(self, error: SettingsClientError) -> str:
         return f"{self.describe_backend_issue(error)} {self.backend_recovery_hint(error)}"
+
+    def _set_backend_action_sensitivity(self, enabled: bool) -> None:
+        self.apply_button.set_sensitive(enabled)
+        self.reset_button.set_sensitive(enabled)
+        self.comfort_mode_button.set_sensitive(enabled)
+        self.emergency_lockdown_button.set_sensitive(enabled)
 
     def _selected_value(self, dropdown: Gtk.DropDown, values: list[str]) -> str:
         selected = dropdown.get_selected()
@@ -1388,12 +1393,10 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         try:
             self.settings = self.client.get_settings()
             self.backend_ready = True
-            self.apply_button.set_sensitive(True)
-            self.reset_button.set_sensitive(True)
+            self._set_backend_action_sensitivity(True)
         except SettingsClientError as error:
             self.backend_ready = False
-            self.apply_button.set_sensitive(False)
-            self.reset_button.set_sensitive(False)
+            self._set_backend_action_sensitivity(False)
             self.status_label.set_text(f"{self.format_backend_guidance(error)} Review mode only until service is reachable.")
             return
         self.restore_settings()
