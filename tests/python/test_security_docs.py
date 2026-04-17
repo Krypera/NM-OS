@@ -23,6 +23,16 @@ def test_security_model_maps_settings_to_enforcement(repo_root: Path) -> None:
     assert "release gate aid" in security_model_source
 
 
+def test_update_rollback_architecture_doc_has_required_sections(repo_root: Path) -> None:
+    architecture_source = (repo_root / "docs" / "update-rollback-architecture.md").read_text(encoding="utf-8")
+    assert "## Atomic Strategy Decision" in architecture_source
+    assert "## Signed Artifact And Manifest Requirements" in architecture_source
+    assert "## Failure Recovery UX" in architecture_source
+    assert "## Release Gate Checklist" in architecture_source
+    assert "release-manifest.json" in architecture_source
+    assert "update-catalog.json" in architecture_source
+
+
 def test_markdown_docs_do_not_contain_common_mojibake_sequences(repo_root: Path) -> None:
     bad_sequences = [
         "\u00e2\u20ac\u201d",  # mojibake em dash

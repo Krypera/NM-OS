@@ -1304,6 +1304,7 @@ def test_workflow_includes_overlay_and_windows_validation(repo_root: Path) -> No
     assert "build-smoke:" in workflow_source
     assert "smoke-overlay.sh" in workflow_source
     assert "verify-installer-media.sh" in workflow_source
+    assert "verify-update-rollback-architecture.sh" in workflow_source
     assert "verify-security-matrix-gates.sh" in workflow_source
     assert "windows-smoke:" in workflow_source
     assert "verify-windows-wsl-bridge.ps1" in workflow_source

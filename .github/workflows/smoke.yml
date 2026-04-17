@@ -47,6 +47,7 @@ jobs:
           bash ./tests/smoke/verify-greeter-state.sh
           bash ./tests/smoke/verify-greeter-i18n.sh
           bash ./tests/smoke/verify-network-policy.sh
+          bash ./tests/smoke/verify-update-rollback-architecture.sh
           bash ./tests/smoke/verify-prelogin-wiring.sh
           bash ./tests/smoke/verify-vault-storage.sh
           bash ./tests/smoke/verify-runtime-logic.sh
