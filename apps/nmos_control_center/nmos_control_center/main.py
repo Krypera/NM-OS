@@ -206,8 +206,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.refresh_summary()
         self._set_backend_action_sensitivity(self.backend_ready)
         if not self.backend_ready:
-            prefix = f"{self.startup_error_message} " if self.startup_error_message else ""
-            self.status_label.set_text(f"{prefix}Review mode only until service is reachable. Use Diagnostics for details.")
+            self._set_review_mode_status(self.startup_error_message)
         self.set_content(self.root)
 
     def _connect_settings_signal(self) -> None:
@@ -247,7 +246,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         except SettingsClientError as error:
             self.backend_ready = False
             self._set_backend_action_sensitivity(False)
-            self.status_label.set_text(f"{self.format_backend_guidance(error)} Review mode only until service is reachable.")
+            self._set_review_mode_status(self.format_backend_guidance(error))
             return GLib.SOURCE_REMOVE
         self.backend_ready = True
         self._set_backend_action_sensitivity(True)
@@ -281,6 +280,13 @@ class ControlCenterWindow(Adw.ApplicationWindow):
     def format_backend_guidance(self, error: SettingsClientError) -> str:
         return f"{self.describe_backend_issue(error)} {self.backend_recovery_hint(error)}"
 
+    def _set_review_mode_status(self, prefix: str = "") -> None:
+        guidance = "Review mode only until service is reachable. Use Diagnostics for details."
+        if prefix:
+            self.status_label.set_text(f"{prefix} {guidance}")
+            return
+        self.status_label.set_text(guidance)
+
     def _set_backend_action_sensitivity(self, enabled: bool) -> None:
         self.apply_button.set_sensitive(enabled)
         self.reset_button.set_sensitive(enabled)
@@ -291,7 +297,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         if self.backend_ready:
             return True
         self._set_backend_action_sensitivity(False)
-        self.status_label.set_text("Settings backend is unavailable. Review mode only until service is reachable.")
+        self._set_review_mode_status("Settings backend is unavailable.")
         return False
 
     def _selected_value(self, dropdown: Gtk.DropDown, values: list[str]) -> str:
@@ -1409,7 +1415,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         except SettingsClientError as error:
             self.backend_ready = False
             self._set_backend_action_sensitivity(False)
-            self.status_label.set_text(f"{self.format_backend_guidance(error)} Review mode only until service is reachable.")
+            self._set_review_mode_status(self.format_backend_guidance(error))
             return
         self.restore_settings()
         self.refresh_summary()

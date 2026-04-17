@@ -15,6 +15,11 @@ grep -q 'def _set_backend_action_sensitivity' "${CONTROL_CENTER_MAIN}" || {
     exit 1
 }
 
+grep -q 'def _set_review_mode_status' "${CONTROL_CENTER_MAIN}" || {
+    echo "control center does not define review mode status helper." >&2
+    exit 1
+}
+
 grep -q 'def _guard_backend_mutation' "${CONTROL_CENTER_MAIN}" || {
     echo "control center does not define backend mutation guard helper." >&2
     exit 1
@@ -48,7 +53,8 @@ grep -q 'self._set_backend_action_sensitivity(False)' "${CONTROL_CENTER_MAIN}" |
 
 for callsite in \
     'if not self._guard_backend_mutation():' \
-    'Settings backend is unavailable. Review mode only until service is reachable.'; do
+    'self._set_review_mode_status("Settings backend is unavailable.")' \
+    'Review mode only until service is reachable. Use Diagnostics for details.'; do
     grep -q "${callsite}" "${CONTROL_CENTER_MAIN}" || {
         echo "backend mutation guard wiring missing: ${callsite}" >&2
         exit 1
@@ -71,8 +77,8 @@ grep -q 'except SettingsClientError as error:' "${CONTROL_CENTER_MAIN}" || {
     exit 1
 }
 
-grep -q 'self.status_label.set_text(f"{self.format_backend_guidance(error)} Review mode only until service is reachable.")' "${CONTROL_CENTER_MAIN}" || {
-    echo "backend reload failure does not publish explicit review mode guidance." >&2
+grep -q 'self._set_review_mode_status(self.format_backend_guidance(error))' "${CONTROL_CENTER_MAIN}" || {
+    echo "backend reload failure does not publish review mode guidance via helper." >&2
     exit 1
 }
 
