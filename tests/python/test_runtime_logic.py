@@ -772,6 +772,81 @@ def test_default_browser_enforcement_composes_expected_commands(repo_root: Path)
     assert commands == []
 
 
+def test_greeter_browser_choice_persists_and_drives_desktop_enforcement(
+    repo_root: Path,
+    workspace_tmp_path: Path,
+) -> None:
+    browser_model = load_module(
+        "browser_model",
+        repo_root / "apps" / "nmos_greeter" / "nmos_greeter" / "browser_model.py",
+    )
+    desktop_mode = load_module(
+        "desktop_mode",
+        repo_root / "config" / "system-overlay" / "usr" / "local" / "lib" / "nmos" / "desktop_mode.py",
+    )
+
+    persistent = workspace_tmp_path / "system-settings.json"
+    runtime = workspace_tmp_path / "runtime-settings.json"
+    applied = workspace_tmp_path / "applied-settings.json"
+
+    chromium_setting = browser_model.browser_to_default_setting("chromium")
+    assert chromium_setting == "chromium"
+    save_system_settings(
+        {
+            "active_profile": "balanced",
+            "overrides": {"default_browser": chromium_setting},
+        },
+        persistent_path=persistent,
+        runtime_path=runtime,
+        applied_path=applied,
+    )
+    chromium_effective = load_effective_system_settings(
+        persistent_path=persistent,
+        runtime_path=runtime,
+        applied_path=applied,
+    )
+    assert chromium_effective["default_browser"] == "chromium"
+
+    commands: list[list[str]] = []
+
+    class _Completed:
+        def __init__(self) -> None:
+            self.returncode = 0
+            self.stderr = ""
+            self.stdout = ""
+
+    def _fake_run(command, check=False, capture_output=True, text=True, timeout=5):  # noqa: ANN001
+        commands.append(list(command))
+        return _Completed()
+
+    desktop_mode.subprocess.run = _fake_run
+    desktop_mode.apply_default_browser(chromium_effective)
+    assert commands[0] == ["xdg-settings", "set", "default-web-browser", "chromium.desktop"]
+    assert ["gio", "mime", "x-scheme-handler/http", "chromium.desktop"] in commands
+    assert ["gio", "mime", "x-scheme-handler/https", "chromium.desktop"] in commands
+
+    commands.clear()
+    none_setting = browser_model.browser_to_default_setting("skip")
+    assert none_setting == "none"
+    save_system_settings(
+        {
+            "active_profile": "balanced",
+            "overrides": {"default_browser": none_setting},
+        },
+        persistent_path=persistent,
+        runtime_path=runtime,
+        applied_path=applied,
+    )
+    none_effective = load_effective_system_settings(
+        persistent_path=persistent,
+        runtime_path=runtime,
+        applied_path=applied,
+    )
+    assert none_effective["default_browser"] == "none"
+    desktop_mode.apply_default_browser(none_effective)
+    assert commands == []
+
+
 def test_logging_policy_enforcement_assets_exist(repo_root: Path) -> None:
     logging_policy_source = (
         repo_root / "config" / "system-overlay" / "usr" / "local" / "lib" / "nmos" / "logging_policy.py"

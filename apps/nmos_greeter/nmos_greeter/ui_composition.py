@@ -27,7 +27,7 @@ from nmos_common.system_settings import (
 )
 from nmos_common.ui_theme import apply_window_theme
 
-from nmos_greeter.browser_model import BROWSER_OPTIONS, browser_description, browser_label
+from nmos_greeter.browser_model import BROWSER_OPTIONS, browser_description, browser_label, browser_to_default_setting
 
 KEYBOARD_OPTIONS = ["us", "tr", "de", "fr"]
 NETWORK_POLICY_OPTIONS = ["tor", "direct", "offline"]
@@ -314,8 +314,7 @@ def current_browser_name(window) -> str:
 
 
 def current_default_browser(window) -> str:
-    browser = current_browser(window)
-    return "none" if browser == "skip" else browser
+    return browser_to_default_setting(current_browser(window))
 
 
 def current_network_policy(window) -> str:

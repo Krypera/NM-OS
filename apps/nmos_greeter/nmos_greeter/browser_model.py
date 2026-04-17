@@ -34,3 +34,10 @@ def browser_label_list() -> list[str]:
 def resolve_browser(value: object) -> str:
     text = str(value or "").strip().lower()
     return text if text in BROWSER_OPTIONS else DEFAULT_BROWSER
+
+
+def browser_to_default_setting(value: object) -> str:
+    resolved = resolve_browser(value)
+    if resolved == "skip":
+        return "none"
+    return resolved
