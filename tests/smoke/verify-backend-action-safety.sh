@@ -55,6 +55,12 @@ for callsite in \
     }
 done
 
+guard_count="$(grep -c 'if not self._guard_backend_mutation():' "${CONTROL_CENTER_MAIN}")"
+if [ "${guard_count}" -lt 5 ]; then
+    echo "backend mutation guard is expected in at least 5 mutation handlers, found ${guard_count}." >&2
+    exit 1
+fi
+
 grep -q 'def _reload_from_backend' "${CONTROL_CENTER_MAIN}" || {
     echo "control center does not define backend reload handler." >&2
     exit 1

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import importlib.util
 import os
 import sys
@@ -1477,6 +1478,55 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "theme-nmos-classic" in css_source
     assert wallpaper_night.exists()
     assert wallpaper_light.exists()
+
+
+def test_control_center_mutation_handlers_start_with_backend_guard(repo_root: Path) -> None:
+    control_center_source = (
+        repo_root / "apps" / "nmos_control_center" / "nmos_control_center" / "main.py"
+    ).read_text(encoding="utf-8")
+    module = ast.parse(control_center_source)
+    window_class = next(
+        node
+        for node in module.body
+        if isinstance(node, ast.ClassDef) and node.name == "ControlCenterWindow"
+    )
+
+    method_map: dict[str, ast.FunctionDef] = {
+        node.name: node for node in window_class.body if isinstance(node, ast.FunctionDef)
+    }
+
+    def _starts_with_backend_guard(function_node: ast.FunctionDef) -> bool:
+        for statement in function_node.body[:2]:
+            if not isinstance(statement, ast.If):
+                continue
+            test_expr = statement.test
+            if not (
+                isinstance(test_expr, ast.UnaryOp)
+                and isinstance(test_expr.op, ast.Not)
+                and isinstance(test_expr.operand, ast.Call)
+            ):
+                continue
+            guard_call = test_expr.operand
+            if not (
+                isinstance(guard_call.func, ast.Attribute)
+                and isinstance(guard_call.func.value, ast.Name)
+                and guard_call.func.value.id == "self"
+                and guard_call.func.attr == "_guard_backend_mutation"
+            ):
+                continue
+            return any(isinstance(item, ast.Return) for item in statement.body)
+        return False
+
+    guarded_handlers = (
+        "on_apply",
+        "on_reset_to_profile",
+        "on_apply_comfort_mode",
+        "on_emergency_lockdown",
+        "on_rollback_settings_snapshot",
+    )
+    for handler_name in guarded_handlers:
+        assert handler_name in method_map
+        assert _starts_with_backend_guard(method_map[handler_name]), handler_name
 
 
 def test_installer_media_and_assets_are_packaged(repo_root: Path) -> None:
