@@ -297,6 +297,46 @@ def test_settings_client_commit_uses_local_fallback_only_when_enabled() -> None:
     assert client.commit() == {"source": "local"}
 
 
+def test_settings_client_commit_failure_preserves_partial_draft_state() -> None:
+    client = SettingsClient(allow_local_fallback=False)
+    backend_state: dict[str, object] = {
+        "active_profile": "balanced",
+        "overrides": {},
+    }
+    operations: list[str] = []
+
+    class _DraftInterface:
+        def ApplyPreset(self, profile: str):
+            operations.append("ApplyPreset")
+            backend_state["active_profile"] = profile
+            backend_state["overrides"] = {}
+            return dict(backend_state)
+
+        def SetOverrides(self, overrides: dict):
+            operations.append("SetOverrides")
+            backend_state["overrides"] = dict(overrides)
+            return dict(backend_state)
+
+        def Commit(self):
+            operations.append("Commit")
+            raise _MockRetriableDBusError()
+
+    interface = _DraftInterface()
+    client._interface = lambda _interface_name: interface  # type: ignore[method-assign]
+
+    client.apply_preset("hardened")
+    client.set_overrides({"default_browser": "chromium"})
+    try:
+        client.commit()
+        assert False, "Expected SettingsClientError when commit fails after draft changes"
+    except SettingsClientError as error:
+        assert error.method_name == "Commit"
+        assert error.reason == "transport_error"
+    assert operations == ["ApplyPreset", "SetOverrides", "Commit"]
+    assert backend_state["active_profile"] == "hardened"
+    assert backend_state["overrides"] == {"default_browser": "chromium"}
+
+
 def test_settings_client_connect_signal_failure_is_classified(monkeypatch) -> None:
     client = SettingsClient(allow_local_fallback=False)
 
