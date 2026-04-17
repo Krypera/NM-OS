@@ -863,6 +863,35 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             "nightly": {"version": installed, "notes": "No catalog published."},
         }
 
+    def _manifest_supports_trusted_updates(self) -> tuple[bool, str]:
+        manifest = self.load_release_manifest()
+        if not manifest:
+            return False, "Update blocked: release manifest metadata is unavailable."
+        signing = manifest.get("signing", {}) if isinstance(manifest.get("signing", {}), dict) else {}
+        signature_verified = bool(signing.get("signature_verified") is True)
+        signing_mode = str(signing.get("mode", "")).strip().lower()
+        if signature_verified:
+            return True, "Update metadata verified with detached signatures."
+        if signing_mode == "checksum":
+            return True, "Update metadata verified with checksum policy."
+        return False, "Update blocked: trusted signing metadata is missing or unsupported."
+
+    def _manifest_supports_rollback(self) -> tuple[bool, str]:
+        trusted_ok, trusted_message = self._manifest_supports_trusted_updates()
+        if not trusted_ok:
+            return False, trusted_message
+        manifest = self.load_release_manifest()
+        upgrade_policy = (
+            manifest.get("upgrade_policy", {})
+            if isinstance(manifest.get("upgrade_policy", {}), dict)
+            else {}
+        )
+        supports_rollback_raw = str(upgrade_policy.get("supports_rollback", "")).strip().lower()
+        supports_rollback = supports_rollback_raw in {"1", "true", "yes", "on"}
+        if supports_rollback:
+            return True, "Rollback is supported by current release policy."
+        return False, "Rollback blocked: current release policy does not declare rollback support."
+
     def refresh_update_center(self, *, persist_status: bool = False) -> None:
         installed_version = self.read_installed_version()
         status = self.load_update_status()
@@ -879,6 +908,8 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             and installed_version not in {"", "unknown"}
             and available_version != installed_version
         )
+        updates_allowed, update_guardrail = self._manifest_supports_trusted_updates()
+        rollback_allowed, rollback_guardrail = self._manifest_supports_rollback()
         last_checked_at = str(status.get("last_checked_at", "never"))
         last_action = str(status.get("last_action", "No update action yet."))
         state_line = "Update available." if has_update else "System is up to date for selected channel."
@@ -892,11 +923,13 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                     f"Last checked: {last_checked_at}",
                     f"Last action: {last_action}",
                     f"Release notes: {available_notes}",
+                    f"Update guardrail: {update_guardrail}",
+                    f"Rollback guardrail: {rollback_guardrail}",
                 ]
             )
         )
-        self.update_apply_button.set_sensitive(has_update)
-        self.update_rollback_button.set_sensitive(len(self.load_update_history()) > 0)
+        self.update_apply_button.set_sensitive(has_update and updates_allowed)
+        self.update_rollback_button.set_sensitive(len(self.load_update_history()) > 0 and rollback_allowed)
         if persist_status:
             next_status = dict(status)
             next_status["channel"] = selected_channel
@@ -965,6 +998,11 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.status_label.set_text("Update check completed.")
 
     def on_apply_update(self, _button: Gtk.Button) -> None:
+        updates_allowed, update_guardrail = self._manifest_supports_trusted_updates()
+        if not updates_allowed:
+            self.refresh_update_center()
+            self.status_label.set_text(update_guardrail)
+            return
         status = self.load_update_status()
         channel = self._selected_update_channel()
         catalog = self.load_update_catalog()
@@ -996,6 +1034,11 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.status_label.set_text("Update applied in control-center metadata. Reboot and verify package rollout.")
 
     def on_rollback_update(self, _button: Gtk.Button) -> None:
+        rollback_allowed, rollback_guardrail = self._manifest_supports_rollback()
+        if not rollback_allowed:
+            self.refresh_update_center()
+            self.status_label.set_text(rollback_guardrail)
+            return
         history = self.load_update_history()
         if not history:
             self.refresh_update_center()

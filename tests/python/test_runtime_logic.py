@@ -1391,6 +1391,12 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "on_check_updates" in control_center_source
     assert "on_apply_update" in control_center_source
     assert "on_rollback_update" in control_center_source
+    assert "_manifest_supports_trusted_updates" in control_center_source
+    assert "_manifest_supports_rollback" in control_center_source
+    assert "Update guardrail:" in control_center_source
+    assert "Rollback guardrail:" in control_center_source
+    assert "Update blocked: release manifest metadata is unavailable." in control_center_source
+    assert "Rollback blocked: current release policy does not declare rollback support." in control_center_source
     assert "on_create_diagnostics_bundle" in control_center_source
     assert "on_rollback_settings_snapshot" in control_center_source
     assert "snapshot_current_settings" in control_center_source
