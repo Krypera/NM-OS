@@ -45,6 +45,7 @@ jobs:
           bash ./tests/smoke/verify-help-discoverability.sh
           bash ./tests/smoke/verify-emergency-lockdown.sh
           bash ./tests/smoke/verify-trust-chain-privacy-dashboard.sh
+          bash ./tests/smoke/verify-app-sandbox-presets.sh
           bash ./tests/smoke/verify-control-center.sh
           bash ./tests/smoke/verify-installer-media.sh
           bash ./tests/smoke/verify-systemd-hardening.sh
