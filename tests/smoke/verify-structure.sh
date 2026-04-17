@@ -107,6 +107,7 @@ REQUIRED=(
     "${ROOT_DIR}/tests/smoke/verify-recovery-actions.sh"
     "${ROOT_DIR}/tests/smoke/verify-update-center-guardrails.sh"
     "${ROOT_DIR}/tests/smoke/verify-backend-action-safety.sh"
+    "${ROOT_DIR}/tests/smoke/verify-review-mode-messaging.sh"
     "${ROOT_DIR}/tests/smoke/verify-prelogin-wiring.sh"
     "${ROOT_DIR}/tests/smoke/verify-quality-tooling.sh"
     "${ROOT_DIR}/tests/smoke/verify-runtime-logic.sh"
