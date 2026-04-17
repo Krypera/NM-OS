@@ -1483,16 +1483,28 @@ class ControlCenterWindow(Adw.ApplicationWindow):
             "-u nmos-device-policy.service -u nmos-logging-policy.service -n 50"
         )
 
-    def on_open_help(self, _button: Gtk.Button) -> None:
+    def _launch_help_app(self) -> bool:
         try:
             subprocess.Popen(["/usr/local/bin/nmos-help"])
+            return True
         except OSError:
             try:
                 subprocess.Popen(["python3", "-m", "nmos_help.main"])
+                return True
             except OSError:
-                self.status_label.set_text("Help could not be launched from this session.")
-                return
-        self.status_label.set_text("Help opened.")
+                return False
+
+    def on_open_help(self, _button: Gtk.Button) -> None:
+        if self._launch_help_app():
+            self.status_label.set_text("Help opened.")
+            return
+        self.status_label.set_text("Help could not be launched from this session.")
+
+    def on_open_user_guides(self, _button: Gtk.Button) -> None:
+        if self._launch_help_app():
+            self.status_label.set_text("User guides opened.")
+            return
+        self.status_label.set_text("User guides could not be launched from this session.")
 
 
 class ControlCenterApplication(Adw.Application):

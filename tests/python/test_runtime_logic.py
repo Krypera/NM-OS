@@ -1369,6 +1369,7 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "Emergency Lockdown" in system_panel_source
     assert "Recovery actions" in system_panel_source
     assert "Create diagnostics bundle" in system_panel_source
+    assert "Open User Guides" in system_panel_source
     assert "Rollback last settings" in system_panel_source
     assert "RAM wipe policy" in system_panel_source
     assert "Update center" in system_panel_source
@@ -1389,6 +1390,8 @@ def test_settings_service_and_theme_assets_exist(repo_root: Path) -> None:
     assert "on_rollback_settings_snapshot" in control_center_source
     assert "snapshot_current_settings" in control_center_source
     assert "on_open_help" in control_center_source
+    assert "on_open_user_guides" in control_center_source
+    assert "_launch_help_app" in control_center_source
     assert "load_release_manifest" in control_center_source
     assert "read_build_info" in control_center_source
     assert "Diagnostics" in control_center_source

@@ -46,6 +46,8 @@ def build(window) -> Gtk.Widget:
     window.trust_chain_refresh_button.connect("clicked", window.on_refresh_trust_chain)
     window.create_diagnostics_bundle_button = Gtk.Button(label="Create diagnostics bundle")
     window.create_diagnostics_bundle_button.connect("clicked", window.on_create_diagnostics_bundle)
+    window.open_user_guides_button = Gtk.Button(label="Open User Guides")
+    window.open_user_guides_button.connect("clicked", window.on_open_user_guides)
     window.snapshot_rollback_button = Gtk.Button(label="Rollback last settings")
     window.snapshot_rollback_button.connect("clicked", window.on_rollback_settings_snapshot)
     window.update_channel_combo = string_dropdown([label for _v, label in window.UPDATE_CHANNEL_OPTIONS])
@@ -94,6 +96,7 @@ def build(window) -> Gtk.Widget:
             window.trust_chain_refresh_button,
             Gtk.Label(label="Recovery actions", xalign=0),
             window.recovery_status_label,
+            window.open_user_guides_button,
             window.create_diagnostics_bundle_button,
             window.snapshot_rollback_button,
             Gtk.Label(label="Update center", xalign=0),
