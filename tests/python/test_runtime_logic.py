@@ -1603,6 +1603,7 @@ def test_installer_media_and_assets_are_packaged(repo_root: Path) -> None:
     assert "NMOS_ALLOW_UNPINNED_BASE_ISO" in common_source
     assert "base ISO lock is incomplete" in common_source
     assert "installer_iso_name" in common_source
+    assert 'chmod -R u+w "${INSTALLER_ISO_TREE_DIR}"' in common_source
     assert "preseed/file=/cdrom/preseed/nmos.cfg" in common_source
     assert 'sub(/^\\.\\//, "", path)' in common_source
     assert 'sub(/^\\*/, "", path)' in common_source

@@ -43,6 +43,11 @@ grep -q 'build_installer_iso_image' "${COMMON_SH}" || {
     exit 1
 }
 
+grep -q 'chmod -R u+w "${INSTALLER_ISO_TREE_DIR}"' "${COMMON_SH}" || {
+    echo "build helpers do not make extracted Debian installer files writable before patching menus." >&2
+    exit 1
+}
+
 grep -q 'preseed/file=/cdrom/preseed/nmos.cfg' "${COMMON_SH}" || {
     echo "build helpers do not wire the Debian installer menus to the NM-OS preseed." >&2
     exit 1

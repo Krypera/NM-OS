@@ -495,6 +495,7 @@ build_installer_iso_image() {
     if [ -d "${INSTALLER_ISO_TREE_DIR}/[BOOT]" ]; then
         rm -rf "${INSTALLER_ISO_TREE_DIR}/[BOOT]"
     fi
+    chmod -R u+w "${INSTALLER_ISO_TREE_DIR}"
 
     render_installer_preseed_files "${INSTALLER_ISO_TREE_DIR}" "${overlay_archive_path}" "${packages_file_path}"
     patch_debian_installer_menu "${INSTALLER_ISO_TREE_DIR}"
