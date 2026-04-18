@@ -73,3 +73,9 @@ This file extends the current implementation plan with missing work needed to fu
 - behavior tests
 - user-visible explanation
 
+## Backlog - Installer UX Follow-Ups
+
+14. Add explicit installer experience options before package copy begins.
+- Guided vs automated install mode selection for repeatable setups.
+- Minimal vs full app bundle selection with plain-language tradeoff text.
+- Keep the choices understandable for non-technical users and safe for first boot defaults.
