@@ -17,8 +17,12 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y \
     curl \
+    guestfish \
+    libguestfs-tools \
     python3 \
     python3-venv \
+    qemu-system-x86 \
+    qemu-utils \
     rsync \
     tar \
     gzip \

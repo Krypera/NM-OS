@@ -11,13 +11,14 @@ This document defines the NM-OS update and rollback model as a release-gated arc
 
 ## Atomic Strategy Decision
 
-NM-OS currently uses a **metadata-first staged apply** strategy:
+NM-OS now uses an **A/B staged update engine** strategy for experimental installs:
 
-1. Control Center validates update metadata for the selected channel.
-2. The new target version is recorded in runtime update state.
-3. Package rollout and reboot validation happen as explicit follow-up steps.
+1. Update engine validates signed channel metadata.
+2. The target slot overlay is extracted into the inactive rootfs when an A/B slot device is available, otherwise the artifact is preserved in NM-OS state as a safe fallback.
+3. Boot intent is persisted and the next reboot switches to pending slot.
+4. Post-boot health acknowledgement confirms the slot or triggers rollback.
 
-This is not full image-level A/B swapping yet. The release gate requires that the strategy is explicit and test-covered.
+Legacy overlay installs remain explicitly unsupported for in-place migration in this sprint.
 
 ## Signed Artifact And Manifest Requirements
 

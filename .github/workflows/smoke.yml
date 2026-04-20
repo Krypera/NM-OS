@@ -50,6 +50,7 @@ jobs:
           bash ./tests/smoke/verify-update-center-guardrails.sh
           bash ./tests/smoke/verify-backend-action-safety.sh
           bash ./tests/smoke/verify-review-mode-messaging.sh
+          bash ./tests/smoke/verify-update-engine.sh
           bash ./tests/smoke/verify-control-center.sh
           bash ./tests/smoke/verify-installer-media.sh
           bash ./tests/smoke/verify-systemd-hardening.sh
@@ -101,6 +102,32 @@ jobs:
           name: nmos-build-dist
           path: dist/
           if-no-files-found: error
+
+  qemu-ab-smoke:
+    runs-on: ubuntu-latest
+    needs: build-smoke
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nmos-build-dist
+          path: dist/
+
+      - name: Install QEMU E2E Dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils libguestfs-tools xorriso
+
+      - name: Run QEMU A/B Smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash ./tests/e2e/run-qemu-ab-smoke.sh
 
   windows-smoke:
     runs-on: windows-latest

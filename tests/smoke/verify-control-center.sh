@@ -36,13 +36,13 @@ grep -q 'NM-OS Control Center' "${CONTROL_CENTER_MAIN}" || {
     exit 1
 }
 
-grep -q 'Profiles' "${CONTROL_CENTER_MAIN}" || {
-    echo "control center is missing the profiles section." >&2
+grep -q 'Security' "${CONTROL_CENTER_MAIN}" || {
+    echo "control center is missing the security section." >&2
     exit 1
 }
 
-grep -q 'Appearance' "${CONTROL_CENTER_MAIN}" || {
-    echo "control center is missing the appearance section." >&2
+grep -q 'Personalization' "${CONTROL_CENTER_MAIN}" || {
+    echo "control center is missing the personalization section." >&2
     exit 1
 }
 

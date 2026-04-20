@@ -20,6 +20,7 @@ def configure_python_path(repo_root: Path) -> None:
     sys.path.insert(0, str(repo_root / "apps" / "nmos_greeter"))
     sys.path.insert(0, str(repo_root / "apps" / "nmos_persistent_storage"))
     sys.path.insert(0, str(repo_root / "apps" / "nmos_settings"))
+    sys.path.insert(0, str(repo_root / "apps" / "nmos_update"))
 
 
 @pytest.fixture

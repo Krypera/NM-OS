@@ -6,8 +6,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SETTINGS_SERVICE="${ROOT_DIR}/config/system-overlay/usr/lib/systemd/system/nmos-settings.service"
 PERSISTENT_SERVICE="${ROOT_DIR}/config/system-overlay/usr/lib/systemd/system/nmos-persistent-storage.service"
 NETWORK_SERVICE="${ROOT_DIR}/config/system-overlay/usr/lib/systemd/system/nmos-network-bootstrap.service"
+UPDATE_SERVICE="${ROOT_DIR}/config/system-overlay/usr/lib/systemd/system/nmos-update-engine.service"
+UPDATE_HEALTH_SERVICE="${ROOT_DIR}/config/system-overlay/usr/lib/systemd/system/nmos-update-health.service"
 
-for unit in "${SETTINGS_SERVICE}" "${PERSISTENT_SERVICE}" "${NETWORK_SERVICE}"; do
+for unit in "${SETTINGS_SERVICE}" "${PERSISTENT_SERVICE}" "${NETWORK_SERVICE}" "${UPDATE_SERVICE}" "${UPDATE_HEALTH_SERVICE}"; do
     [ -f "${unit}" ] || {
         echo "missing systemd unit: ${unit}" >&2
         exit 1
@@ -56,6 +58,11 @@ grep -q '^ReadWritePaths=@NMOS_RUNTIME_DIR@$' "${NETWORK_SERVICE}" || {
 
 grep -q '^RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK$' "${NETWORK_SERVICE}" || {
     echo "network bootstrap service hardening is missing address family restrictions." >&2
+    exit 1
+}
+
+grep -q '^ReadWritePaths=@NMOS_RUNTIME_DIR@ @NMOS_STATE_DIR@$' "${UPDATE_SERVICE}" || {
+    echo "update engine service hardening is not platform-adapter aware for write paths." >&2
     exit 1
 }
 

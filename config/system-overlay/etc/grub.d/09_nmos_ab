@@ -1,0 +1,38 @@
+#!/bin/sh
+set -e
+
+cat <<'EOF'
+insmod part_gpt
+insmod ext2
+insmod fat
+
+menuentry 'NM-OS' --id nmos-current {
+    if [ -n "${nmos_pending_slot}" -a "${nmos_boot_ok}" != "1" ]; then
+        if [ "${nmos_pending_slot}" = "b" ]; then
+            set nmos_slot_label="NMOS_ROOT_B"
+        else
+            set nmos_slot_label="NMOS_ROOT_A"
+        fi
+    elif [ "${nmos_active_slot}" = "b" ]; then
+        set nmos_slot_label="NMOS_ROOT_B"
+    else
+        set nmos_slot_label="NMOS_ROOT_A"
+    fi
+
+    search --no-floppy --label --set=root "${nmos_slot_label}"
+    linux /vmlinuz root=LABEL=${nmos_slot_label} ro quiet splash
+    initrd /initrd.img
+}
+
+menuentry 'NM-OS Slot A' --id nmos-slot-a {
+    search --no-floppy --label --set=root NMOS_ROOT_A
+    linux /vmlinuz root=LABEL=NMOS_ROOT_A ro quiet splash
+    initrd /initrd.img
+}
+
+menuentry 'NM-OS Slot B' --id nmos-slot-b {
+    search --no-floppy --label --set=root NMOS_ROOT_B
+    linux /vmlinuz root=LABEL=NMOS_ROOT_B ro quiet splash
+    initrd /initrd.img
+}
+EOF

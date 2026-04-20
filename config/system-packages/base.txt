@@ -1,7 +1,12 @@
+# NM-OS base system packages
+# These packages are installed on every NM-OS system.
+
+# --- Core system ---
 cryptsetup
 dbus
 flatpak
 gdm3
+gpgv
 gnome-session
 gnome-shell
 libglib2.0-bin
@@ -16,3 +21,41 @@ systemd
 tor
 xdg-desktop-portal
 xdg-desktop-portal-gtk
+
+# --- Desktop environment ---
+nautilus
+gnome-control-center
+gnome-tweaks
+gnome-disk-utility
+gnome-system-monitor
+gnome-screenshot
+gnome-software
+
+# --- Productivity ---
+libreoffice
+libreoffice-gnome
+evince
+gnome-calendar
+gnome-contacts
+gnome-clocks
+gnome-calculator
+gnome-text-editor
+file-roller
+
+# --- Internet & communication ---
+firefox-esr
+chromium
+thunderbird
+geary
+
+# --- Media ---
+totem
+rhythmbox
+eog
+shotwell
+cheese
+
+# --- Fonts ---
+fonts-liberation
+fonts-noto
+fonts-noto-color-emoji

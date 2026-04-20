@@ -1,11 +1,73 @@
 # NM-OS Debian-installer defaults
 
+d-i debian-installer/locale string en_US.UTF-8
+d-i keyboard-configuration/xkb-keymap select us
+d-i netcfg/choose_interface select auto
+d-i netcfg/get_hostname string nmos
+d-i netcfg/get_domain string local
+d-i hw-detect/load_firmware boolean true
+d-i mirror/country string manual
+d-i mirror/http/hostname string deb.debian.org
+d-i mirror/http/directory string /debian
+d-i mirror/http/proxy string
+d-i clock-setup/utc boolean true
+d-i time/zone string UTC
+d-i clock-setup/ntp boolean true
+d-i passwd/root-login boolean false
+d-i passwd/user-fullname string NM-OS
+d-i passwd/username string nmos
+d-i passwd/user-password password nmos
+d-i passwd/user-password-again password nmos
+d-i user-setup/allow-password-weak boolean true
+d-i partman-auto/disk string /dev/vda
+d-i partman-auto/method string regular
+d-i partman-partitioning/confirm_write_new_label boolean true
+d-i partman/confirm_write_new_label boolean true
+d-i partman/choose_partition select finish
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+d-i partman-auto/choose_recipe select nmos-ab
+d-i partman-auto/expert_recipe string                         \
+      nmos-ab ::                                              \
+              512 512 512 free                                \
+                      $iflabel{ gpt }                         \
+                      $reusemethod{ }                         \
+                      method{ efi } format{ }                 \
+                      label{ NMOS_EFI }                       \
+              .                                               \
+              16384 16384 16384 ext4                          \
+                      $primary{ } $bootable{ }                \
+                      method{ format } format{ }              \
+                      use_filesystem{ } filesystem{ ext4 }    \
+                      label{ NMOS_ROOT_A } mountpoint{ / }    \
+              .                                               \
+              16384 16384 16384 ext4                          \
+                      method{ format } format{ }              \
+                      use_filesystem{ } filesystem{ ext4 }    \
+                      label{ NMOS_ROOT_B }                    \
+              .                                               \
+              8192 8192 8192 ext4                             \
+                      method{ format } format{ }              \
+                      use_filesystem{ } filesystem{ ext4 }    \
+                      label{ NMOS_STATE } mountpoint{ /var/lib/nmos } \
+              .                                               \
+              1024 1024 4096 linux-swap                       \
+                      method{ swap } format{ }                \
+              .
+d-i grub-installer/bootdev string /dev/vda
+d-i pkgsel/upgrade select none
+d-i finish-install/reboot_in_progress note
+
 tasksel tasksel/first multiselect standard, gnome-desktop
 d-i pkgsel/include string @PKGSEL_INCLUDE@
 popularity-contest popularity-contest/participate boolean false
 
 d-i preseed/late_command string \
     cp /cdrom/nmos/install-overlay.sh /target/root/nmos-install-overlay.sh; \
+    mkdir -p /target/root/nmos-experimental-ab; \
+    cp /cdrom/nmos/experimental-ab/profile.json /target/root/nmos-experimental-ab/profile.json; \
+    cp /cdrom/nmos/experimental-ab/prepare-target.sh /target/root/nmos-experimental-ab/prepare-target.sh; \
     cp /cdrom/nmos/@OVERLAY_ARCHIVE@ /target/root/@OVERLAY_ARCHIVE@; \
     cp /cdrom/nmos/@PACKAGES_FILE@ /target/root/@PACKAGES_FILE@; \
-    in-target /bin/bash /root/nmos-install-overlay.sh
+    in-target /bin/bash /root/nmos-install-overlay.sh; \
+    /bin/bash /target/root/nmos-experimental-ab/prepare-target.sh /target /target/root/nmos-experimental-ab/profile.json

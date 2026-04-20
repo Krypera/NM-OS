@@ -179,7 +179,10 @@ render_platform_overlay_templates() {
     local settings_policy_file="${ROOTFS_DIR}/etc/dbus-1/system.d/org.nmos.Settings1.conf"
     local persistent_policy_file="${ROOTFS_DIR}/etc/dbus-1/system.d/org.nmos.PersistentStorage.conf"
     local tmpfiles_file="${ROOTFS_DIR}/usr/lib/tmpfiles.d/nmos.conf"
+    local update_policy_file="${ROOTFS_DIR}/etc/dbus-1/system.d/org.nmos.Update1.conf"
     local settings_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-settings.service"
+    local update_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-update-engine.service"
+    local update_health_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-update-health.service"
     local logging_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-logging-policy.service"
     local app_isolation_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-app-isolation-policy.service"
     local device_policy_service_file="${ROOTFS_DIR}/usr/lib/systemd/system/nmos-device-policy.service"
@@ -199,7 +202,10 @@ render_platform_overlay_templates() {
         "${settings_policy_file}" \
         "${persistent_policy_file}" \
         "${tmpfiles_file}" \
+        "${update_policy_file}" \
         "${settings_service_file}" \
+        "${update_service_file}" \
+        "${update_health_service_file}" \
         "${logging_service_file}" \
         "${app_isolation_service_file}" \
         "${device_policy_service_file}" \
@@ -229,6 +235,7 @@ stage_system_overlay_tree() {
     install_python_package_dir "${APPS_SOURCE}/nmos_greeter/nmos_greeter"
     install_python_package_dir "${APPS_SOURCE}/nmos_persistent_storage/nmos_persistent_storage"
     install_python_package_dir "${APPS_SOURCE}/nmos_settings/nmos_settings"
+    install_python_package_dir "${APPS_SOURCE}/nmos_update/nmos_update"
     install_python_package_dir "${APPS_SOURCE}/nmos_control_center/nmos_control_center"
     install_python_package_dir "${APPS_SOURCE}/nmos_help/nmos_help"
     mkdir -p "${ROOTFS_DIR}/usr/share/doc/nmos"
@@ -241,6 +248,8 @@ NMOS_VERSION=${VERSION}
 BUILD_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 EOF
     enable_system_service "nmos-settings.service"
+    enable_system_service "nmos-update-engine.service"
+    enable_system_service "nmos-update-health.service"
     enable_system_service "nmos-settings-bootstrap.service"
     enable_system_service "nmos-logging-policy.service"
     enable_system_service "nmos-app-isolation-policy.service"
@@ -260,6 +269,9 @@ EOF
     if [ -d "${ROOTFS_DIR}/usr/local/lib/nmos" ]; then
         find "${ROOTFS_DIR}/usr/local/lib/nmos" -type f -name "*.py" -exec chmod +x {} +
         find "${ROOTFS_DIR}/usr/local/lib/nmos" -type f -name "*.sh" -exec chmod +x {} +
+    fi
+    if [ -d "${ROOTFS_DIR}/etc/grub.d" ]; then
+        find "${ROOTFS_DIR}/etc/grub.d" -type f -exec chmod +x {} +
     fi
     if [ -d "${ROOTFS_DIR}/etc/gdm3/PostLogin" ]; then
         find "${ROOTFS_DIR}/etc/gdm3/PostLogin" -type f -exec chmod +x {} +
@@ -422,6 +434,14 @@ render_installer_preseed_files() {
     mkdir -p "${stage_dir}/preseed" "${stage_dir}/nmos"
     cp "${overlay_archive_path}" "${stage_dir}/nmos/${overlay_archive_name}"
     cp "${packages_file_path}" "${stage_dir}/nmos/${packages_file_name}"
+    if [ -d "${INSTALLER_ASSETS_SOURCE}/experimental-ab" ]; then
+        mkdir -p "${stage_dir}/nmos/experimental-ab"
+        rsync -a "${INSTALLER_ASSETS_SOURCE}/experimental-ab/" "${stage_dir}/nmos/experimental-ab/"
+        if [ -f "${stage_dir}/nmos/experimental-ab/prepare-target.sh" ]; then
+            sed -i -e "s|@VERSION@|${VERSION}|g" "${stage_dir}/nmos/experimental-ab/prepare-target.sh"
+        fi
+        find "${stage_dir}/nmos/experimental-ab" -type f -name "*.sh" -exec chmod +x {} +
+    fi
 
     sed \
         -e "s|@PKGSEL_INCLUDE@|${pkgsel_include}|g" \

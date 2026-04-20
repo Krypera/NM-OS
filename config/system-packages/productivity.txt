@@ -1,0 +1,27 @@
+# NM-OS optional productivity packages
+# These packages are not installed by default.
+# Users can install them via GNOME Software or:
+#   sudo apt install <package>
+
+# --- Creative ---
+gimp
+inkscape
+darktable
+
+# --- Advanced media ---
+vlc
+audacity
+obs-studio
+handbrake
+
+# --- Development ---
+git
+curl
+build-essential
+python3-pip
+code
+
+# --- Office extras ---
+libreoffice-math
+libreoffice-draw
+libreoffice-base

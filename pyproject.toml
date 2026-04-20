@@ -26,6 +26,7 @@ files = [
   "apps/nmos_greeter",
   "apps/nmos_persistent_storage",
   "apps/nmos_settings",
+  "apps/nmos_update",
   "config/system-overlay/usr/local/lib/nmos",
 ]
 

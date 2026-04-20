@@ -1,0 +1,20 @@
+[Unit]
+Description=NM-OS update engine backend
+After=local-fs.target dbus.service nmos-settings-bootstrap.service
+Wants=dbus.service nmos-settings-bootstrap.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/nmos-update-engine-service
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=@NMOS_RUNTIME_DIR@ @NMOS_STATE_DIR@
+CapabilityBoundingSet=CAP_SYS_BOOT
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

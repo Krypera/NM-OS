@@ -1611,7 +1611,8 @@ def test_installer_media_and_assets_are_packaged(repo_root: Path) -> None:
     assert "RELEASE_MANIFEST_JSON_PATH" in verify_artifacts_source
     assert "UPDATE_CATALOG_PATH" in verify_artifacts_source
     assert '"supports_rollback": true' in verify_artifacts_source
-    assert '"mode": "checksum"' in verify_artifacts_source
+    assert '"mode": "' in verify_artifacts_source
+    assert '"mode": "detached-gpg"' in verify_artifacts_source
     assert "branding: nmos" in installer_settings
     assert "productName: \"NM-OS\"" in branding_source
     assert "@PKGSEL_INCLUDE@" in installer_preseed

@@ -53,6 +53,11 @@ grep -q 'preseed/file=/cdrom/preseed/nmos.cfg' "${COMMON_SH}" || {
     exit 1
 }
 
+grep -q 'experimental-ab' "${COMMON_SH}" || {
+    echo "build helpers do not embed the experimental A/B installer payload into the ISO." >&2
+    exit 1
+}
+
 grep -Fq 'sub(/^\.\//, "", path)' "${COMMON_SH}" || {
     echo "build helpers do not normalize Debian checksum paths with ./ prefixes." >&2
     exit 1
@@ -75,6 +80,16 @@ grep -q 'installer_iso=' "${BUILD_SH}" || {
 
 grep -q '@PKGSEL_INCLUDE@' "${PRESEED_TEMPLATE}" || {
     echo "installer preseed template does not accept the runtime package list." >&2
+    exit 1
+}
+
+grep -q 'partman-auto/expert_recipe string' "${PRESEED_TEMPLATE}" || {
+    echo "installer preseed template does not define the unattended A/B partition recipe." >&2
+    exit 1
+}
+
+grep -q 'prepare-target.sh' "${PRESEED_TEMPLATE}" || {
+    echo "installer preseed template does not run the experimental A/B target preparation step." >&2
     exit 1
 }
 

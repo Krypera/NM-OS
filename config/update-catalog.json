@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "generated_at": "local-dev",
+  "channels": {
+    "stable": {
+      "version": "",
+      "notes": "No stable release published in local repo feed.",
+      "manifest_url": "dist/release-manifest.json",
+      "manifest_sha256": "",
+      "signature_url": "dist/release-manifest.json.sig"
+    },
+    "beta": {
+      "version": "",
+      "notes": "No beta release published in local repo feed.",
+      "manifest_url": "dist/release-manifest.json",
+      "manifest_sha256": "",
+      "signature_url": "dist/release-manifest.json.sig"
+    },
+    "nightly": {
+      "version": "",
+      "notes": "No nightly release published in local repo feed.",
+      "manifest_url": "dist/release-manifest.json",
+      "manifest_sha256": "",
+      "signature_url": "dist/release-manifest.json.sig"
+    }
+  }
+}

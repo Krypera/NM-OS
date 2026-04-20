@@ -23,6 +23,12 @@ Artifacts in `dist/`:
 - `nmos-installer-assets-<version>.packages`
 - `nmos-installer-<version>-amd64.iso`
 - `nmos-installer-<version>-amd64.sha256`
+- `nmos-recovery-image-<version>.tar.gz`
+- `nmos-recovery-image-<version>.sha256`
+- `release-manifest.json.sig` (when signing key is configured)
+
+The release manifest now carries slot-image and recovery-image metadata, a slot-based rollback scope, and signing mode details.
+When `NMOS_UPDATE_SIGNING_KEY_ID` is configured and `gpg` is available, the build emits a detached `release-manifest.json.sig` and records `detached-gpg` mode in `release-manifest.json`.
 
 ## How the installer ISO is built
 
@@ -125,4 +131,5 @@ After a build:
 ```bash
 ./tests/smoke/verify-artifacts.sh
 ./build/smoke-overlay.sh
+bash ./tests/e2e/run-qemu-ab-smoke.sh
 ```

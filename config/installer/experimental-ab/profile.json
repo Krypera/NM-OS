@@ -1,0 +1,31 @@
+{
+  "name": "nmos-ab-experimental",
+  "status": "experimental",
+  "description": "A/B slot-aware installer profile for NM-OS update engine v1.",
+  "disk_layout": {
+    "efi": {
+      "filesystem": "vfat",
+      "size_mib": 512
+    },
+    "rootfs_a": {
+      "filesystem": "ext4",
+      "size_mib": 16384
+    },
+    "rootfs_b": {
+      "filesystem": "ext4",
+      "size_mib": 16384
+    },
+    "state": {
+      "filesystem": "ext4",
+      "size_mib": 8192
+    }
+  },
+  "seed_slot_state": {
+    "active_slot": "a",
+    "inactive_slot": "b"
+  },
+  "legacy_path": {
+    "migration_supported": false,
+    "message": "Legacy Debian-overlay installs are not auto-migrated to A/B in this sprint."
+  }
+}

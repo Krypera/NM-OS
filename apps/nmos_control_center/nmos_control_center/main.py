@@ -33,6 +33,7 @@ from nmos_common.runtime_state import (
     write_runtime_text,
 )
 from nmos_common.settings_client import SettingsClient, SettingsClientError
+from nmos_common.update_client import UpdateClient, UpdateClientError
 from nmos_common.system_settings import (
     ACCENT_LABELS,
     DEFAULT_SYSTEM_SETTINGS,
@@ -142,6 +143,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         super().__init__(application=app, title="NM-OS Control Center")
         self.set_default_size(1080, 720)
         self.client = SettingsClient(allow_local_fallback=False)
+        self.update_client = UpdateClient(allow_local_fallback=False)
         self.repo_root = Path(__file__).resolve().parents[3]
         self._signal_bus = None
         self._signal_interface = None
@@ -629,7 +631,10 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         return formatted or "unknown"
 
     def load_update_status(self) -> dict[str, object]:
-        data = read_runtime_json(self.update_status_file, default={})
+        try:
+            data = self.update_client.get_status()
+        except UpdateClientError:
+            data = read_runtime_json(self.update_status_file, default={})
         if isinstance(data, dict):
             return data
         return {}
@@ -638,16 +643,22 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         write_runtime_json(self.update_status_file, payload)
 
     def load_update_history(self) -> list[dict[str, object]]:
+        try:
+            payload = self.update_client.get_history()
+            if isinstance(payload, list):
+                return [item for item in payload if isinstance(item, dict)]
+        except UpdateClientError:
+            pass
         if not self.update_history_file.exists():
             return []
         try:
-            payload = json.loads(read_runtime_text(self.update_history_file))
+            fallback_payload = json.loads(read_runtime_text(self.update_history_file))
         except (OSError, ValueError, json.JSONDecodeError):
             return []
-        if not isinstance(payload, list):
+        if not isinstance(fallback_payload, list):
             return []
         history: list[dict[str, object]] = []
-        for item in payload:
+        for item in fallback_payload:
             if isinstance(item, dict):
                 history.append(item)
         return history
@@ -852,6 +863,14 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         return catalog
 
     def load_update_catalog(self) -> dict[str, dict[str, str]]:
+        try:
+            backend_channels = self.update_client.get_channels()
+            backend_payload = backend_channels.get("channels", {}) if isinstance(backend_channels, dict) else {}
+            normalized_backend = self._normalize_update_catalog({"channels": backend_payload})
+            if normalized_backend:
+                return normalized_backend
+        except UpdateClientError:
+            pass
         for path in (
             self.shared_update_catalog_file,
             self.dist_update_catalog_file,
@@ -887,6 +906,12 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         }
 
     def _manifest_supports_trusted_updates(self) -> tuple[bool, str]:
+        status = self.load_update_status()
+        if bool(status.get("manifest_signature_verified", False)):
+            return True, "Update metadata verified with detached signatures."
+        guardrail = str(status.get("guardrail_update", "")).strip()
+        if guardrail:
+            return False, guardrail
         manifest = self.load_release_manifest()
         if not manifest:
             return False, "Update blocked: release manifest metadata is unavailable."
@@ -900,6 +925,12 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         return False, "Update blocked: trusted signing metadata is missing or unsupported."
 
     def _manifest_supports_rollback(self) -> tuple[bool, str]:
+        status = self.load_update_status()
+        guardrail = str(status.get("guardrail_rollback", "")).strip()
+        if guardrail:
+            if guardrail.startswith("Rollback is supported"):
+                return True, guardrail
+            return False, guardrail
         trusted_ok, trusted_message = self._manifest_supports_trusted_updates()
         if not trusted_ok:
             return False, trusted_message
@@ -916,15 +947,15 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         return False, "Rollback blocked: current release policy does not declare rollback support."
 
     def refresh_update_center(self, *, persist_status: bool = False) -> None:
-        installed_version = self.read_installed_version()
         status = self.load_update_status()
+        installed_version = str(status.get("installed_version", "")).strip() or self.read_installed_version()
         default_channel = self.detect_release_channel(installed_version)
         selected_channel = self._selected_update_channel()
         if selected_channel not in {value for value, _label in self.UPDATE_CHANNEL_OPTIONS}:
             selected_channel = str(status.get("channel", default_channel) or default_channel)
         catalog = self.load_update_catalog()
         available = catalog.get(selected_channel, {})
-        available_version = str(available.get("version", "")).strip() or "unknown"
+        available_version = str(status.get("available_version", "")).strip() or str(available.get("version", "")).strip() or "unknown"
         available_notes = str(available.get("notes", "")).strip() or "No release notes."
         has_update = (
             available_version not in {"", "unknown"}
@@ -935,6 +966,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         rollback_allowed, rollback_guardrail = self._manifest_supports_rollback()
         last_checked_at = str(status.get("last_checked_at", "never"))
         last_action = str(status.get("last_action", "No update action yet."))
+        backend_state = str(status.get("state", "idle")).strip()
         state_line = "Update available." if has_update else "System is up to date for selected channel."
         self.update_status_label.set_text(
             "\n".join(
@@ -942,6 +974,7 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                     f"Installed version: {installed_version}",
                     f"Selected channel: {selected_channel}",
                     f"Available version: {available_version}",
+                    f"Engine state: {backend_state}",
                     f"State: {state_line}",
                     f"Last checked: {last_checked_at}",
                     f"Last action: {last_action}",
@@ -951,8 +984,9 @@ class ControlCenterWindow(Adw.ApplicationWindow):
                 ]
             )
         )
-        self.update_apply_button.set_sensitive(has_update and updates_allowed)
-        self.update_rollback_button.set_sensitive(len(self.load_update_history()) > 0 and rollback_allowed)
+        staged = backend_state in {"staged", "switching_on_reboot", "awaiting_health_ack"}
+        self.update_apply_button.set_sensitive((has_update or staged) and updates_allowed)
+        self.update_rollback_button.set_sensitive((len(self.load_update_history()) > 0 or staged) and rollback_allowed)
         if persist_status:
             next_status = dict(status)
             next_status["channel"] = selected_channel
@@ -1010,77 +1044,43 @@ class ControlCenterWindow(Adw.ApplicationWindow):
         self.refresh_update_center(persist_status=True)
 
     def on_check_updates(self, _button: Gtk.Button) -> None:
-        status = self.load_update_status()
-        status["last_checked_at"] = self._current_timestamp()
-        status["channel"] = self._selected_update_channel()
-        status["last_action"] = "Checked for updates."
-        if "installed_version" not in status:
-            status["installed_version"] = self.read_installed_version()
-        self.write_update_status(status)
-        self.refresh_update_center()
-        self.status_label.set_text("Update check completed.")
+        channel = self._selected_update_channel()
+        try:
+            self.update_client.check_for_updates(channel)
+            self.refresh_update_center(persist_status=True)
+            self.status_label.set_text("Update check completed.")
+        except UpdateClientError as error:
+            self.refresh_update_center(persist_status=True)
+            self.status_label.set_text(error.user_message())
 
     def on_apply_update(self, _button: Gtk.Button) -> None:
-        updates_allowed, update_guardrail = self._manifest_supports_trusted_updates()
-        if not updates_allowed:
-            self.refresh_update_center()
-            self.status_label.set_text(update_guardrail)
-            return
         status = self.load_update_status()
+        backend_state = str(status.get("state", "idle")).strip()
         channel = self._selected_update_channel()
-        catalog = self.load_update_catalog()
-        available = catalog.get(channel, {})
-        target_version = str(available.get("version", "")).strip()
-        installed_version = self.read_installed_version()
-        if not target_version or target_version == "unknown" or target_version == installed_version:
-            self.refresh_update_center()
-            self.status_label.set_text("No newer version available in the selected channel.")
-            return
-        history = self.load_update_history()
-        history.append(
-            {
-                "action": "apply",
-                "channel": channel,
-                "from": installed_version,
-                "to": target_version,
-                "at": self._current_timestamp(),
-            }
-        )
-        self.write_update_history(history)
-        status["channel"] = channel
-        status["installed_version"] = target_version
-        status["last_checked_at"] = self._current_timestamp()
-        status["last_action"] = f"Updated from {installed_version} to {target_version}."
-        self.write_update_status(status)
-        self.trust_chain_label.set_text(self.format_trust_chain_status())
-        self.refresh_update_center()
-        self.status_label.set_text("Update applied in control-center metadata. Reboot and verify package rollout.")
+        try:
+            if backend_state == "staged":
+                self.update_client.commit_staged_update()
+                self.refresh_update_center(persist_status=True)
+                self.status_label.set_text("Staged update committed. Reboot to activate the new slot.")
+                return
+            self.update_client.stage_update(channel)
+            self.update_client.commit_staged_update()
+            self.trust_chain_label.set_text(self.format_trust_chain_status())
+            self.refresh_update_center(persist_status=True)
+            self.status_label.set_text("Update staged and committed. Reboot to activate the new slot.")
+        except UpdateClientError as error:
+            self.refresh_update_center(persist_status=True)
+            self.status_label.set_text(error.user_message())
 
     def on_rollback_update(self, _button: Gtk.Button) -> None:
-        rollback_allowed, rollback_guardrail = self._manifest_supports_rollback()
-        if not rollback_allowed:
-            self.refresh_update_center()
-            self.status_label.set_text(rollback_guardrail)
-            return
-        history = self.load_update_history()
-        if not history:
-            self.refresh_update_center()
-            self.status_label.set_text("No update history available for rollback.")
-            return
-        last_entry = history.pop()
-        previous_version = str(last_entry.get("from", "")).strip()
-        if not previous_version:
-            previous_version = "unknown"
-        status = self.load_update_status()
-        status["installed_version"] = previous_version
-        status["last_checked_at"] = self._current_timestamp()
-        status["last_action"] = f"Rolled back to {previous_version}."
-        status["channel"] = self._selected_update_channel()
-        self.write_update_history(history)
-        self.write_update_status(status)
-        self.trust_chain_label.set_text(self.format_trust_chain_status())
-        self.refresh_update_center()
-        self.status_label.set_text("Rollback recorded. Reboot and verify package state before continuing.")
+        try:
+            self.update_client.rollback_to_previous_slot()
+            self.trust_chain_label.set_text(self.format_trust_chain_status())
+            self.refresh_update_center(persist_status=True)
+            self.status_label.set_text("Rollback staged to the previous slot. Reboot and verify package state.")
+        except UpdateClientError as error:
+            self.refresh_update_center(persist_status=True)
+            self.status_label.set_text(error.user_message())
 
     def try_lock_vault_now(self) -> bool:
         try:
